@@ -98,12 +98,12 @@ export default function VoiceDemo() {
 
             <div className="phone">
               <div className="phone-head">
-                <div className="avatar"></div>
+                <div className="p-avatar"></div>
                 <div>
-                  <div className="who">{data.who}</div>
-                  <div className="who-sub">{data.sub}</div>
+                  <div className="phone-who">{data.who}</div>
+                  <div className="phone-who-sub">{data.sub}</div>
                 </div>
-                <div className="timer"><span className="pulse"></span>{data.timer}</div>
+                <div className="phone-timer"><span className="pulse"></span>{data.timer}</div>
               </div>
               <div className="transcript-list">
                 {data.bubbles.slice(0, shown).map((b, i) => (

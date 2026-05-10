@@ -35,8 +35,8 @@ export default function Nav() {
         </div>
 
         <div className="nav-cta">
-          <Link href="/login" style={{ fontSize: 14, color: 'var(--ink-2)', textDecoration: 'none' }}>
-            Sign in
+          <Link href="/signup" style={{ fontSize: 14, color: 'var(--ink-2)', textDecoration: 'none' }}>
+            Sign Up
           </Link>
           <a className="btn btn-primary" href="#book">
             Book a demo

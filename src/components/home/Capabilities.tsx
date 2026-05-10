@@ -9,7 +9,11 @@ const CAPS = [
 ];
 
 function WaveformLive() {
-  const [bars, setBars] = useState(() => Array.from({ length: 36 }, () => Math.random() * 0.4 + 0.2));
+  const [bars, setBars] = useState(() => Array.from({ length: 36 }, (_, i) => {
+    const center = 18;
+    const dist = Math.abs(i - center);
+    return Math.max(0.15, 0.85 - dist * 0.04) * 0.75;
+  }));
   useEffect(() => {
     const t = setInterval(() => {
       setBars(prev => prev.map((_, i) => {

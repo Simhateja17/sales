@@ -19,10 +19,10 @@ export default function Plans() {
           </div>
         </div>
 
-        <div className="pricing-grid">
+        <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
           <div className="price reveal">
             <div className="tier">Atelier</div>
-            <h3 className="name">For <em>founders</em></h3>
+            <h3 className="plan-name">For <em>founders</em></h3>
             <div className="amount"><span className="currency">$</span>{fmt(1200)}<span className="per">/ month</span></div>
             <div className="amount-sub">Billed {billing}. 2,000 minutes included.</div>
             <p className="desc">For founders running their own pipeline. One agent, two languages, white-glove setup.</p>
@@ -39,7 +39,7 @@ export default function Plans() {
 
           <div className="price feature reveal">
             <div className="tier">Maison <span className="ribbon">Most popular</span></div>
-            <h3 className="name">For <em>revenue teams</em></h3>
+            <h3 className="plan-name">For <em>revenue teams</em></h3>
             <div className="amount"><span className="currency">$</span>{fmt(3800)}<span className="per">/ month</span></div>
             <div className="amount-sub">Billed {billing}. 10,000 minutes included.</div>
             <p className="desc">For revenue teams ready to scale. Unlimited agents, custom voice cloning, and a real Slack channel with our team.</p>
@@ -62,8 +62,8 @@ export default function Plans() {
 
           <div className="price reveal">
             <div className="tier">Sovereign</div>
-            <h3 className="name">For <em>enterprises</em></h3>
-            <div className="amount" style={{ fontSize: 44, marginTop: 28 }}>Custom</div>
+            <h3 className="plan-name">For <em>enterprises</em></h3>
+            <div className="amount" style={{ fontSize: 64, marginTop: 22 }}>Custom</div>
             <div className="amount-sub">Annual contract. Volume-based pricing.</div>
             <p className="desc">For enterprises with regulated workloads, dedicated infrastructure, and procurement teams that have opinions.</p>
             <ul>

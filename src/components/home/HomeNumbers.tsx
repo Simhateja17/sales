@@ -2,7 +2,7 @@ export default function HomeNumbers() {
   return (
     <section className="section" style={{ paddingTop: 40, paddingBottom: 60 }}>
       <div className="container">
-        <div className="numbers reveal">
+        <div className="home-numbers reveal">
           <div className="num-cell">
             <div className="lab">Connect rate</div>
             <div className="big">3.1<em>×</em></div>

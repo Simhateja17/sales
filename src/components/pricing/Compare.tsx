@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { Fragment, ReactNode } from 'react';
 
 const sections = [
   { name: 'Capacity', rows: [
@@ -63,8 +63,8 @@ export default function Compare() {
             </thead>
             <tbody>
               {sections.map((s, si) => (
-                <>
-                  <tr key={`s-${si}`} className="section-row">
+                <Fragment key={`s-${si}`}>
+                  <tr className="section-row">
                     <th colSpan={4}>{s.name}</th>
                   </tr>
                   {s.rows.map((r, ri) => (
@@ -75,7 +75,7 @@ export default function Compare() {
                       <td>{cell(r[3])}</td>
                     </tr>
                   ))}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

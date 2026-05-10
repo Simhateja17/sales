@@ -7,7 +7,7 @@ export default function HomePricing() {
           <h2 className="section-title">Priced like an <em>investment</em>, not an experiment.</h2>
           <p className="section-sub">Three tiers, each with unmetered minutes during your first 30 days. No per-seat tax. No surprise overage.</p>
         </div>
-        <div className="pricing">
+        <div className="home-pricing" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
           <div className="price reveal">
             <div className="tier">Atelier</div>
             <div className="amount"><span className="currency">$</span>1,200<span className="per">/ month</span></div>
@@ -42,7 +42,7 @@ export default function HomePricing() {
 
           <div className="price reveal">
             <div className="tier">Sovereign</div>
-            <div className="amount" style={{ fontSize: 44 }}>Custom</div>
+            <div className="amount" style={{ fontSize: 64, marginTop: 22 }}>Custom</div>
             <p className="desc">For enterprises with regulated workloads, dedicated infrastructure, and procurement teams that have opinions.</p>
             <ul>
               <li>Single-tenant deployment</li>
