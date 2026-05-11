@@ -63,7 +63,8 @@ export default function OnboardingPage() {
 
   function next() {
     if (isLast) {
-      router.push('/dashboard');
+      sessionStorage.setItem('barsha_answers', JSON.stringify(answers));
+      router.push('/summary');
     } else {
       setStep(s => s + 1);
     }
