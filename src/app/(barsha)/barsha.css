@@ -1,13 +1,12 @@
-/* Pure CSS override — applies from first paint, no JS needed */
-body:has(.barsha-root) {
-  font-family: 'DM Sans', sans-serif !important;
-  background: #FAF7F2 !important;
-  color: #1A1420 !important;
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #FAF7F2;
+  color: #1A1420;
+  min-height: 100vh;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-}
-body:has(.barsha-root) .ambient,
-body:has(.barsha-root) .grain {
-  display: none !important;
 }
 
 :root {
@@ -19,16 +18,7 @@ body:has(.barsha-root) .grain {
   --white:#FFFFFF; --green:#22C55E; --red:#EF4444; --blue:#6366F1;
 }
 
-.barsha-root {
-  font-family:'DM Sans',sans-serif;
-  background:var(--cream);
-  color:var(--text);
-  min-height:100vh;
-  overflow-x:hidden;
-  position:relative;
-}
-
-.barsha-root::before {
+body::before {
   content:'';
   position:fixed;
   inset:0;
