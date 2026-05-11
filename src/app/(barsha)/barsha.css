@@ -1,4 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+/* Override global marketing styles on barsha pages */
+body.barsha-active {
+  font-family: 'DM Sans', sans-serif !important;
+  background: #FAF7F2 !important;
+  color: #1A1420 !important;
+  -webkit-font-smoothing: antialiased;
+}
+body.barsha-active .ambient,
+body.barsha-active .grain {
+  display: none !important;
+}
 
 :root {
   --cream:#FAF7F2; --cream-dark:#F0EBE1; --cream-mid:#E4DAD0;

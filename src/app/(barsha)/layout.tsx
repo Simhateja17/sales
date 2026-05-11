@@ -1,9 +1,11 @@
+import { BarshaBody } from './BarshaBody';
 import './barsha.css';
 
 export default function BarshaLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="barsha-root">
-      {children}
-    </div>
+    <>
+      <BarshaBody />
+      <div className="barsha-root">{children}</div>
+    </>
   );
 }
