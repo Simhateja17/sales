@@ -1,12 +1,12 @@
-/* Override global marketing styles on barsha pages */
-body.barsha-active {
+/* Pure CSS override — applies from first paint, no JS needed */
+body:has(.barsha-root) {
   font-family: 'DM Sans', sans-serif !important;
   background: #FAF7F2 !important;
   color: #1A1420 !important;
   -webkit-font-smoothing: antialiased;
 }
-body.barsha-active .ambient,
-body.barsha-active .grain {
+body:has(.barsha-root) .ambient,
+body:has(.barsha-root) .grain {
   display: none !important;
 }
 
