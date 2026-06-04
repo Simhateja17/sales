@@ -15,14 +15,14 @@ export default function PlanSelectPage() {
           <p className="start-sub">Pick the plan that matches your sales volume. You can change this anytime from Billing.</p>
         </div>
         <div className="start-body">
-          <div className="ps-pricing-grid">
-            <div className={`ps-price${selected === 0 ? ' selected' : ''}`} onClick={() => setSelected(0)}>
-              <div className="ps-tier">Atelier</div>
-              <h3 className="ps-plan-name">For <em>founders</em></h3>
-              <div className="ps-amount"><span className="ps-currency">S$</span>996<span className="ps-per">/ month</span></div>
-              <div className="ps-amount-sub">Billed annual. 2,000 minutes included.</div>
-              <p className="ps-desc">For founders running their own pipeline. One agent, two languages, white-glove setup.</p>
-              <ul className="ps-feats">
+          <div className="pricing-grid">
+            <div className={`price${selected === 0 ? ' selected' : ''}`} onClick={() => setSelected(0)}>
+              <div className="tier">Atelier</div>
+              <h3 className="plan-name">For <em>founders</em></h3>
+              <div className="amount"><span className="currency">S$</span>996<span className="per">/ month</span></div>
+              <div className="amount-sub">Billed annual. 2,000 minutes included.</div>
+              <p className="desc">For founders running their own pipeline. One agent, two languages, white-glove setup.</p>
+              <ul>
                 <li>1 agent · 2,000 min/mo</li>
                 <li>2 languages</li>
                 <li>HubSpot or Pipedrive</li>
@@ -30,16 +30,16 @@ export default function PlanSelectPage() {
                 <li>Email + Slack support</li>
                 <li>$0.42 / min overage</li>
               </ul>
-              <button className="ps-cta">Start with Atelier</button>
+              <button className="btn btn-ghost">Start with Atelier</button>
             </div>
 
-            <div className={`ps-price feature${selected === 1 ? ' selected' : ''}`} onClick={() => setSelected(1)}>
-              <div className="ps-tier">Maison <span className="ps-ribbon">Most popular</span></div>
-              <h3 className="ps-plan-name">For <em>revenue teams</em></h3>
-              <div className="ps-amount"><span className="ps-currency">S$</span>3,154<span className="ps-per">/ month</span></div>
-              <div className="ps-amount-sub">Billed annual. 10,000 minutes included.</div>
-              <p className="ps-desc">For revenue teams ready to scale. Unlimited agents, custom voice cloning, and a real Slack channel with our team.</p>
-              <ul className="ps-feats">
+            <div className={`price feature${selected === 1 ? ' selected' : ''}`} onClick={() => setSelected(1)}>
+              <div className="tier">Maison <span className="ribbon">Most popular</span></div>
+              <h3 className="plan-name">For <em>revenue teams</em></h3>
+              <div className="amount"><span className="currency">S$</span>3,154<span className="per">/ month</span></div>
+              <div className="amount-sub">Billed annual. 10,000 minutes included.</div>
+              <p className="desc">For revenue teams ready to scale. Unlimited agents, custom voice cloning, and a real Slack channel with our team.</p>
+              <ul>
                 <li>Unlimited agents · 10k min/mo</li>
                 <li>All 31 languages</li>
                 <li>Salesforce, HubSpot, Attio, Pipedrive</li>
@@ -48,16 +48,21 @@ export default function PlanSelectPage() {
                 <li>Shared Slack channel</li>
                 <li>$0.32 / min overage</li>
               </ul>
-              <button className="ps-cta">Book a Maison demo</button>
+              <button className="btn btn-primary">
+                Book a Maison demo
+                <span className="btn-pill-arrow">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 5h8M5 1l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </span>
+              </button>
             </div>
 
-            <div className={`ps-price${selected === 2 ? ' selected' : ''}`} onClick={() => setSelected(2)}>
-              <div className="ps-tier">Sovereign</div>
-              <h3 className="ps-plan-name">For <em>enterprises</em></h3>
-              <div className="ps-amount" style={{ fontSize: 56, marginTop: 22 }}>Custom</div>
-              <div className="ps-amount-sub">Annual contract. Volume-based pricing.</div>
-              <p className="ps-desc">For enterprises with regulated workloads, dedicated infrastructure, and procurement teams that have opinions.</p>
-              <ul className="ps-feats">
+            <div className={`price${selected === 2 ? ' selected' : ''}`} onClick={() => setSelected(2)}>
+              <div className="tier">Sovereign</div>
+              <h3 className="plan-name">For <em>enterprises</em></h3>
+              <div className="amount" style={{ fontSize: 64, marginTop: 22 }}>Custom</div>
+              <div className="amount-sub">Annual contract. Volume-based pricing.</div>
+              <p className="desc">For enterprises with regulated workloads, dedicated infrastructure, and procurement teams that have opinions.</p>
+              <ul>
                 <li>Single-tenant deployment</li>
                 <li>Dedicated infra (any region)</li>
                 <li>HIPAA, PCI, SOC 2 Type II</li>
@@ -66,7 +71,7 @@ export default function PlanSelectPage() {
                 <li>99.99% uptime SLA</li>
                 <li>Custom data residency</li>
               </ul>
-              <button className="ps-cta">Talk to enterprise</button>
+              <button className="btn btn-ghost">Talk to enterprise</button>
             </div>
           </div>
         </div>
