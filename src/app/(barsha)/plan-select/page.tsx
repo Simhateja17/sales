@@ -15,17 +15,14 @@ export default function PlanSelectPage() {
           <p className="start-sub">Pick the plan that matches your sales volume. You can change this anytime from Billing.</p>
         </div>
         <div className="start-body">
-          <div className="plan-grid">
-            <div
-              className={`plan-option${selected === 0 ? ' selected' : ''}`}
-              onClick={() => setSelected(0)}
-            >
-              <div className="plan-tier">Atelier</div>
-              <h4>For <em>founders</em></h4>
-              <div className="plan-price-mini">S$996<small>/month</small></div>
-              <div className="plan-meta">Billed annual. 2,000 minutes included.</div>
-              <div className="plan-desc">For founders running their own pipeline. One agent, two languages, white-glove setup.</div>
-              <ul className="plan-feats">
+          <div className="ps-pricing-grid">
+            <div className={`ps-price${selected === 0 ? ' selected' : ''}`} onClick={() => setSelected(0)}>
+              <div className="ps-tier">Atelier</div>
+              <h3 className="ps-plan-name">For <em>founders</em></h3>
+              <div className="ps-amount"><span className="ps-currency">S$</span>996<span className="ps-per">/ month</span></div>
+              <div className="ps-amount-sub">Billed annual. 2,000 minutes included.</div>
+              <p className="ps-desc">For founders running their own pipeline. One agent, two languages, white-glove setup.</p>
+              <ul className="ps-feats">
                 <li>1 agent · 2,000 min/mo</li>
                 <li>2 languages</li>
                 <li>HubSpot or Pipedrive</li>
@@ -33,43 +30,34 @@ export default function PlanSelectPage() {
                 <li>Email + Slack support</li>
                 <li>$0.42 / min overage</li>
               </ul>
-              <button className="plan-cta">Start with Atelier</button>
+              <button className="ps-cta">Start with Atelier</button>
             </div>
 
-            <div
-              className={`plan-option${selected === 1 ? ' selected' : ''}`}
-              onClick={() => setSelected(1)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                <div className="plan-tier" style={{ marginBottom: 0, color: '#D9CCFF' }}>Maison</div>
-                <div className="plan-badge">Most Popular</div>
-              </div>
-              <h4>For <em>revenue teams</em></h4>
-              <div className="plan-price-mini">S$3,154<small>/month</small></div>
-              <div className="plan-meta">Billed annual. 10,000 minutes included.</div>
-              <div className="plan-desc">For revenue teams ready to scale. Unlimited agents, custom voice cloning, and a real Slack channel with our team.</div>
-              <ul className="plan-feats">
+            <div className={`ps-price feature${selected === 1 ? ' selected' : ''}`} onClick={() => setSelected(1)}>
+              <div className="ps-tier">Maison <span className="ps-ribbon">Most popular</span></div>
+              <h3 className="ps-plan-name">For <em>revenue teams</em></h3>
+              <div className="ps-amount"><span className="ps-currency">S$</span>3,154<span className="ps-per">/ month</span></div>
+              <div className="ps-amount-sub">Billed annual. 10,000 minutes included.</div>
+              <p className="ps-desc">For revenue teams ready to scale. Unlimited agents, custom voice cloning, and a real Slack channel with our team.</p>
+              <ul className="ps-feats">
                 <li>Unlimited agents · 10k min/mo</li>
                 <li>All 31 languages</li>
                 <li>Salesforce, HubSpot, Attio, Pipedrive</li>
                 <li>Custom voice cloning (1 included)</li>
-                <li>Priority routing & SLAs</li>
+                <li>Priority routing &amp; SLAs</li>
                 <li>Shared Slack channel</li>
                 <li>$0.32 / min overage</li>
               </ul>
-              <button className="plan-cta">Book a Maison demo</button>
+              <button className="ps-cta">Book a Maison demo</button>
             </div>
 
-            <div
-              className={`plan-option${selected === 2 ? ' selected' : ''}`}
-              onClick={() => setSelected(2)}
-            >
-              <div className="plan-tier">Sovereign</div>
-              <h4>For <em>enterprises</em></h4>
-              <div className="plan-price-mini">Custom</div>
-              <div className="plan-meta">Annual contract. Volume-based pricing.</div>
-              <div className="plan-desc">For enterprises with regulated workloads, dedicated infrastructure, and procurement teams that have opinions.</div>
-              <ul className="plan-feats">
+            <div className={`ps-price${selected === 2 ? ' selected' : ''}`} onClick={() => setSelected(2)}>
+              <div className="ps-tier">Sovereign</div>
+              <h3 className="ps-plan-name">For <em>enterprises</em></h3>
+              <div className="ps-amount" style={{ fontSize: 56, marginTop: 22 }}>Custom</div>
+              <div className="ps-amount-sub">Annual contract. Volume-based pricing.</div>
+              <p className="ps-desc">For enterprises with regulated workloads, dedicated infrastructure, and procurement teams that have opinions.</p>
+              <ul className="ps-feats">
                 <li>Single-tenant deployment</li>
                 <li>Dedicated infra (any region)</li>
                 <li>HIPAA, PCI, SOC 2 Type II</li>
@@ -78,7 +66,7 @@ export default function PlanSelectPage() {
                 <li>99.99% uptime SLA</li>
                 <li>Custom data residency</li>
               </ul>
-              <button className="plan-cta">Talk to enterprise</button>
+              <button className="ps-cta">Talk to enterprise</button>
             </div>
           </div>
         </div>
