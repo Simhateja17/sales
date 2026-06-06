@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const STEPS = [
   { title: 'Connect your stack', body: 'Two clicks for HubSpot, Salesforce, Twilio, Calendly. We mirror your existing fields — no schema work.' },
@@ -12,8 +12,8 @@ const STEPS = [
 const nodes = [
   { id: 0, x: '6%', y: '8%', icon: '⌘', label: 'HubSpot' },
   { id: 0, x: '52%', y: '6%', icon: '◍', label: 'Twilio' },
-  { id: 1, x: '8%', y: '46%', icon: '♪', label: '124 recordings' },
-  { id: 2, x: '60%', y: '40%', icon: '✶', label: 'Guardrails.md' },
+  { id: 1, x: '6%', y: '58%', icon: '♪', label: '124 recordings' },
+  { id: 2, x: '61%', y: '42%', icon: '✶', label: 'Guardrails.md' },
   { id: 3, x: '32%', y: '78%', icon: '⏵', label: 'Live · 8 calls' },
 ];
 
@@ -46,34 +46,55 @@ function WorkflowVisual({ active }: { active: number }) {
 
 export default function Workflow() {
   const [active, setActive] = useState(0);
+  const outerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const t = setInterval(() => setActive(a => (a + 1) % STEPS.length), 4000);
-    return () => clearInterval(t);
+    const isDesktop = window.matchMedia('(min-width: 980px)').matches;
+    if (isDesktop) {
+      const handleScroll = () => {
+        const el = outerRef.current;
+        if (!el) return;
+        const scrolled = -el.getBoundingClientRect().top;
+        const scrollable = el.offsetHeight - window.innerHeight;
+        if (scrollable <= 0) return;
+        const progress = Math.max(0, Math.min(1, scrolled / scrollable));
+        setActive(Math.min(STEPS.length - 1, Math.floor(progress * STEPS.length)));
+      };
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      handleScroll();
+      return () => window.removeEventListener('scroll', handleScroll);
+    } else {
+      const t = setInterval(() => setActive(a => (a + 1) % STEPS.length), 4000);
+      return () => clearInterval(t);
+    }
   }, []);
+
   return (
-    <section className="section" id="workflow">
-      <div className="container">
-        <div className="section-head reveal">
-          <span className="kicker">How it works</span>
-          <h2 className="section-title">Live in <em>a Tuesday afternoon</em>, not a quarter.</h2>
-          <p className="section-sub">No flow-chart tool. No prompt engineering team. Four steps from signed contract to first booked meeting.</p>
-        </div>
-        <div className="workflow">
-          <div className="steps reveal">
-            {STEPS.map((s, i) => (
-              <div key={i} className={`step ${active === i ? 'active' : ''}`} onClick={() => setActive(i)}>
-                <span className="marker"></span>
-                <div className="step-head">
-                  <span className="step-num">0{i + 1}</span>
-                  <h4 className="serif">{s.title}</h4>
-                </div>
-                <div className="step-body"><p>{s.body}</p></div>
-              </div>
-            ))}
+    <div ref={outerRef} className="wf-scroll-outer" id="workflow">
+      <section className="section wf-scroll-sticky">
+        <div className="container">
+          <div className="section-head reveal">
+            <span className="kicker">How it works</span>
+            <h2 className="section-title">Live in <em>a Tuesday afternoon</em>, not a quarter.</h2>
+            <p className="section-sub">No flow-chart tool. No prompt engineering team. Four steps from signed contract to first booked meeting.</p>
           </div>
-          <WorkflowVisual active={active} />
+          <div className="workflow">
+            <div className="steps reveal">
+              {STEPS.map((s, i) => (
+                <div key={i} className={`step ${active === i ? 'active' : ''}`}>
+                  <span className="marker"></span>
+                  <div className="step-head">
+                    <span className="step-num">0{i + 1}</span>
+                    <h4 className="serif">{s.title}</h4>
+                  </div>
+                  <div className="step-body"><p>{s.body}</p></div>
+                </div>
+              ))}
+            </div>
+            <WorkflowVisual active={active} />
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
