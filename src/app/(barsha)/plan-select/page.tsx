@@ -19,7 +19,7 @@ export default function PlanSelectPage() {
             <div className={`price${selected === 0 ? ' selected' : ''}`} onClick={() => setSelected(0)}>
               <div className="tier">Atelier</div>
               <h3 className="plan-name">For <em>founders</em></h3>
-              <div className="amount"><span className="currency">S$</span>996<span className="per">/ month</span></div>
+              <div className="amount"><sup className="currency">$</sup>996<span className="per">/ month</span></div>
               <div className="amount-sub">Billed annual. 2,000 minutes included.</div>
               <p className="desc">For founders running their own pipeline. One agent, two languages, white-glove setup.</p>
               <ul>
@@ -36,7 +36,7 @@ export default function PlanSelectPage() {
             <div className={`price feature${selected === 1 ? ' selected' : ''}`} onClick={() => setSelected(1)}>
               <div className="tier">Maison <span className="ribbon">Most popular</span></div>
               <h3 className="plan-name">For <em>revenue teams</em></h3>
-              <div className="amount"><span className="currency">S$</span>3,154<span className="per">/ month</span></div>
+              <div className="amount"><sup className="currency">$</sup>3,154<span className="per">/ month</span></div>
               <div className="amount-sub">Billed annual. 10,000 minutes included.</div>
               <p className="desc">For revenue teams ready to scale. Unlimited agents, custom voice cloning, and a real Slack channel with our team.</p>
               <ul>

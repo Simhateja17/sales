@@ -74,7 +74,7 @@ body {
   font-family: 'Fraunces', serif; font-weight: 500; font-size: 21px;
   letter-spacing: -0.02em; font-variation-settings: "opsz" 144, "SOFT" 50;
 }
-.brand-name span { color: var(--violet); font-style: italic; }
+.brand-name span { color: var(--violet); font-style: italic; margin-left: -0.08em; }
 .nav-links { display: flex; gap: 36px; }
 .nav-links a {
   color: var(--ink-2); text-decoration: none; font-size: 14px;
@@ -732,8 +732,9 @@ h1.hero-title .accent {
 .quote-block::before { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 50% at 100% 0%, oklch(0.55 0.22 295 / 0.5), transparent 60%), radial-gradient(40% 40% at 0% 100%, oklch(0.85 0.08 85 / 0.18), transparent 60%); pointer-events: none; }
 .quote-block blockquote { position: relative; margin: 0; max-width: 26ch; }
 .quote-block .mark { font-family: 'Fraunces', serif; font-size: 96px; line-height: 0.4; color: oklch(0.85 0.08 85); font-style: italic; margin-bottom: 0; }
-.quote-block .q { font-family: 'Fraunces', serif; font-weight: 320; font-size: clamp(28px, 3.4vw, 44px); line-height: 1.25; letter-spacing: -0.02em; margin: 0 0 12px; max-width: 22ch; font-variation-settings: "opsz" 144; }
+.quote-block .q { font-family: 'Fraunces', serif; font-weight: 320; font-size: clamp(28px, 3.4vw, 44px); line-height: 1.25; letter-spacing: -0.02em; margin: 0 0 12px; font-variation-settings: "opsz" 144; }
 .quote-block .q em { font-style: italic; font-weight: 280; background: linear-gradient(110deg, oklch(0.92 0.06 85), oklch(0.78 0.16 295)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 1; padding: 0 0.1em 0.1em; margin: 0 -0.1em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.quote-block .close-quote { color: oklch(0.85 0.08 85); font-style: italic; font-weight: 280; font-size: 96px; line-height: 0.4; vertical-align: bottom; }
 .quote-grid { position: relative; display: grid; grid-template-columns: 1.6fr 1fr; gap: 56px; align-items: center; }
 @media (max-width: 640px) { .quote-grid { grid-template-columns: 1fr; gap: 32px; } .quote-block { padding: 40px 32px; } }
 .quote-meta { display: flex; align-items: center; gap: 14px; margin-top: 28px; }
@@ -766,8 +767,8 @@ h1.hero-title .accent {
 .price.feature .plan-name { color: oklch(0.96 0.01 295); }
 .price .plan-name em { font-style: italic; font-weight: 320; color: var(--violet); }
 .price.feature .plan-name em { color: oklch(0.85 0.08 85); }
-.price .amount { font-family: 'Fraunces', serif; font-weight: 350; font-size: 64px; letter-spacing: -0.03em; margin: 22px 0 4px; line-height: 1.1; font-variation-settings: "opsz" 144; }
-.price .amount .currency { font-size: 28px; vertical-align: top; margin-right: 4px; opacity: 0.6; }
+.price .amount { font-family: 'Fraunces', serif; font-weight: 300; font-size: 64px; letter-spacing: -0.02em; margin: 22px 0 4px; line-height: 1; font-variation-settings: "opsz" 144, "SOFT" 20; }
+.price .amount .currency { font-size: 28px; vertical-align: super; margin-right: 2px; opacity: 0.6; font-weight: 300; }
 .price .amount .per { font-size: 13.5px; font-family: 'Inter Tight', sans-serif; color: var(--ink-3); margin-left: 8px; font-weight: 400; letter-spacing: 0; }
 .price.feature .amount .per { color: oklch(0.7 0.02 295); }
 .price .amount-sub { font-size: 12.5px; color: var(--ink-3); margin-bottom: 22px; }
