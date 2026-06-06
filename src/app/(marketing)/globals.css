@@ -789,6 +789,7 @@ h1.hero-title .accent {
 .compare th, .compare td { padding: 16px 24px; text-align: left; font-size: 13.5px; border-bottom: 1px solid var(--line); }
 .compare thead th { background: var(--bg-2); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
 .compare thead th:first-child { width: 40%; }
+.compare thead th:not(:first-child) { text-align: center; }
 .compare tbody th { font-weight: 500; color: var(--ink); font-family: 'Inter Tight', sans-serif; }
 .compare td { color: var(--ink-2); text-align: center; }
 .compare td.lead { text-align: left; color: var(--ink); }
