@@ -23,7 +23,7 @@ export default function Plans() {
           <div className="price reveal">
             <div className="tier">Atelier</div>
             <h3 className="plan-name">For <em>founders</em></h3>
-            <div className="amount"><span className="currency">$</span>{fmt(1200)}<span className="per">/ month</span></div>
+            <div className="amount"><sup className="currency">$</sup>{fmt(1200)}<span className="per">/ month</span></div>
             <div className="amount-sub">Billed {billing}. 2,000 minutes included.</div>
             <p className="desc">For founders running their own pipeline. One agent, two languages, white-glove setup.</p>
             <ul>
@@ -40,7 +40,7 @@ export default function Plans() {
           <div className="price feature reveal">
             <div className="tier">Maison <span className="ribbon">Most popular</span></div>
             <h3 className="plan-name">For <em>revenue teams</em></h3>
-            <div className="amount"><span className="currency">$</span>{fmt(3800)}<span className="per">/ month</span></div>
+            <div className="amount"><sup className="currency">$</sup>{fmt(3800)}<span className="per">/ month</span></div>
             <div className="amount-sub">Billed {billing}. 10,000 minutes included.</div>
             <p className="desc">For revenue teams ready to scale. Unlimited agents, custom voice cloning, and a real Slack channel with our team.</p>
             <ul>

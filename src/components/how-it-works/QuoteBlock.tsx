@@ -6,7 +6,7 @@ export default function QuoteBlock() {
           <div className="quote-grid">
             <blockquote>
               <div className="mark">&ldquo;</div>
-              <p className="q">We were live in <em>one afternoon.</em> By Friday, Barsha had booked more demos than our team did in the first two weeks of the quarter.</p>
+              <p className="q">We were live in <em>one afternoon.</em> By Friday, Barsha had booked more demos than our team did in the first two weeks of the quarter.<span className="close-quote">&rdquo;</span></p>
               <div className="quote-meta">
                 <span className="av"></span>
                 <div>

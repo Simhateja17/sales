@@ -105,17 +105,42 @@ function LiveCallCard() {
 
 export default function Timeline() {
   const [active, setActive] = useState(0);
+  const [revealed, setRevealed] = useState<Set<number>>(new Set());
+
   useEffect(() => {
-    const io = new IntersectionObserver((entries) => {
+    const revealIo = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const idx = parseInt((e.target as HTMLElement).dataset.idx || '0', 10);
+          setRevealed(prev => {
+            if (prev.has(idx)) return prev;
+            const next = new Set(prev);
+            next.add(idx);
+            return next;
+          });
+          revealIo.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    const activeIo = new IntersectionObserver((entries) => {
       entries.forEach(e => {
         if (e.isIntersecting) {
           const idx = parseInt((e.target as HTMLElement).dataset.idx || '0', 10);
           setActive(idx);
         }
       });
-    }, { rootMargin: '-40% 0px -40% 0px', threshold: 0 });
-    document.querySelectorAll('.tl-step').forEach(el => io.observe(el));
-    return () => io.disconnect();
+    }, { rootMargin: '-35% 0px -35% 0px', threshold: 0 });
+
+    document.querySelectorAll('.tl-step').forEach(el => {
+      revealIo.observe(el);
+      activeIo.observe(el);
+    });
+
+    return () => {
+      revealIo.disconnect();
+      activeIo.disconnect();
+    };
   }, []);
 
   return (
@@ -123,7 +148,7 @@ export default function Timeline() {
       <div className="container">
         <div className="timeline">
           {STEPS.map((s, i) => (
-            <div key={i} data-idx={i} className={`tl-step reveal ${active === i ? 'active' : ''}`}>
+            <div key={i} data-idx={i} className={`tl-step${revealed.has(i) ? ' in' : ''}${active === i ? ' active' : ''}`}>
               <div className="tl-dot">{String(i + 1).padStart(2, '0')}</div>
               <div className="tl-time"><span className="pip"></span>{s.time}</div>
               <h3>{s.title}, <em>{s.em}.</em></h3>
