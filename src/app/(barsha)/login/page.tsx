@@ -1,9 +1,59 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { getWorkspace } from '@/lib/api';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    setError('');
+
+    if (!email || !password) {
+      setError('Email and password are required.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Login failed.');
+      } else {
+        const state = await getWorkspace();
+
+        if (!state.workspace.plan) {
+          router.push('/plan-select');
+        } else if (!state.workspace.onboarding_completed) {
+          router.push('/onboarding');
+        } else {
+          router.push('/dashboard');
+        }
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = () => {
+    window.location.href = `${API_URL}/api/auth/google`;
+  };
 
   return (
     <div className="screen active" id="login">
@@ -15,7 +65,7 @@ export default function LoginPage() {
         </div>
         <div className="start-body">
           <div className="social-stack">
-            <button className="social-btn">
+            <button className="social-btn" onClick={handleGoogleLogin}>
               <svg viewBox="0 0 24 24" fill="none" style={{ width: 14, height: 14 }}>
                 <path d="M22 12.22c0-.78-.07-1.53-.2-2.25H12v4.26h5.6a4.79 4.79 0 0 1-2.08 3.14v2.6h3.36C20.85 18.12 22 15.43 22 12.22z" fill="#4285F4"/>
                 <path d="M12 22c2.7 0 4.97-.9 6.63-2.43l-3.36-2.6c-.93.62-2.12.99-3.27.99-2.52 0-4.66-1.7-5.42-3.98H3.11v2.68A10 10 0 0 0 12 22z" fill="#34A853"/>
@@ -26,9 +76,16 @@ export default function LoginPage() {
             </button>
           </div>
           <div className="or-row">or log in with email</div>
+
+          {error && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
+              {error}
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <input className="ob-inp" type="email" placeholder="Work email" />
-            <input className="ob-inp" type="password" placeholder="Password" />
+            <input className="ob-inp" type="email" placeholder="Work email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="ob-inp" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <a href="#" style={{ fontSize: 12, color: 'var(--purple)', textDecoration: 'none' }}>
                 Forgot password?
@@ -42,11 +99,13 @@ export default function LoginPage() {
         </div>
         <div className="start-nav">
           <button className="btn-back" onClick={() => router.push('/signup')}>← Back</button>
-          <button className="btn-next" onClick={() => router.push('/plan-select')}>
-            Log In{' '}
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
+          <button className="btn-next" onClick={handleLogin} disabled={loading}>
+            {loading ? 'Logging in…' : 'Log In'}{' '}
+            {!loading && (
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            )}
           </button>
         </div>
       </div>

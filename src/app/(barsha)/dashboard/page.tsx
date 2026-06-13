@@ -1,26 +1,446 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  approveFollowUp,
+  attachTelephony,
+  createLead,
+  getAgentLaunchJob,
+  getApolloFilters,
+  getCallingStatus,
+  getLeads,
+  getMeetings,
+  getOutcomes,
+  getWorkspace,
+  importApolloLeads,
+  importCsvLeads,
+  provisionVoiceAgent,
+  setCallingLaunch,
+  setLeadDncStatus,
+  setLeadVoiceConsent,
+  updateFollowUp,
+  type ApolloFilters,
+  type AgentConfig,
+  type CallOutcome,
+  type AIJob,
+  type CallingStatus,
+  type FollowUp,
+  type Lead,
+  type Meeting,
+  type Workspace,
+} from '@/lib/api';
 
 type Page = 'dashboard' | 'leads' | 'calls' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'team';
 type SettingsPanel = 'identity' | 'voice' | 'script' | 'schedule' | 'compliance';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [activePage, setActivePage] = useState<Page>('dashboard');
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('identity');
   const [selectedVoice, setSelectedVoice] = useState(0);
-  const [selectedRole, setSelectedRole] = useState(0);
-  const [analyticsPeriod, setAnalyticsPeriod] = useState(0);
-  const [selectedPlan, setSelectedPlan] = useState(0);
+  const [today, setToday] = useState('');
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [agentConfig, setAgentConfig] = useState<AgentConfig | null>(null);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const [callingStatus, setCallingStatus] = useState<CallingStatus | null>(null);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [outcomes, setOutcomes] = useState<CallOutcome[]>([]);
+  const [leadMessage, setLeadMessage] = useState('');
+  const [callingMessage, setCallingMessage] = useState('');
+  const [savingLead, setSavingLead] = useState(false);
+  const [callingBusy, setCallingBusy] = useState(false);
+  const [launchJobId, setLaunchJobId] = useState('');
+  const [launchJob, setLaunchJob] = useState<AIJob | null>(null);
+  const [csvText, setCsvText] = useState('');
+  const [telephonyNumber, setTelephonyNumber] = useState('');
+  const [apolloBusy, setApolloBusy] = useState(false);
+  const [apolloFilters, setApolloFilters] = useState<ApolloFilters>({
+    titles: ['Founder', 'CEO', 'Managing Director', 'Head of Sales'],
+    region: 'Singapore',
+    industry: '',
+    companySize: '',
+    limit: 25,
+  });
+  const [leadForm, setLeadForm] = useState({
+    full_name: '',
+    company_name: '',
+    title: '',
+    phone: '',
+    email: '',
+    note: '',
+    next_action: '',
+    due_at: '',
+    priority: 'normal',
+    owner_type: 'agent',
+  });
 
-  const today = new Date().toLocaleDateString('en-SG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  useEffect(() => {
+    setToday(
+      new Intl.DateTimeFormat('en-SG', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'Asia/Singapore',
+      }).format(new Date())
+    );
+  }, []);
 
-  const calMeetings = [7, 8, 9, 12, 14, 19, 21, 26];
-  const calDays: Array<{ d: number; cls: string }> = [];
-  for (let i = 1; i <= 4; i++) calDays.push({ d: 28 + i, cls: 'dim' });
-  for (let d = 1; d <= 31; d++) {
-    const cls = d === 7 ? 'today' : calMeetings.includes(d) ? 'has-mtg' : '';
-    calDays.push({ d, cls });
+  useEffect(() => {
+    getWorkspace()
+      .then(data => {
+        setWorkspace(data.workspace);
+        setAgentConfig(data.agentConfig);
+
+        if (!data.workspace.plan) {
+          router.push('/plan-select');
+        } else if (!data.workspace.onboarding_completed) {
+          router.push('/onboarding');
+        }
+      })
+      .catch(() => {
+        router.push('/login');
+      });
+  }, [router]);
+
+  useEffect(() => {
+    const queryJobId = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('launchJobId')
+      : '';
+    const savedJobId = typeof window !== 'undefined' ? sessionStorage.getItem('barsha_launch_job_id') : '';
+    const initialJobId = queryJobId || savedJobId;
+
+    if (initialJobId) {
+      setLaunchJobId(initialJobId);
+      if (queryJobId) {
+        sessionStorage.setItem('barsha_launch_job_id', queryJobId);
+      }
+    }
+
+    refreshLeads().catch(() => {
+      // Auth routing is handled by workspace loading; keep this page resilient.
+    });
+    refreshCalling().catch(() => {
+      // Calling readiness is optional until backend/env is configured.
+    });
+    refreshOutcomes().catch(() => {
+      // Outcome pages stay empty until calls or calendar events exist.
+    });
+    getApolloFilters()
+      .then(data => setApolloFilters(data.filters))
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!launchJobId) return undefined;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      try {
+        const data = await getAgentLaunchJob(launchJobId);
+        if (cancelled) return;
+        setLaunchJob(data.job);
+
+        if (data.job.status === 'completed' || data.job.status === 'failed') {
+          sessionStorage.removeItem('barsha_launch_job_id');
+          return;
+        }
+      } catch {
+        if (cancelled) return;
+      }
+
+      timer = setTimeout(poll, 2500);
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [launchJobId]);
+
+  async function refreshLeads() {
+    const data = await getLeads();
+    setLeads(data.leads);
+    setFollowUps(data.followUps);
   }
+
+  async function refreshCalling() {
+    const data = await getCallingStatus();
+    setCallingStatus(data);
+    setTelephonyNumber(data.workspaceTelephony?.from_number || '');
+
+    if (data.latestLaunchJob) {
+      setLaunchJob(data.latestLaunchJob);
+      const queryLaunchJobId = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('launchJobId')
+        : '';
+
+      if (!launchJobId && !queryLaunchJobId) {
+        setLaunchJobId(data.latestLaunchJob.id);
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('barsha_launch_job_id', data.latestLaunchJob.id);
+        }
+      }
+    }
+  }
+
+  async function refreshOutcomes() {
+    const [meetingData, outcomeData] = await Promise.all([getMeetings(), getOutcomes()]);
+    setMeetings(meetingData.meetings);
+    setOutcomes(outcomeData.outcomes);
+  }
+
+  function updateLeadForm(key: string, value: string) {
+    setLeadForm(prev => ({ ...prev, [key]: value }));
+  }
+
+  function parseCsvRows(value: string) {
+    const lines = value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(',').map(header => header.trim().toLowerCase().replace(/\s+/g, '_'));
+    return lines.slice(1).map(line => {
+      const cells = line.split(',').map(cell => cell.trim());
+      return headers.reduce<Record<string, string>>((row, header, index) => {
+        row[header] = cells[index] || '';
+        return row;
+      }, {});
+    });
+  }
+
+  async function handleCreateLead() {
+    setLeadMessage('');
+    setSavingLead(true);
+    try {
+      await createLead({
+        ...leadForm,
+        follow_up: leadForm.next_action || leadForm.due_at ? {
+          title: leadForm.next_action || 'Follow up with lead',
+          due_at: leadForm.due_at || null,
+          priority: leadForm.priority,
+          owner_type: leadForm.owner_type,
+          action_type: leadForm.owner_type === 'agent' ? 'call' : 'manual_task',
+        } : undefined,
+      });
+      setLeadForm({
+        full_name: '',
+        company_name: '',
+        title: '',
+        phone: '',
+        email: '',
+        note: '',
+        next_action: '',
+        due_at: '',
+        priority: 'normal',
+        owner_type: 'agent',
+      });
+      setLeadMessage('Lead saved.');
+      await refreshLeads();
+    } catch (error) {
+      setLeadMessage(error instanceof Error ? error.message : 'Failed to save lead.');
+    } finally {
+      setSavingLead(false);
+    }
+  }
+
+  async function handleImportCsv() {
+    setLeadMessage('');
+    const rows = parseCsvRows(csvText);
+    if (!rows.length) {
+      setLeadMessage('CSV needs a header row and at least one lead row.');
+      return;
+    }
+
+    setSavingLead(true);
+    try {
+      const result = await importCsvLeads(rows);
+      setLeadMessage(`CSV imported: ${result.importRun.created_count} created, ${result.importRun.updated_count} updated, ${result.importRun.skipped_count} skipped.`);
+      setCsvText('');
+      await refreshLeads();
+    } catch (error) {
+      setLeadMessage(error instanceof Error ? error.message : 'Failed to import CSV.');
+    } finally {
+      setSavingLead(false);
+    }
+  }
+
+  function updateApolloFilter(key: keyof ApolloFilters, value: string) {
+    setApolloFilters(prev => ({
+      ...prev,
+      [key]: key === 'titles'
+        ? value.split(',').map(item => item.trim()).filter(Boolean)
+        : key === 'limit'
+          ? Math.max(1, Number.parseInt(value, 10) || 25)
+          : value,
+    }));
+  }
+
+  async function handleImportApollo() {
+    setLeadMessage('');
+    setApolloBusy(true);
+    try {
+      const result = await importApolloLeads(apolloFilters);
+      setLeadMessage(`Apollo imported: ${result.importRun.created_count} created, ${result.importRun.updated_count} updated, ${result.importRun.skipped_count} skipped. Phone enrichment is pending by webhook.`);
+      await refreshLeads();
+      await refreshCalling().catch(() => undefined);
+    } catch (error) {
+      setLeadMessage(error instanceof Error ? error.message : 'Failed to import Apollo leads.');
+    } finally {
+      setApolloBusy(false);
+    }
+  }
+
+  async function completeFollowUp(followUpId: string) {
+    await updateFollowUp(followUpId, { status: 'completed' });
+    await refreshLeads();
+    await refreshCalling().catch(() => undefined);
+  }
+
+  async function handleAttachTelephony() {
+    setCallingMessage('');
+    setCallingBusy(true);
+    try {
+      await attachTelephony(telephonyNumber);
+      setCallingMessage('Dedicated calling number attached.');
+      await refreshCalling();
+    } catch (error) {
+      setCallingMessage(error instanceof Error ? error.message : 'Failed to attach calling number.');
+    } finally {
+      setCallingBusy(false);
+    }
+  }
+
+  async function handleProvisionAgent() {
+    setCallingMessage('');
+    setCallingBusy(true);
+    try {
+      const result = await provisionVoiceAgent();
+      setLaunchJobId(result.job.id);
+      setLaunchJob(result.job);
+      sessionStorage.setItem('barsha_launch_job_id', result.job.id);
+      setCallingMessage('Agent launch job started.');
+      await refreshCalling();
+    } catch (error) {
+      setCallingMessage(error instanceof Error ? error.message : 'Failed to launch AI agent.');
+    } finally {
+      setCallingBusy(false);
+    }
+  }
+
+  async function handleLaunchToggle(enabled: boolean) {
+    setCallingMessage('');
+    setCallingBusy(true);
+    try {
+      await setCallingLaunch(enabled);
+      setCallingMessage(enabled ? 'Automatic calling enabled.' : 'Automatic calling disabled.');
+      await refreshCalling();
+    } catch (error) {
+      setCallingMessage(error instanceof Error ? error.message : 'Failed to update calling launch state.');
+      await refreshCalling().catch(() => undefined);
+    } finally {
+      setCallingBusy(false);
+    }
+  }
+
+  async function markLeadCallable(lead: Lead) {
+    setLeadMessage('');
+    setSavingLead(true);
+    try {
+      await setLeadDncStatus(lead, 'clear');
+      setLeadMessage(`${lead.full_name} marked DNC-cleared for voice calls.`);
+      await refreshLeads();
+      await refreshCalling();
+    } catch (error) {
+      setLeadMessage(error instanceof Error ? error.message : 'Failed to mark lead callable.');
+    } finally {
+      setSavingLead(false);
+    }
+  }
+
+  async function markLeadDoNotCall(lead: Lead) {
+    setLeadMessage('');
+    setSavingLead(true);
+    try {
+      await setLeadDncStatus(lead, 'blocked');
+      await setLeadVoiceConsent(lead.id, 'not_consented');
+      setLeadMessage(`${lead.full_name} blocked from voice calls.`);
+      await refreshLeads();
+      await refreshCalling();
+    } catch (error) {
+      setLeadMessage(error instanceof Error ? error.message : 'Failed to block lead.');
+    } finally {
+      setSavingLead(false);
+    }
+  }
+
+  async function approveSuggestedFollowUp(followUp: FollowUp) {
+    const dueAt = followUp.due_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    await approveFollowUp(followUp.id, dueAt);
+    await refreshLeads();
+    await refreshCalling().catch(() => undefined);
+  }
+
+  function getLaunchView(job: AIJob | null) {
+    if (!job) {
+      return { label: 'Not started', detail: 'Launch my agent to generate a new playbook', badge: 'b-pending' };
+    }
+
+    if (job.status === 'completed') {
+      return { label: 'Ready', detail: 'Gemini playbook and Retell agent are live', badge: 'b-active' };
+    }
+
+    if (job.status === 'failed') {
+      return { label: 'Failed', detail: job.error_message || 'Launch job failed', badge: 'b-called' };
+    }
+
+    const provisioning = ['provisioning_retell_llm', 'provisioning_retell_agent'].includes(job.current_step || '');
+    return provisioning
+      ? { label: 'Provisioning', detail: job.current_step || 'Provisioning Retell', badge: 'b-interested' }
+      : { label: 'Generating', detail: job.current_step || 'Generating playbook', badge: 'b-pending' };
+  }
+
+  const launchView = getLaunchView(launchJob || callingStatus?.latestLaunchJob || null);
+
+  const workspaceName = workspace?.name || 'your business';
+  const agentName = agentConfig?.agent_name || 'Aria';
+  const companyName = agentConfig?.company_name || workspaceName;
+  const valueProposition = agentConfig?.value_proposition
+    || 'We help Singapore SMEs automate their sales outreach - our clients typically see 3x more qualified meetings within the first 30 days.';
+  const bookingLink = agentConfig?.booking_link || 'https://calendly.com/yourname/discovery';
+  const planLabel = workspace?.plan
+    ? workspace.plan.charAt(0).toUpperCase() + workspace.plan.slice(1)
+    : 'Not selected';
+  const launchChecklist = [
+    { label: 'Plan selected', done: Boolean(workspace?.plan), action: 'Saved' },
+    { label: 'Business onboarding', done: Boolean(workspace?.onboarding_completed), action: 'Complete' },
+    { label: 'Agent prompt generated', done: Boolean(agentConfig?.system_prompt), action: 'Draft ready' },
+    { label: 'AI launch job', done: launchView.label === 'Ready', action: launchView.label },
+    { label: 'Lead memory', done: leads.length > 0, action: leads.length > 0 ? `${leads.length} lead${leads.length === 1 ? '' : 's'}` : 'No leads' },
+    { label: 'Callable leads', done: Boolean(callingStatus?.queue.callableLeads), action: callingStatus?.queue.callableLeads ? `${callingStatus.queue.callableLeads} callable` : 'Blocked' },
+    { label: 'Retell voice agent', done: callingStatus?.voiceAgent?.status === 'ready', action: callingStatus?.voiceAgent?.status || 'Not created' },
+    { label: 'Twilio/Retell number', done: ['attached', 'verified'].includes(callingStatus?.workspaceTelephony?.phone_number_status || ''), action: callingStatus?.workspaceTelephony?.phone_number_status || 'Missing' },
+  ];
+  const completedSteps = launchChecklist.filter(item => item.done).length;
+  const setupPct = Math.round((completedSteps / launchChecklist.length) * 100);
+  const integrations = [
+    { name: 'Apollo', purpose: 'Lead sourcing', status: 'Next' },
+    { name: 'Launch', purpose: 'Gemini + Retell provisioning', status: launchView.label },
+    { name: 'Retell', purpose: 'Voice agent runtime', status: callingStatus?.voiceAgent?.status === 'ready' ? 'Ready' : 'Not connected' },
+    { name: 'Twilio', purpose: 'Outbound calling number', status: ['attached', 'verified'].includes(callingStatus?.workspaceTelephony?.phone_number_status || '') ? 'Ready' : 'Not connected' },
+    { name: 'Calendly', purpose: bookingLink === 'https://calendly.com/yourname/discovery' ? 'Booking link missing' : 'Booking link saved', status: bookingLink === 'https://calendly.com/yourname/discovery' ? 'Needs setup' : 'Ready' },
+  ];
+  const calls = callingStatus?.calls || [];
+  const bookedCount = outcomes.filter(outcome => outcome.outcome_type === 'booked').length
+    + meetings.filter(meeting => meeting.status === 'scheduled').length;
+  const interestedCount = outcomes.filter(outcome => ['booking_link_sent', 'interested', 'follow_up_needed'].includes(outcome.outcome_type)).length;
+  const conversionRate = calls.length ? Math.round((bookedCount / calls.length) * 100) : 0;
+  const readinessChecks = callingStatus?.readiness.checks || [];
+  const callingEnabled = Boolean(callingStatus?.workspaceTelephony?.calling_enabled);
 
   return (
     <div className="screen active" id="app">
@@ -38,7 +458,7 @@ export default function DashboardPage() {
         <div className="sb-nav">
           {([
             ['dashboard', 'Overview', <svg key="d" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>, null],
-            ['leads', 'Leads', <svg key="l" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>, '128'],
+            ['leads', 'Leads', <svg key="l" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>, null],
             ['calls', 'Calls', <svg key="c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>, null],
             ['meetings', 'Meetings', <svg key="m" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, null],
             ['analytics', 'Analytics', <svg key="an" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>, null],
@@ -58,8 +478,8 @@ export default function DashboardPage() {
         </div>
         <div className="agent-pill">
           <div className="ap-lbl">Agent Status</div>
-          <div className="ap-row"><span className="ap-dot" /><span className="ap-name-txt">Aria · Active</span></div>
-          <div className="ap-num">+65 3159 0284</div>
+          <div className="ap-row"><span className="ap-dot" /><span className="ap-name-txt">{agentName} · {launchView.label === 'Ready' ? 'Live' : 'Draft'}</span></div>
+          <div className="ap-num">{launchView.label === 'Not started' ? 'Launch not started' : `AI launch: ${launchView.label}`}</div>
         </div>
       </div>
 
@@ -67,12 +487,12 @@ export default function DashboardPage() {
       <div className={`main-content page${activePage === 'dashboard' ? ' active' : ''}`}>
         <div className="dash-topbar">
           <div>
-            <div className="dash-greeting">Good morning, <em>your business</em></div>
+            <div className="dash-greeting">Good morning, <em>{workspaceName}</em></div>
             <div className="dash-date">{today}</div>
           </div>
           <div className="page-actions">
-            <button className="btn-outline">Pause Agent</button>
-            <button className="btn-primary">+ Add Leads</button>
+            <button className="btn-outline" onClick={() => setActivePage('settings')}>Review Agent</button>
+            <button className="btn-primary" onClick={() => setActivePage('leads')}>Connect Leads</button>
           </div>
         </div>
         <div className="pdpa-banner">
@@ -80,50 +500,72 @@ export default function DashboardPage() {
           <span><strong>PDPA Compliance Active</strong> — Your agent respects Singapore&apos;s Personal Data Protection Act and identifies as AI when asked.</span>
         </div>
         <div className="kpi-row">
-          <div className="kpi-card"><div className="kpi-icon ki-p">📞</div><div className="kpi-val">142</div><div className="kpi-lbl">Calls Today</div><div className="kpi-delta kd-up">↑ 18 vs yesterday</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-g">🤝</div><div className="kpi-val">23</div><div className="kpi-lbl">Meetings Booked</div><div className="kpi-delta kd-up">↑ 4 this week</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-gr">✅</div><div className="kpi-val">16.2%</div><div className="kpi-lbl">Conversion Rate</div><div className="kpi-delta kd-up">↑ 2.1%</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-b">👤</div><div className="kpi-val">847</div><div className="kpi-lbl">Leads in Pipeline</div><div className="kpi-delta kd-neutral">⬤ 128 new today</div></div>
+          <div className="kpi-card"><div className="kpi-icon ki-p">A</div><div className="kpi-val">{setupPct}%</div><div className="kpi-lbl">Launch Setup</div><div className="kpi-delta kd-neutral">{completedSteps} of {launchChecklist.length} complete</div></div>
+          <div className="kpi-card"><div className="kpi-icon ki-g">P</div><div className="kpi-val">{planLabel}</div><div className="kpi-lbl">Selected Plan</div><div className="kpi-delta kd-neutral">Payment before launch</div></div>
+          <div className="kpi-card"><div className="kpi-icon ki-gr">L</div><div className="kpi-val">{leads.length}</div><div className="kpi-lbl">Saved Leads</div><div className="kpi-delta kd-neutral">Manual and CSV</div></div>
+          <div className="kpi-card"><div className="kpi-icon ki-b">C</div><div className="kpi-val">{calls.length}</div><div className="kpi-lbl">Calls Placed</div><div className="kpi-delta kd-neutral">{callingEnabled ? 'Queue enabled' : 'Queue disabled'}</div></div>
         </div>
         <div className="dash-grid">
           <div className="card">
             <div className="card-head">
-              <div className="card-title"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{width:14,height:14}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>Today&apos;s Lead Queue</div>
-              <span className="card-action" onClick={() => setActivePage('leads')}>View All →</span>
+              <div className="card-title"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{width:14,height:14}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Launch Checklist</div>
+              <span className="card-action">{setupPct}% ready</span>
             </div>
-            <div className="filters"><div className="chip active">All (128)</div><div className="chip">CEO / Founder</div><div className="chip">VP / Director</div><div className="chip">MRR S$10k+</div></div>
-            <table className="data-table">
-              <thead><tr><th style={{width:32}}></th><th>Name</th><th>Title</th><th>Company</th><th>Status</th></tr></thead>
-              <tbody>
-                <tr><td><input type="checkbox" className="cb" defaultChecked /></td><td><div style={{fontWeight:500}}>Wei Lin Tan<div style={{fontSize:11,color:'var(--text-muted)',fontWeight:400}}>FinTech Solutions SG</div></div></td><td><span className="badge b-interested" style={{fontSize:10}}>CEO</span></td><td>FinTech Solutions SG</td><td><span className="badge b-booked"><span className="bdot" />Booked</span></td></tr>
-                <tr><td><input type="checkbox" className="cb" defaultChecked /></td><td><div style={{fontWeight:500}}>Priya Nair<div style={{fontSize:11,color:'var(--text-muted)',fontWeight:400}}>LogiTrack Asia</div></div></td><td><span className="badge b-interested" style={{fontSize:10}}>VP Ops</span></td><td>LogiTrack Asia Pte</td><td><span className="badge b-called"><span className="bdot" />Callback</span></td></tr>
-                <tr><td><input type="checkbox" className="cb" /></td><td><div style={{fontWeight:500}}>James Koh<div style={{fontSize:11,color:'var(--text-muted)',fontWeight:400}}>CloudBase SG</div></div></td><td><span className="badge b-interested" style={{fontSize:10}}>Founder</span></td><td>CloudBase Singapore</td><td><span className="badge b-new"><span className="bdot" />New</span></td></tr>
-                <tr><td><input type="checkbox" className="cb" /></td><td><div style={{fontWeight:500}}>Siti Rahman<div style={{fontSize:11,color:'var(--text-muted)',fontWeight:400}}>MediCare Plus</div></div></td><td><span className="badge b-interested" style={{fontSize:10}}>Director</span></td><td>MediCare Plus Asia</td><td><span className="badge b-new"><span className="bdot" />New</span></td></tr>
-                <tr><td><input type="checkbox" className="cb" defaultChecked /></td><td><div style={{fontWeight:500}}>Mei Ling Chen<div style={{fontSize:11,color:'var(--text-muted)',fontWeight:400}}>EdTech Ventures SG</div></div></td><td><span className="badge b-interested" style={{fontSize:10}}>VP Growth</span></td><td>EdTech Ventures SG</td><td><span className="badge b-interested"><span className="bdot" />Interested</span></td></tr>
-              </tbody>
-            </table>
-            <div style={{padding:'12px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',borderTop:'1px solid var(--cream-dark)'}}><span style={{fontSize:12,color:'var(--text-muted)'}}>3 leads selected</span><button className="btn-primary" style={{padding:'8px 16px',fontSize:12}}>📞 Call Selected</button></div>
+            <div style={{ padding: 20 }}>
+              <div style={{ height: 7, background: 'var(--cream-dark)', borderRadius: 999, overflow: 'hidden', marginBottom: 18 }}>
+                <div style={{ width: `${setupPct}%`, height: '100%', background: 'linear-gradient(90deg,var(--purple),var(--gold))', borderRadius: 999 }} />
+              </div>
+              {launchChecklist.map(item => (
+                <div key={item.label} className="msl-row">
+                  <span className="msl-lbl" style={{ color: item.done ? 'var(--text)' : 'var(--text-muted)' }}>{item.label}</span>
+                  <span className={`badge ${item.done ? 'b-active' : 'b-pending'}`}><span className="bdot" />{item.action}</span>
+                </div>
+              ))}
+            </div>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:18}}>
             <div className="card">
-              <div className="card-head"><div className="card-title"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{width:14,height:14}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>Live Call Feed</div><span className="card-action" onClick={() => setActivePage('calls')}>All →</span></div>
+              <div className="card-head"><div className="card-title"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{width:14,height:14}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>Integration Status</div></div>
               <div>
-                <div className="mtr"><div className="mtr-av">WL</div><div className="mtr-info"><div className="mtr-name">Wei Lin Tan</div><div className="mtr-detail">CEO · FinTech · 4m 32s</div><span className="ot ot-b">Meeting Booked</span></div><div className="mtr-time">2m ago</div></div>
-                <div className="mtr"><div className="mtr-av">PN</div><div className="mtr-info"><div className="mtr-name">Priya Nair</div><div className="mtr-detail">VP Ops · LogiTrack · 2m 14s</div><span className="ot ot-f">Follow Up</span></div><div className="mtr-time">11m ago</div></div>
-                <div className="mtr"><div className="mtr-av">ML</div><div className="mtr-info"><div className="mtr-name">Mei Ling Chen</div><div className="mtr-detail">VP Growth · EdTech · 6m 08s</div><span className="ot ot-b">Meeting Booked</span></div><div className="mtr-time">38m ago</div></div>
+                {integrations.map(item => (
+                  <div key={item.name} className="mtr">
+                    <div className="mtr-av">{item.name.slice(0, 2).toUpperCase()}</div>
+                    <div className="mtr-info"><div className="mtr-name">{item.name}</div><div className="mtr-detail">{item.purpose}</div></div>
+                    <span className={`badge ${item.status === 'Ready' ? 'b-active' : item.status === 'Next' ? 'b-interested' : item.status === 'Failed' ? 'b-called' : item.status === 'Provisioning' ? 'b-interested' : 'b-pending'}`}><span className="bdot" />{item.status}</span>
+                  </div>
+                ))}
               </div>
             </div>
             <div className="card">
-              <div className="card-head"><div className="card-title">Pipeline</div></div>
-              <div className="pipe-wrap">
-                <div className="pipe-stage"><div className="pipe-row"><span className="pipe-lbl">Contacted</span><span className="pipe-cnt">847</span></div><div className="pipe-bar"><div className="pipe-fill pf-c" style={{width:'100%'}} /></div></div>
-                <div className="pipe-stage"><div className="pipe-row"><span className="pipe-lbl">Interested</span><span className="pipe-cnt">186</span></div><div className="pipe-bar"><div className="pipe-fill pf-i" style={{width:'22%'}} /></div></div>
-                <div className="pipe-stage"><div className="pipe-row"><span className="pipe-lbl">Meeting Booked</span><span className="pipe-cnt">23</span></div><div className="pipe-bar"><div className="pipe-fill pf-b" style={{width:'3%'}} /></div></div>
-              </div>
+              <div className="card-head"><div className="card-title">Agent Draft</div></div>
               <div className="msl-list">
-                <div className="msl-row"><span className="msl-lbl">Avg Call Duration</span><span className="msl-val">3m 12s</span></div>
-                <div className="msl-row"><span className="msl-lbl">Best Title</span><span className="msl-val" style={{color:'var(--purple)'}}>CEO / Founder</span></div>
-                <div className="msl-row"><span className="msl-lbl">Twilio Number</span><span className="msl-val" style={{color:'var(--gold)'}}>+65 3159 0284</span></div>
+                <div className="msl-row"><span className="msl-lbl">Agent</span><span className="msl-val">{agentName}</span></div>
+                <div className="msl-row"><span className="msl-lbl">Company</span><span className="msl-val">{companyName}</span></div>
+                <div className="msl-row"><span className="msl-lbl">Target Region</span><span className="msl-val">{agentConfig?.target_regions || 'Not set'}</span></div>
+                <div className="msl-row"><span className="msl-lbl">Tone</span><span className="msl-val" style={{color:'var(--purple)'}}>{agentConfig?.tone || 'Not set'}</span></div>
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-head"><div className="card-title">Calling Control</div><span className={`badge ${callingEnabled ? 'b-active' : 'b-pending'}`}><span className="bdot" />{callingEnabled ? 'Enabled' : 'Off'}</span></div>
+              <div className="msl-list">
+                <div className="pdpa-banner" style={{ marginBottom: 10 }}>
+                  <span><strong>Launch status</strong> — {launchView.label}{launchView.detail ? ` · ${launchView.detail}` : ''}</span>
+                </div>
+                {callingMessage && <div className="pdpa-banner" style={{ marginBottom: 10 }}><span>{callingMessage}</span></div>}
+                {readinessChecks.map(check => (
+                  <div key={check.key} className="msl-row">
+                    <span className="msl-lbl">{check.label}</span>
+                    <span className={`badge ${check.ready ? 'b-active' : 'b-pending'}`}><span className="bdot" />{check.ready ? 'Ready' : check.reason}</span>
+                  </div>
+                ))}
+                <input className="sf-inp" placeholder="+65 dedicated number" value={telephonyNumber} onChange={e => setTelephonyNumber(e.target.value)} style={{ marginTop: 10 }} />
+                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                  <button className="btn-outline" onClick={handleAttachTelephony} disabled={callingBusy || !telephonyNumber.trim()}>Attach Number</button>
+                  <button className="btn-outline" onClick={handleProvisionAgent} disabled={callingBusy || !agentConfig?.system_prompt || ['Generating', 'Provisioning'].includes(launchView.label)}>Create Retell Agent</button>
+                  <button className="btn-primary" onClick={() => handleLaunchToggle(!callingEnabled)} disabled={callingBusy}>
+                    {callingEnabled ? 'Disable Queue' : 'Launch Queue'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -132,128 +574,295 @@ export default function DashboardPage() {
 
       {/* LEADS */}
       <div className={`main-content page${activePage === 'leads' ? ' active' : ''}`}>
-        <div className="page-header"><div><div className="page-title">Leads</div><div className="page-sub">Apollo · 847 contacts in pipeline</div></div><div className="page-actions"><button className="btn-outline">Export</button><button className="btn-primary">+ Pull Fresh Leads</button></div></div>
-        <div style={{display:'flex',gap:12,marginBottom:18,alignItems:'center',flexWrap:'wrap' as const}}>
-          <div className="search-bar" style={{flex:1,maxWidth:300}}><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{width:14,height:14}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg><input placeholder="Search leads..." type="text" /></div>
-          <div className="chip active">All</div><div className="chip">New</div><div className="chip">Called</div><div className="chip">Interested</div><div className="chip">Booked</div>
+        <div className="page-header">
+          <div>
+            <div className="page-title">Leads</div>
+            <div className="page-sub">{leads.length} saved lead{leads.length === 1 ? '' : 's'} · {followUps.length} active follow-up{followUps.length === 1 ? '' : 's'}</div>
+          </div>
+          <div className="page-actions"><button className="btn-outline" onClick={() => getApolloFilters().then(data => setApolloFilters(data.filters)).catch(() => undefined)}>Reset Apollo Filters</button></div>
         </div>
-        <div className="card">
-          <table className="data-table">
-            <thead><tr><th style={{width:32}}></th><th>Name</th><th>Title</th><th>Company</th><th>Location</th><th>Est. MRR</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              <tr><td><input type="checkbox" className="cb" defaultChecked /></td><td><div style={{fontWeight:500}}>Wei Lin Tan<div style={{fontSize:11,color:'var(--text-muted)'}}>wltan@fintechsg.com</div></div></td><td><span className="badge b-interested" style={{fontSize:10}}>CEO</span></td><td>FinTech Solutions SG</td><td>Singapore</td><td style={{fontSize:11,fontWeight:600,color:'var(--purple)'}}>S$48k</td><td><span className="badge b-booked"><span className="bdot" />Booked</span></td><td><button className="btn-outline" style={{padding:'5px 12px',fontSize:11}}>View</button></td></tr>
-              <tr><td><input type="checkbox" className="cb" /></td><td><div style={{fontWeight:500}}>Priya Nair<div style={{fontSize:11,color:'var(--text-muted)'}}>p.nair@logitrack.sg</div></div></td><td><span className="badge b-interested" style={{fontSize:10}}>VP Ops</span></td><td>LogiTrack Asia Pte</td><td>Singapore</td><td style={{fontSize:11,fontWeight:600,color:'var(--purple)'}}>S$22k</td><td><span className="badge b-called"><span className="bdot" />Callback</span></td><td><button className="btn-outline" style={{padding:'5px 12px',fontSize:11}}>View</button></td></tr>
-              <tr><td><input type="checkbox" className="cb" /></td><td><div style={{fontWeight:500}}>James Koh<div style={{fontSize:11,color:'var(--text-muted)'}}>james@cloudbase.sg</div></div></td><td><span className="badge b-interested" style={{fontSize:10}}>Founder</span></td><td>CloudBase Singapore</td><td>Singapore</td><td style={{fontSize:11,fontWeight:600,color:'var(--gold)'}}>S$9k</td><td><span className="badge b-new"><span className="bdot" />New</span></td><td><button className="btn-outline" style={{padding:'5px 12px',fontSize:11}}>View</button></td></tr>
-              <tr><td><input type="checkbox" className="cb" /></td><td><div style={{fontWeight:500}}>Siti Rahman<div style={{fontSize:11,color:'var(--text-muted)'}}>s.rahman@medicare.sg</div></div></td><td><span className="badge b-interested" style={{fontSize:10}}>Director</span></td><td>MediCare Plus Asia</td><td>Singapore</td><td style={{fontSize:11,fontWeight:600,color:'var(--purple)'}}>S$31k</td><td><span className="badge b-new"><span className="bdot" />New</span></td><td><button className="btn-outline" style={{padding:'5px 12px',fontSize:11}}>View</button></td></tr>
-              <tr><td><input type="checkbox" className="cb" /></td><td><div style={{fontWeight:500}}>David Lim<div style={{fontSize:11,color:'var(--text-muted)'}}>dlim@proptechsg.com</div></div></td><td><span className="badge b-interested" style={{fontSize:10}}>CEO</span></td><td>PropTech Singapore</td><td>Singapore</td><td style={{fontSize:11,fontWeight:600,color:'var(--purple)'}}>S$15k</td><td><span className="badge b-noanswer"><span className="bdot" />No Answer</span></td><td><button className="btn-outline" style={{padding:'5px 12px',fontSize:11}}>View</button></td></tr>
-              <tr><td><input type="checkbox" className="cb" defaultChecked /></td><td><div style={{fontWeight:500}}>Mei Ling Chen<div style={{fontSize:11,color:'var(--text-muted)'}}>ml@edtechventures.sg</div></div></td><td><span className="badge b-interested" style={{fontSize:10}}>VP Growth</span></td><td>EdTech Ventures SG</td><td>Singapore</td><td style={{fontSize:11,fontWeight:600,color:'var(--purple)'}}>S$18k</td><td><span className="badge b-interested"><span className="bdot" />Interested</span></td><td><button className="btn-outline" style={{padding:'5px 12px',fontSize:11}}>View</button></td></tr>
-            </tbody>
-          </table>
-          <div style={{padding:'13px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',borderTop:'1px solid var(--cream-dark)'}}><span style={{fontSize:12,color:'var(--text-muted)'}}>Showing 6 of 847</span><div style={{display:'flex',gap:8}}><button className="btn-outline" style={{padding:'6px 14px',fontSize:11}}>← Prev</button><button className="btn-outline" style={{padding:'6px 14px',fontSize:11}}>Next →</button></div></div>
+
+        {leadMessage && (
+          <div className="pdpa-banner" style={{ marginBottom: 18 }}>
+            <span>{leadMessage}</span>
+          </div>
+        )}
+
+        <div className="dash-grid" style={{ marginBottom: 18 }}>
+          <div className="card">
+            <div className="card-head"><div className="card-title">Apollo Import</div><span className="badge b-pending"><span className="bdot" />Phone gated</span></div>
+            <div style={{ padding: 20, display: 'grid', gap: 10 }}>
+              <div className="ss-grid">
+                <input
+                  className="sf-inp"
+                  placeholder="Titles"
+                  value={apolloFilters.titles.join(', ')}
+                  onChange={e => updateApolloFilter('titles', e.target.value)}
+                />
+                <input
+                  className="sf-inp"
+                  placeholder="Region"
+                  value={apolloFilters.region}
+                  onChange={e => updateApolloFilter('region', e.target.value)}
+                />
+                <input
+                  className="sf-inp"
+                  placeholder="Industry"
+                  value={apolloFilters.industry}
+                  onChange={e => updateApolloFilter('industry', e.target.value)}
+                />
+                <input
+                  className="sf-inp"
+                  placeholder="Company size"
+                  value={apolloFilters.companySize}
+                  onChange={e => updateApolloFilter('companySize', e.target.value)}
+                />
+                <input
+                  className="sf-inp"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={apolloFilters.limit}
+                  onChange={e => updateApolloFilter('limit', e.target.value)}
+                />
+              </div>
+              <p className="page-sub" style={{ margin: 0, lineHeight: 1.5 }}>
+                Imports create blocked Apollo leads first. Phone and email fields update after Apollo sends enrichment results to the webhook.
+              </p>
+              <button className="btn-gold" onClick={handleImportApollo} disabled={apolloBusy || !apolloFilters.titles.length}>
+                {apolloBusy ? 'Importing Apollo...' : `Import ${apolloFilters.limit || 25} Apollo Leads`}
+              </button>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-head"><div className="card-title">Add Old Lead</div></div>
+            <div style={{ padding: 20, display: 'grid', gap: 10 }}>
+              <div className="ss-grid">
+                <input className="sf-inp" placeholder="Lead name" value={leadForm.full_name} onChange={e => updateLeadForm('full_name', e.target.value)} />
+                <input className="sf-inp" placeholder="Company" value={leadForm.company_name} onChange={e => updateLeadForm('company_name', e.target.value)} />
+                <input className="sf-inp" placeholder="Title" value={leadForm.title} onChange={e => updateLeadForm('title', e.target.value)} />
+                <input className="sf-inp" placeholder="Phone" value={leadForm.phone} onChange={e => updateLeadForm('phone', e.target.value)} />
+                <input className="sf-inp" placeholder="Email" value={leadForm.email} onChange={e => updateLeadForm('email', e.target.value)} />
+                <input className="sf-inp" type="datetime-local" value={leadForm.due_at} onChange={e => updateLeadForm('due_at', e.target.value)} />
+              </div>
+              <textarea className="sf-ta" placeholder="What happened last time?" value={leadForm.note} onChange={e => updateLeadForm('note', e.target.value)} />
+              <input className="sf-inp" placeholder="Next action, e.g. Call again next Tuesday" value={leadForm.next_action} onChange={e => updateLeadForm('next_action', e.target.value)} />
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <select className="sf-sel" value={leadForm.owner_type} onChange={e => updateLeadForm('owner_type', e.target.value)} style={{ flex: 1 }}>
+                  <option value="agent">Agent follow-up</option>
+                  <option value="human">Human follow-up</option>
+                </select>
+                <select className="sf-sel" value={leadForm.priority} onChange={e => updateLeadForm('priority', e.target.value)} style={{ flex: 1 }}>
+                  <option value="urgent">Urgent</option>
+                  <option value="high">High</option>
+                  <option value="normal">Normal</option>
+                  <option value="low">Low</option>
+                </select>
+                <button className="btn-primary" onClick={handleCreateLead} disabled={savingLead}>{savingLead ? 'Saving...' : 'Save Lead'}</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-head"><div className="card-title">CSV Import</div></div>
+            <div style={{ padding: 20 }}>
+              <p className="page-sub" style={{ margin: '0 0 12px', lineHeight: 1.5 }}>
+                Paste CSV with headers like: name, company, title, phone, email, note, next_action, due_at, owner_type, priority.
+              </p>
+              <textarea
+                className="sf-ta"
+                placeholder={'name,company,phone,note,next_action,due_at\\nRahul,ABC Logistics,+65 1234 5678,Asked to call next week,Call next Tuesday,2026-06-09T15:00'}
+                value={csvText}
+                onChange={e => setCsvText(e.target.value)}
+                style={{ minHeight: 170 }}
+              />
+              <button className="btn-gold" onClick={handleImportCsv} disabled={savingLead || !csvText.trim()} style={{ marginTop: 12 }}>
+                {savingLead ? 'Importing...' : 'Import CSV'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="dash-grid">
+          <div className="card">
+            <div className="card-head"><div className="card-title">Saved Leads</div><span className="card-action">{leads.length}</span></div>
+            {leads.length === 0 ? (
+              <div style={{ padding: 28, textAlign: 'center' }}>
+                <div className="page-title" style={{ fontSize: 24 }}>No saved leads yet</div>
+                <p className="page-sub" style={{ marginTop: 8 }}>Add old client leads manually or import a CSV.</p>
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead><tr><th>Name</th><th>Company</th><th>Contact</th><th>Status</th><th>Compliance</th><th>Action</th></tr></thead>
+                <tbody>
+                  {leads.map(lead => (
+                    <tr key={lead.id}>
+                      <td><div style={{ fontWeight: 500 }}>{lead.full_name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{lead.title || lead.source}</div></div></td>
+                      <td>{lead.company_name || '-'}</td>
+                      <td><div style={{ fontSize: 12 }}>{lead.phone || lead.email || (lead.source === 'apollo' ? 'Phone pending' : '-')}</div></td>
+                      <td><span className="badge b-new"><span className="bdot" />{lead.status.replaceAll('_', ' ')}</span></td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <span className={`badge ${lead.dnc_status === 'clear' || lead.voice_consent_status === 'consented' ? 'b-active' : lead.dnc_status === 'blocked' ? 'b-called' : 'b-pending'}`}>
+                            <span className="bdot" />{lead.voice_consent_status === 'consented' ? 'consented' : `DNC ${lead.dnc_status}`}
+                          </span>
+                          <span className="badge b-interested">{lead.priority}</span>
+                        </div>
+                        {lead.callable_block_reason && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{lead.callable_block_reason}</div>}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button className="btn-outline" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => markLeadCallable(lead)} disabled={savingLead || !lead.phone}>DNC Clear</button>
+                          <button className="btn-outline" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => markLeadDoNotCall(lead)} disabled={savingLead}>Block</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="card-head"><div className="card-title">Follow-up Queue</div><span className="card-action">{followUps.length}</span></div>
+            {followUps.length === 0 ? (
+              <div style={{ padding: 28, textAlign: 'center' }}>
+                <div className="page-title" style={{ fontSize: 24 }}>No active follow-ups</div>
+                <p className="page-sub" style={{ marginTop: 8 }}>Follow-ups appear here from manual leads, CSV imports, and later call outcomes.</p>
+              </div>
+            ) : (
+              <div>
+                {followUps.map(item => (
+                  <div key={item.id} className="mtr">
+                    <div className="mtr-av">{item.owner_type === 'agent' ? 'AI' : 'HU'}</div>
+                    <div className="mtr-info">
+                      <div className="mtr-name">{item.title}</div>
+                      <div className="mtr-detail">{item.leads?.full_name || 'Lead'} · {item.status} · {item.due_at ? new Date(item.due_at).toLocaleString() : 'No due date'}</div>
+                      {item.context_note && <span className="ot ot-f">{item.context_note}</span>}
+                      {item.blocked_reason && <span className="ot ot-n">{item.blocked_reason}</span>}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                      <span className={`badge ${item.priority === 'urgent' || item.priority === 'high' ? 'b-called' : 'b-pending'}`}><span className="bdot" />{item.priority}</span>
+                      {item.status === 'suggested' ? (
+                        <button className="btn-primary" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => approveSuggestedFollowUp(item)}>Approve</button>
+                      ) : (
+                        <button className="btn-outline" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => completeFollowUp(item.id)}>Done</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* CALLS */}
       <div className={`main-content page${activePage === 'calls' ? ' active' : ''}`}>
-        <div className="page-header"><div><div className="page-title">Call History</div><div className="page-sub">142 calls today · 894 this month</div></div><div className="page-actions"><div className="chip active">All</div><div className="chip">Booked</div><div className="chip">Follow Up</div><div className="chip">No Answer</div></div></div>
-        {[
-          { av: 'WL', name: 'Wei Lin Tan', detail: 'CEO · FinTech Solutions SG · May 7, 2026 · 9:14 AM SGT', badge: 'b-booked', status: 'Meeting Booked', dur: '4m 32s', time: '2m ago' },
-          { av: 'PN', name: 'Priya Nair', detail: 'VP Ops · LogiTrack Asia · May 7, 2026 · 9:02 AM SGT', badge: 'b-called', status: 'Callback Req.', dur: '2m 14s', time: '11m ago' },
-          { av: 'ML', name: 'Mei Ling Chen', detail: 'VP Growth · EdTech Ventures · May 7, 2026 · 8:30 AM SGT', badge: 'b-booked', status: 'Meeting Booked', dur: '6m 08s', time: '38m ago' },
-          { av: 'JK', name: 'James Koh', detail: 'Founder · CloudBase Singapore · May 7, 2026 · 8:14 AM SGT', badge: 'b-noanswer', status: 'No Answer', dur: '0m 42s', time: '52m ago' },
-          { av: 'DL', name: 'David Lim', detail: 'CEO · PropTech Singapore · May 6, 2026 · 3:45 PM SGT', badge: 'b-interested', status: 'Interested', dur: '5m 21s', time: 'Yesterday' },
-        ].map(c => (
-          <div key={c.av} className="call-card">
-            <div className="call-av">{c.av}</div>
-            <div className="call-meta"><div className="call-name">{c.name}</div><div className="call-detail">{c.detail}</div></div>
-            <div style={{display:'flex',alignItems:'center',gap:14}}>
-              <span className={`badge ${c.badge}`}><span className="bdot" />{c.status}</span>
-              <div className="call-right"><div className="call-dur">{c.dur}</div><div className="call-time-txt">{c.time}</div></div>
-              <div className="play-btn"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
-            </div>
+        <div className="page-header">
+          <div><div className="page-title">Call History</div><div className="page-sub">{calls.length} real call record{calls.length === 1 ? '' : 's'} · {callingEnabled ? 'automatic queue enabled' : 'automatic queue disabled'}</div></div>
+          <div className="page-actions"><button className="btn-outline" onClick={() => refreshCalling()}>Refresh</button><button className="btn-primary" disabled>{callingEnabled ? 'Queue live' : 'Calling disabled'}</button></div>
+        </div>
+        {calls.length === 0 ? (
+          <div className="card" style={{ padding: 32, textAlign: 'center' }}>
+            <div className="sum-icon" style={{ margin: '0 auto 14px' }}>C</div>
+            <div className="page-title" style={{ fontSize: 26 }}>No calls have run yet</div>
+            <p className="page-sub" style={{ maxWidth: 620, margin: '8px auto 0', lineHeight: 1.6 }}>
+              Calls will appear here after a workspace has a Retell agent, a dedicated number, DNC-cleared leads, approved due follow-ups, and the launch toggle is enabled.
+            </p>
           </div>
-        ))}
+        ) : (
+          <div className="card">
+            <div className="card-head"><div className="card-title">Recent Calls</div><span className="card-action">{calls.length}</span></div>
+            {calls.map(call => (
+              <div key={call.id} className="call-card">
+                <div className="call-av">{(call.leads?.full_name || 'Lead').slice(0, 2).toUpperCase()}</div>
+                <div className="call-meta">
+                  <div className="call-name">{call.leads?.full_name || call.to_number || 'Unknown lead'}</div>
+                  <div className="call-detail">{call.follow_ups?.title || 'Outbound call'} · {call.created_at ? new Date(call.created_at).toLocaleString() : ''}</div>
+                  {call.summary && <div className="page-sub" style={{ marginTop: 6, lineHeight: 1.5 }}>{call.summary}</div>}
+                  {call.error_message && <span className="ot ot-n">{call.error_message}</span>}
+                  {call.recording_url && <a className="card-action" href={call.recording_url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 6 }}>Recording</a>}
+                </div>
+                <div className="call-right">
+                  <span className={`badge ${call.status === 'completed' ? 'b-active' : call.status === 'failed' || call.status === 'no_answer' ? 'b-called' : 'b-pending'}`}><span className="bdot" />{call.status.replaceAll('_', ' ')}</span>
+                  <div className="call-dur">{call.duration_seconds ? `${call.duration_seconds}s` : '-'}</div>
+                  <div className="call-time-txt">{call.sentiment || call.disconnection_reason || ''}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* MEETINGS */}
       <div className={`main-content page${activePage === 'meetings' ? ' active' : ''}`}>
-        <div className="page-header"><div><div className="page-title">Meetings</div><div className="page-sub">23 booked this month · 6 this week</div></div><div className="page-actions"><button className="btn-outline">Sync Calendar</button></div></div>
-        <div className="mtg-grid">
-          <div className="card">
-            <div className="cal-hdr"><div className="cal-month">May 2026</div><div className="cal-nav"><button className="cal-nbtn">‹</button><button className="cal-nbtn">›</button></div></div>
-            <div className="cal-grid-wrap">
-              <div className="cal-daynames">
-                {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="cdn">{d}</div>)}
-              </div>
-              <div className="cal-days">
-                {calDays.map((d, i) => <div key={i} className={`cal-day${d.cls ? ` ${d.cls}` : ''}`}>{d.d}</div>)}
-              </div>
-            </div>
-          </div>
-          <div className="mtg-list">
-            <div className="card-head"><div className="card-title">Upcoming Meetings</div></div>
-            <div className="mtg-item"><div className="mi-time">TODAY · 2:00 PM SGT</div><div className="mi-name">Wei Lin Tan</div><div className="mi-detail">CEO · FinTech Solutions · 20 min</div><span className="mi-type">Discovery Call</span></div>
-            <div className="mtg-item"><div className="mi-time">TODAY · 4:00 PM SGT</div><div className="mi-name">Mei Ling Chen</div><div className="mi-detail">VP Growth · EdTech Ventures · 20 min</div><span className="mi-type">Discovery Call</span></div>
-            <div className="mtg-item"><div className="mi-time">MAY 8 · 10:00 AM SGT</div><div className="mi-name">Priya Nair</div><div className="mi-detail">VP Ops · LogiTrack Asia · 30 min</div><span className="mi-type">Product Demo</span></div>
-            <div className="mtg-item"><div className="mi-time">MAY 9 · 2:00 PM SGT</div><div className="mi-name">Siti Rahman</div><div className="mi-detail">Director · MediCare Plus · 45 min</div><span className="mi-type">Deep Dive</span></div>
-            <div className="mtg-item"><div className="mi-time">MAY 12 · 11:00 AM SGT</div><div className="mi-name">David Lim</div><div className="mi-detail">CEO · PropTech Singapore · 20 min</div><span className="mi-type">Discovery Call</span></div>
-          </div>
+        <div className="page-header">
+          <div><div className="page-title">Meetings</div><div className="page-sub">{meetings.length} meeting record{meetings.length === 1 ? '' : 's'} · {outcomes.filter(o => o.meeting_requested).length} meeting request outcome{outcomes.filter(o => o.meeting_requested).length === 1 ? '' : 's'}</div></div>
+          <div className="page-actions"><button className="btn-outline" onClick={() => refreshOutcomes()}>Refresh</button><button className="btn-outline" disabled>Calendar sync pending</button></div>
         </div>
+        {meetings.length === 0 ? (
+          <div className="card" style={{ padding: 32, textAlign: 'center' }}>
+            <div className="sum-icon" style={{ margin: '0 auto 14px' }}>M</div>
+            <div className="page-title" style={{ fontSize: 26 }}>No scheduled meetings yet</div>
+            <p className="page-sub" style={{ maxWidth: 620, margin: '8px auto 0', lineHeight: 1.6 }}>
+              Booking-link and call outcomes can now be stored. Calendly or calendar webhooks can be connected next to turn requested meetings into scheduled meetings.
+            </p>
+          </div>
+        ) : (
+          <div className="card">
+            <div className="card-head"><div className="card-title">Meeting Records</div><span className="card-action">{meetings.length}</span></div>
+            {meetings.map(meeting => (
+              <div key={meeting.id} className="mtr">
+                <div className="mtr-av">MT</div>
+                <div className="mtr-info">
+                  <div className="mtr-name">{meeting.title}</div>
+                  <div className="mtr-detail">{meeting.leads?.full_name || meeting.invitee_name || 'Invitee'} · {meeting.starts_at ? new Date(meeting.starts_at).toLocaleString() : 'Time pending'}</div>
+                  {meeting.notes && <span className="ot ot-f">{meeting.notes}</span>}
+                </div>
+                <span className={`badge ${meeting.status === 'scheduled' ? 'b-active' : 'b-pending'}`}><span className="bdot" />{meeting.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ANALYTICS */}
       <div className={`main-content page${activePage === 'analytics' ? ' active' : ''}`}>
-        <div className="page-header"><div><div className="page-title">Analytics</div><div className="page-sub">Performance · May 2026</div></div><div className="page-actions"><div className="ptabs">{['7D','30D','90D'].map((p,i) => <button key={p} className={`ptab${analyticsPeriod===i?' active':''}`} onClick={() => setAnalyticsPeriod(i)}>{p}</button>)}</div></div></div>
+        <div className="page-header"><div><div className="page-title">Analytics</div><div className="page-sub">Performance reporting starts after the first real call.</div></div></div>
         <div className="kpi-row">
-          <div className="kpi-card"><div className="kpi-icon ki-p">📞</div><div className="kpi-val">894</div><div className="kpi-lbl">Total Calls</div><div className="kpi-delta kd-up">↑ 22% MoM</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-g">🤝</div><div className="kpi-val">23</div><div className="kpi-lbl">Meetings Booked</div><div className="kpi-delta kd-up">↑ 35% MoM</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-gr">📊</div><div className="kpi-val">3m 12s</div><div className="kpi-lbl">Avg Duration</div><div className="kpi-delta kd-up">↑ 18s</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-b">🎯</div><div className="kpi-val">16.2%</div><div className="kpi-lbl">Conversion Rate</div><div className="kpi-delta kd-up">↑ 2.1%</div></div>
+          <div className="kpi-card"><div className="kpi-icon ki-p">C</div><div className="kpi-val">{calls.length}</div><div className="kpi-lbl">Total Calls</div><div className="kpi-delta kd-neutral">{outcomes.length} analyzed</div></div>
+          <div className="kpi-card"><div className="kpi-icon ki-g">M</div><div className="kpi-val">{bookedCount}</div><div className="kpi-lbl">Meetings Booked</div><div className="kpi-delta kd-neutral">{interestedCount} interested</div></div>
+          <div className="kpi-card"><div className="kpi-icon ki-gr">D</div><div className="kpi-val">-</div><div className="kpi-lbl">Avg Duration</div><div className="kpi-delta kd-neutral">Twilio pending</div></div>
+          <div className="kpi-card"><div className="kpi-icon ki-b">R</div><div className="kpi-val">{calls.length ? `${conversionRate}%` : '-'}</div><div className="kpi-lbl">Conversion Rate</div><div className="kpi-delta kd-neutral">Booked / calls</div></div>
         </div>
-        <div className="an-grid">
-          <div className="card">
-            <div className="card-head"><div className="card-title">Daily Calls — Last 7 Days</div></div>
-            <div className="chart-wrap">
-              <div className="bar-chart">
-                {[{v:96,h:60,l:'Mon'},{v:120,h:75,l:'Tue'},{v:80,h:50,l:'Wed'},{v:144,h:90,l:'Thu'},{v:128,h:80,l:'Fri'},{v:48,h:30,l:'Sat'},{v:142,h:100,l:'Today',hi:true}].map(b => (
-                  <div key={b.l} className="bar-col">
-                    <div className="bar" style={{height:`${b.h}%`,...(b.hi?{background:'var(--purple-pale)',boxShadow:'0 0 12px rgba(107,79,160,.2)'}:{})}} />
-                    <span className="bar-val" style={b.hi?{color:'var(--purple)'}:{}}>{b.v}</span>
-                    <span className="bar-lbl">{b.l}</span>
-                  </div>
-                ))}
-              </div>
+        <div className="card">
+          <div className="card-head"><div className="card-title">Recent Outcomes</div><span className="card-action">{outcomes.length}</span></div>
+          {outcomes.length === 0 ? (
+            <div style={{ padding: 32, textAlign: 'center' }}>
+              <div className="sum-icon" style={{ margin: '0 auto 14px' }}>A</div>
+              <div className="page-title" style={{ fontSize: 26 }}>No analyzed outcomes yet</div>
+              <p className="page-sub" style={{ maxWidth: 560, margin: '8px auto 0', lineHeight: 1.6 }}>
+                Retell call analysis will write normalized outcomes here: booked, interested, follow-up needed, not interested, no answer, or do not call.
+              </p>
             </div>
-          </div>
-          <div className="card">
-            <div className="card-head"><div className="card-title">Outcome Breakdown</div></div>
-            <div className="donut-wrap">
-              <svg width="110" height="110" viewBox="0 0 110 110">
-                <circle cx="55" cy="55" r="40" fill="none" stroke="var(--cream-dark)" strokeWidth="18"/>
-                <circle cx="55" cy="55" r="40" fill="none" stroke="#6B4FA0" strokeWidth="18" strokeDasharray="41 211" strokeDashoffset="0" transform="rotate(-90 55 55)"/>
-                <circle cx="55" cy="55" r="40" fill="none" stroke="#C9A84C" strokeWidth="18" strokeDasharray="55 197" strokeDashoffset="-41" transform="rotate(-90 55 55)"/>
-                <circle cx="55" cy="55" r="40" fill="none" stroke="#6366F1" strokeWidth="18" strokeDasharray="95 157" strokeDashoffset="-96" transform="rotate(-90 55 55)"/>
-                <text x="55" y="59" textAnchor="middle" fill="var(--purple)" fontSize="12" fontFamily="DM Sans" fontWeight="600">16.2%</text>
-              </svg>
-              <div>
-                <div className="dl-item"><div className="dl-dot" style={{background:'#6B4FA0'}} /><span className="dl-lbl">Booked</span><span className="dl-val">16.2%</span></div>
-                <div className="dl-item"><div className="dl-dot" style={{background:'#C9A84C'}} /><span className="dl-lbl">Follow Up</span><span className="dl-val">21.8%</span></div>
-                <div className="dl-item"><div className="dl-dot" style={{background:'#6366F1'}} /><span className="dl-lbl">No Answer</span><span className="dl-val">37.7%</span></div>
-                <div className="dl-item"><div className="dl-dot" style={{background:'var(--cream-dark)'}} /><span className="dl-lbl">Not Interested</span><span className="dl-val">24.3%</span></div>
+          ) : outcomes.slice(0, 12).map(outcome => (
+            <div key={outcome.id} className="mtr">
+              <div className="mtr-av">OC</div>
+              <div className="mtr-info">
+                <div className="mtr-name">{outcome.leads?.full_name || 'Lead'} · {outcome.outcome_type.replaceAll('_', ' ')}</div>
+                <div className="mtr-detail">{outcome.summary || outcome.next_action || 'No summary yet'}</div>
               </div>
+              <span className={`badge ${outcome.outcome_type === 'booked' ? 'b-active' : outcome.outcome_type === 'not_interested' || outcome.outcome_type === 'do_not_call' ? 'b-called' : 'b-interested'}`}><span className="bdot" />{outcome.confidence}</span>
             </div>
-          </div>
-        </div>
-        <div className="an-grid3">
-          <div className="card"><div className="card-head"><div className="card-title">Top Converting Titles</div></div><div style={{padding:'16px 20px'}}><div className="stat-row"><span className="stat-name">CEO / Founder</span><span className="stat-num p">19.4%</span></div><div className="stat-row"><span className="stat-name">MD / Director</span><span className="stat-num">16.2%</span></div><div className="stat-row"><span className="stat-name">VP of Growth</span><span className="stat-num">13.8%</span></div><div className="stat-row"><span className="stat-name">Head of Ops</span><span className="stat-num">11.1%</span></div><div className="stat-row"><span className="stat-name">GM / Owner</span><span className="stat-num">8.4%</span></div></div></div>
-          <div className="card"><div className="card-head"><div className="card-title">Top Industries</div></div><div style={{padding:'16px 20px'}}><div className="stat-row"><span className="stat-name">FinTech / Finance</span><span className="stat-num p">28%</span></div><div className="stat-row"><span className="stat-name">Logistics / Supply</span><span className="stat-num">21%</span></div><div className="stat-row"><span className="stat-name">Healthcare / Med</span><span className="stat-num">17%</span></div><div className="stat-row"><span className="stat-name">EdTech / Learning</span><span className="stat-num">14%</span></div><div className="stat-row"><span className="stat-name">PropTech / Real Estate</span><span className="stat-num">11%</span></div></div></div>
-          <div className="card"><div className="card-head"><div className="card-title">Best Call Hours (SGT)</div></div><div style={{padding:'16px 20px'}}><div className="stat-row"><span className="stat-name">9:00 – 10:00 AM</span><span className="stat-num p">24%</span></div><div className="stat-row"><span className="stat-name">10:00 – 11:00 AM</span><span className="stat-num">20%</span></div><div className="stat-row"><span className="stat-name">2:00 – 3:00 PM</span><span className="stat-num">18%</span></div><div className="stat-row"><span className="stat-name">3:00 – 4:00 PM</span><span className="stat-num">14%</span></div><div className="stat-row"><span className="stat-name">11:00 AM – 12:00</span><span className="stat-num">12%</span></div></div></div>
+          ))}
         </div>
       </div>
 
       {/* AGENT SETTINGS */}
       <div className={`main-content page${activePage === 'settings' ? ' active' : ''}`}>
-        <div className="page-header"><div><div className="page-title">Agent Settings</div><div className="page-sub">Configure · Aria · Singapore</div></div></div>
+        <div className="page-header"><div><div className="page-title">Agent Settings</div><div className="page-sub">Configure · {agentName} · {agentConfig?.city || 'Singapore'}</div></div></div>
         <div className="set-grid">
           <div className="set-nav">
             {([
@@ -271,10 +880,10 @@ export default function DashboardPage() {
           <div>
             {settingsPanel === 'identity' && (
               <div className="set-panel">
-                <div className="sf"><div className="sf-lbl">Agent Name</div><div className="sf-hint">How your agent introduces itself on every call.</div><input className="sf-inp" type="text" defaultValue="Aria" /></div>
-                <div className="sf"><div className="sf-lbl">Company Name</div><input className="sf-inp" type="text" defaultValue="Your Company Pte Ltd" /></div>
-                <div className="sf"><div className="sf-lbl">Value Proposition</div><div className="sf-hint">The single most powerful statement your agent leads with on calls.</div><textarea className="sf-ta" defaultValue="We help Singapore SMEs automate their sales outreach — our clients typically see 3x more qualified meetings within the first 30 days." /></div>
-                <div className="sf"><div className="sf-lbl">Booking Link (Calendly)</div><input className="sf-inp" type="text" defaultValue="https://calendly.com/yourname/discovery" /></div>
+                <div className="sf"><div className="sf-lbl">Agent Name</div><div className="sf-hint">How your agent introduces itself on every call.</div><input className="sf-inp" type="text" value={agentName} readOnly /></div>
+                <div className="sf"><div className="sf-lbl">Company Name</div><input className="sf-inp" type="text" value={companyName} readOnly /></div>
+                <div className="sf"><div className="sf-lbl">Value Proposition</div><div className="sf-hint">The single most powerful statement your agent leads with on calls.</div><textarea className="sf-ta" value={valueProposition} readOnly /></div>
+                <div className="sf"><div className="sf-lbl">Booking Link (Calendly)</div><input className="sf-inp" type="text" value={bookingLink} readOnly /></div>
                 <div className="set-save"><button className="btn-outline">Reset</button><button className="btn-primary">Save Changes</button></div>
               </div>
             )}
@@ -340,85 +949,36 @@ export default function DashboardPage() {
 
       {/* BILLING */}
       <div className={`main-content page${activePage === 'billing' ? ' active' : ''}`}>
-        <div className="page-header"><div><div className="page-title">Billing</div><div className="page-sub">Plan · Usage · Invoice History</div></div></div>
+        <div className="page-header"><div><div className="page-title">Billing</div><div className="page-sub">Payment is required before launching the agent.</div></div></div>
         <div className="bill-grid">
-          <div>
-            <div className="plan-card">
-              <div className="plan-tag">✦ Current Plan</div>
-              <div className="plan-name">Growth</div>
-              <div className="plan-price">S$349<small>/month</small></div>
-              <div style={{marginTop:16}}>
-                {['500 calls/month included','1 AI agent (Aria)','Apollo lead integration','PDPA + DND compliance','Singapore Twilio number','Up to 3 team members'].map(f => (
-                  <div key={f} className="plan-feat"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{width:14,height:14,color:'var(--green)'}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>{f}</div>
-                ))}
-              </div>
-              <div style={{marginTop:20,display:'flex',gap:10}}><button className="btn-outline" style={{flex:1}}>Cancel Plan</button><button className="btn-primary" style={{flex:1}}>Upgrade to Scale</button></div>
+          <div className="plan-card">
+            <div className="plan-tag">Selected Plan</div>
+            <div className="plan-name">{planLabel}</div>
+            <div style={{marginTop:16}}>
+              <div className="plan-feat">Plan selection is saved to your workspace.</div>
+              <div className="plan-feat">Stripe checkout is not connected yet.</div>
+              <div className="plan-feat">Usage counters will stay at zero until real calls run.</div>
             </div>
-            <div className="card" style={{marginBottom:18}}>
-              <div className="card-head"><div className="card-title">Usage This Month</div></div>
-              <div style={{padding:20}}>
-                <div className="usage-wrap"><div className="usage-lbl"><span>Calls Used</span><span>142 / 500</span></div><div className="usage-bar"><div className="usage-fill" style={{width:'28%'}} /></div></div>
-                <div className="usage-wrap"><div className="usage-lbl"><span>Leads Pulled</span><span>847 / 2,000</span></div><div className="usage-bar"><div className="usage-fill" style={{width:'42%'}} /></div></div>
-                <div className="usage-wrap"><div className="usage-lbl"><span>Meetings Booked</span><span>23 / unlimited</span></div><div className="usage-bar"><div className="usage-fill" style={{width:'100%'}} /></div></div>
-              </div>
-            </div>
-            <div className="card">
-              <div className="card-head"><div className="card-title">Invoice History</div></div>
-              {[{plan:'Growth Plan',date:'May 1, 2026',amt:'S$349.00'},{plan:'Growth Plan',date:'Apr 1, 2026',amt:'S$349.00'},{plan:'Starter Plan',date:'Mar 1, 2026',amt:'S$129.00'}].map(inv => (
-                <div key={inv.date} className="inv-row">
-                  <div><div className="inv-plan">{inv.plan}</div><div className="inv-date">{inv.date}</div></div>
-                  <div style={{display:'flex',alignItems:'center',gap:16}}><div className="inv-amt">{inv.amt}</div><span className="inv-status">Paid</span><button className="btn-outline" style={{padding:'4px 12px',fontSize:11}}>PDF</button></div>
-                </div>
-              ))}
-            </div>
+            <div style={{marginTop:20,display:'flex',gap:10}}><button className="btn-primary" disabled style={{flex:1}}>Connect payment next</button></div>
           </div>
-          <div>
-            <div className="up-card">
-              <div className="up-title">Scale Plan</div>
-              <div className="up-price">S$799<small>/mo</small></div>
-              <div className="up-sub">For businesses ready to scale their outbound seriously.</div>
-              <div style={{marginBottom:18}}>
-                {['2,000 calls/month','3 AI agents simultaneously','Unlimited team members','CRM integrations','Priority support','Custom analytics dashboard'].map(f => (
-                  <div key={f} className="up-feat"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{width:12,height:12,color:'var(--green)'}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>{f}</div>
-                ))}
-              </div>
-              <button className="btn-primary" style={{width:'100%',justifyContent:'center'}}>Upgrade Now →</button>
-            </div>
+          <div className="card" style={{ padding: 24 }}>
+            <div className="card-title">Usage</div>
+            <div className="usage-wrap"><div className="usage-lbl"><span>Calls Used</span><span>0</span></div><div className="usage-bar"><div className="usage-fill" style={{width:'0%'}} /></div></div>
+            <div className="usage-wrap"><div className="usage-lbl"><span>Leads Imported</span><span>0</span></div><div className="usage-bar"><div className="usage-fill" style={{width:'0%'}} /></div></div>
+            <div className="usage-wrap"><div className="usage-lbl"><span>Meetings Booked</span><span>0</span></div><div className="usage-bar"><div className="usage-fill" style={{width:'0%'}} /></div></div>
           </div>
         </div>
       </div>
 
       {/* TEAM */}
       <div className={`main-content page${activePage === 'team' ? ' active' : ''}`}>
-        <div className="page-header"><div><div className="page-title">Team</div><div className="page-sub">2 of 3 seats used · Growth Plan</div></div></div>
-        <div className="team-grid">
-          <div className="card">
-            <div className="card-head"><div className="card-title">Team Members</div><span className="card-action">Manage Roles</span></div>
-            <table className="data-table">
-              <thead><tr><th>Member</th><th>Role</th><th>Status</th><th>Permissions</th><th>Last Active</th><th></th></tr></thead>
-              <tbody>
-                <tr><td><div style={{display:'flex',alignItems:'center',gap:12}}><div className="mem-av" style={{background:'var(--purple-pale)',border:'1.5px solid var(--purple)',color:'var(--purple)'}}>YN</div><div><div className="mem-name">Your Name</div><div className="mem-email">you@yourcompany.sg</div></div></div></td><td><span className="badge b-admin">Admin</span></td><td><span className="badge b-active"><span className="bdot" />Active</span></td><td><div><span className="perm-tag">All Access</span></div></td><td style={{fontSize:11,color:'var(--text-muted)'}}>Now</td><td style={{fontSize:11,color:'var(--text-muted)'}}>Owner</td></tr>
-                <tr><td><div style={{display:'flex',alignItems:'center',gap:12}}><div className="mem-av" style={{background:'var(--gold-pale)',border:'1.5px solid var(--gold)',color:'#92670A'}}>KL</div><div><div className="mem-name">Kenny Lau</div><div className="mem-email">kenny@yourcompany.sg</div></div></div></td><td><span className="badge b-member">Member</span></td><td><span className="badge b-active"><span className="bdot" />Active</span></td><td><div><span className="perm-tag">Leads</span><span className="perm-tag">Calls</span><span className="perm-tag">Meetings</span></div></td><td style={{fontSize:11,color:'var(--text-muted)'}}>1h ago</td><td><button className="btn-outline" style={{padding:'5px 12px',fontSize:11}}>Edit</button></td></tr>
-                <tr><td><div style={{display:'flex',alignItems:'center',gap:12}}><div className="mem-av" style={{background:'var(--cream-dark)',border:'1.5px solid var(--border-dark)',color:'var(--text-muted)'}}>+</div><div><div className="mem-name" style={{color:'var(--text-muted)'}}>Open Seat</div><div className="mem-email">1 seat remaining</div></div></div></td><td>—</td><td><span className="badge b-pending">Available</span></td><td>—</td><td>—</td><td><button className="btn-primary" style={{padding:'5px 14px',fontSize:11}}>Invite</button></td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div className="inv-card">
-            <div className="ic-title">Invite a teammate</div>
-            <div className="ic-sub">Add someone to your Barsha AI workspace. They&apos;ll receive an email invitation.</div>
-            <div className="inv-form">
-              <input className="sf-inp" type="email" placeholder="colleague@company.sg" />
-              <div className="sf-lbl" style={{marginTop:4}}>Select Role</div>
-              <div className="role-grid">
-                {[{n:'Member',d:'View leads, calls & meetings'},{n:'Admin',d:'Full access including billing'}].map((r,i) => (
-                  <div key={r.n} className={`role-opt${selectedRole===i?' selected':''}`} onClick={() => setSelectedRole(i)}>
-                    <div className="ro-name">{r.n}</div><div className="ro-desc">{r.d}</div>
-                  </div>
-                ))}
-              </div>
-              <button className="btn-primary" style={{justifyContent:'center',marginTop:4}}>Send Invitation</button>
-            </div>
-          </div>
+        <div className="page-header"><div><div className="page-title">Team</div><div className="page-sub">Team management is not enabled in the MVP yet.</div></div></div>
+        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
+          <div className="sum-icon" style={{ margin: '0 auto 14px' }}>T</div>
+          <div className="page-title" style={{ fontSize: 26 }}>Single-owner workspace</div>
+          <p className="page-sub" style={{ maxWidth: 560, margin: '8px auto 0', lineHeight: 1.6 }}>
+            This workspace is currently scoped to the signed-in owner. Invitations and roles should come after core lead and calling flows.
+          </p>
         </div>
       </div>
     </div>

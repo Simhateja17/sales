@@ -1,10 +1,34 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { savePlan, type Workspace } from '@/lib/api';
+
+const PLANS: NonNullable<Workspace['plan']>[] = ['atelier', 'maison', 'sovereign'];
 
 export default function PlanSelectPage() {
   const router = useRouter();
   const [selected, setSelected] = useState(0);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function continueToOnboarding() {
+    setError('');
+
+    setSaving(true);
+    try {
+      await savePlan(PLANS[selected]);
+      router.push('/onboarding');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save plan.';
+      if (message.toLowerCase().includes('authentication')) {
+        router.push('/login');
+        return;
+      }
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="screen active" id="plan-select">
@@ -15,6 +39,11 @@ export default function PlanSelectPage() {
           <p className="start-sub">Pick the plan that matches your sales volume. You can change this anytime from Billing.</p>
         </div>
         <div className="start-body">
+          {error && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 14 }}>
+              {error}
+            </div>
+          )}
           <div className="plan-grid">
             <div
               className={`plan-option${selected === 0 ? ' selected' : ''}`}
@@ -84,11 +113,13 @@ export default function PlanSelectPage() {
         </div>
         <div className="start-nav">
           <button className="btn-back" onClick={() => router.push('/signup')}>← Back</button>
-          <button className="btn-gold" onClick={() => router.push('/onboarding')}>
-            Start Building Agent{' '}
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
+          <button className="btn-gold" onClick={continueToOnboarding} disabled={saving}>
+            {saving ? 'Saving plan...' : 'Start Building Agent'}{' '}
+            {!saving && (
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            )}
           </button>
         </div>
       </div>

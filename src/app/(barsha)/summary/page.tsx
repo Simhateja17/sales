@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getWorkspace, provisionVoiceAgent } from '@/lib/api';
 
 type Answers = Record<string, string | string[] | number>;
 
@@ -8,11 +9,31 @@ export default function SummaryPage() {
   const router = useRouter();
   const [answers, setAnswers] = useState<Answers>({});
   const [activeTab, setActiveTab] = useState<'plain' | 'prompt'>('plain');
+  const [generatedAt, setGeneratedAt] = useState('');
+  const [savedPrompt, setSavedPrompt] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [launching, setLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState('');
 
   useEffect(() => {
     const saved = sessionStorage.getItem('barsha_answers');
     if (saved) setAnswers(JSON.parse(saved));
-  }, []);
+    setGeneratedAt(new Date().toLocaleString());
+
+    getWorkspace()
+      .then(data => {
+        if (data.agentConfig?.raw_answers) {
+          setAnswers(data.agentConfig.raw_answers);
+        }
+        if (data.agentConfig?.system_prompt) {
+          setSavedPrompt(data.agentConfig.system_prompt);
+        }
+      })
+      .catch(() => {
+        router.push('/login');
+      })
+      .finally(() => setLoading(false));
+  }, [router]);
 
   const get = (key: string, fallback = '—') => {
     const v = answers[key];
@@ -21,9 +42,9 @@ export default function SummaryPage() {
     return String(v);
   };
 
-  const rawPrompt = `# BARSHA AI — SYSTEM PROMPT
+  const generatedPrompt = `# BARSHA AI — SYSTEM PROMPT
 # Market: Singapore
-# Generated: ${new Date().toLocaleString()}
+# Generated: ${generatedAt || '—'}
 
 ## IDENTITY
 You are ${get('agentName', 'Aria')}, calling on behalf of ${get('company', '[Company]')} based in ${get('city', 'Singapore')}.
@@ -69,12 +90,29 @@ Style: ${get('tone', 'Professional & Warm')}
 Max Clients: ${get('capacity', '20')}/month — prioritise highest-intent prospects.
 Never quote exact prices, make guarantees, or sign agreements.`;
 
+  const rawPrompt = savedPrompt || generatedPrompt;
+
+  async function handleLaunchAgent() {
+    setLaunchError('');
+    setLaunching(true);
+
+    try {
+      const result = await provisionVoiceAgent();
+      sessionStorage.setItem('barsha_launch_job_id', result.job.id);
+      router.push(`/dashboard?launchJobId=${result.job.id}`);
+    } catch (error) {
+      setLaunchError(error instanceof Error ? error.message : 'Failed to start AI launch job.');
+    } finally {
+      setLaunching(false);
+    }
+  }
+
   return (
     <div className="screen active" id="summary">
       <div className="sum-hdr">
         <div className="sum-icon">✦</div>
         <div className="sum-title">Your Agent is Ready</div>
-        <p className="sum-sub">Review your setup before going live.</p>
+        <p className="sum-sub">{loading ? 'Loading your saved setup...' : 'Review your setup before going live.'}</p>
       </div>
 
       <div className="toggle-bar">
@@ -132,14 +170,21 @@ Never quote exact prices, make guarantees, or sign agreements.`;
         )}
       </div>
 
+      {launchError && (
+        <div className="pdpa-banner" style={{ marginTop: 16 }}>
+          <span>{launchError}</span>
+        </div>
+      )}
+
       <div className="sum-actions">
         <button className="btn-outline" onClick={() => router.push('/onboarding')}>← Edit Answers</button>
         <button
           className="btn-gold"
           style={{ flex: 1, justifyContent: 'center' }}
-          onClick={() => router.push('/dashboard')}
+          onClick={handleLaunchAgent}
+          disabled={launching || loading}
         >
-          Launch My Agent →
+          {launching ? 'Launching...' : 'Launch My Agent →'}
         </button>
       </div>
     </div>

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getWorkspace, saveOnboarding, saveOnboardingDraft } from '@/lib/api';
 
 type StepType = 'text' | 'textarea' | 'select' | 'choice' | 'tags' | 'range';
 
@@ -47,6 +48,9 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [draftStatus, setDraftStatus] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -61,12 +65,52 @@ export default function OnboardingPage() {
     }, 80);
   }, [step, current.type]);
 
-  function next() {
+  useEffect(() => {
+    getWorkspace()
+      .then(data => {
+        if (data.agentConfig?.raw_answers) {
+          setAnswers(data.agentConfig.raw_answers);
+        }
+        if (!data.workspace.onboarding_completed && data.workspace.onboarding_step > 0) {
+          setStep(Math.min(data.workspace.onboarding_step, STEPS.length - 1));
+        }
+      })
+      .catch(() => {
+        router.push('/login');
+      });
+  }, [router]);
+
+  async function saveDraft(nextStep: number) {
+    setDraftStatus('Saving...');
+    await saveOnboardingDraft(answers, nextStep);
+    setDraftStatus('Saved');
+  }
+
+  async function next() {
+    setError('');
+
     if (isLast) {
-      sessionStorage.setItem('barsha_answers', JSON.stringify(answers));
-      router.push('/summary');
+      setSaving(true);
+      try {
+        sessionStorage.setItem('barsha_answers', JSON.stringify(answers));
+        await saveOnboarding(answers);
+        router.push('/summary');
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Failed to save onboarding.');
+      } finally {
+        setSaving(false);
+      }
     } else {
-      setStep(s => s + 1);
+      const nextStep = step + 1;
+      setSaving(true);
+      try {
+        await saveDraft(nextStep);
+        setStep(nextStep);
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Failed to save progress.');
+      } finally {
+        setSaving(false);
+      }
     }
   }
 
@@ -209,9 +253,15 @@ export default function OnboardingPage() {
             <div className="ob-hint">{current.hint}</div>
           </div>
           <div className="ob-body-area">
+            {error && (
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 14 }}>
+                {error}
+              </div>
+            )}
             {renderInput()}
           </div>
           <div className="ob-nav">
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 80 }}>{draftStatus}</div>
             <button
               className="btn-back"
               onClick={prev}
@@ -219,20 +269,24 @@ export default function OnboardingPage() {
             >
               ← Back
             </button>
-            <button className="btn-next" onClick={next}>
+            <button className="btn-next" onClick={next} disabled={saving}>
               {isLast ? (
                 <>
-                  Build My Agent{' '}
-                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
-                  </svg>
+                  {saving ? 'Saving Agent...' : 'Build My Agent'}{' '}
+                  {!saving && (
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+                    </svg>
+                  )}
                 </>
               ) : (
                 <>
-                  Continue{' '}
-                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                  </svg>
+                  {saving ? 'Saving...' : 'Continue'}{' '}
+                  {!saving && (
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  )}
                 </>
               )}
             </button>
