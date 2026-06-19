@@ -49,7 +49,7 @@ export default function SignupPage() {
         setError(data.error || 'Could not send a code.');
       } else {
         setOtpRequested(true);
-        setSuccess(data.message || 'Check your email for a six-digit code.');
+        setSuccess(data.message || 'Check your email for a verification code.');
       }
     } catch {
       setError('Network error. Please try again.');
@@ -62,8 +62,8 @@ export default function SignupPage() {
     setError('');
     setSuccess('');
 
-    if (!/^\d{6}$/.test(otp)) {
-      setError('Enter the six-digit code from your email.');
+    if (!/^\d{6,10}$/.test(otp)) {
+      setError('Enter the verification code from your email.');
       return;
     }
 
@@ -142,10 +142,10 @@ export default function SignupPage() {
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                maxLength={6}
-                placeholder="Six-digit code"
+                maxLength={10}
+                placeholder="Verification code"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))}
               />
             )}
           </div>

@@ -47,8 +47,8 @@ export default function LoginPage() {
   const verifyOtp = async () => {
     setError('');
 
-    if (!/^\d{6}$/.test(otp)) {
-      setError('Enter the six-digit code from your email.');
+    if (!/^\d{6,10}$/.test(otp)) {
+      setError('Enter the verification code from your email.');
       return;
     }
 
@@ -123,10 +123,10 @@ export default function LoginPage() {
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  maxLength={6}
-                  placeholder="Six-digit code"
+                  maxLength={10}
+                  placeholder="Verification code"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 />
                 <button className="btn-back" type="button" onClick={() => { setOtpRequested(false); setOtp(''); setError(''); }}>
                   Use a different email
