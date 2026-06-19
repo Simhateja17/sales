@@ -561,7 +561,13 @@ export default function DashboardPage() {
                 <input className="sf-inp" placeholder="+65 dedicated number" value={telephonyNumber} onChange={e => setTelephonyNumber(e.target.value)} style={{ marginTop: 10 }} />
                 <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                   <button className="btn-outline" onClick={handleAttachTelephony} disabled={callingBusy || !telephonyNumber.trim()}>Attach Number</button>
-                  <button className="btn-outline" onClick={handleProvisionAgent} disabled={callingBusy || !agentConfig?.system_prompt || ['Generating', 'Provisioning'].includes(launchView.label)}>Create Retell Agent</button>
+                  <button
+                    className={launchView.label === 'Failed' ? 'btn-primary' : 'btn-outline'}
+                    onClick={handleProvisionAgent}
+                    disabled={callingBusy || !agentConfig?.system_prompt || ['Generating', 'Provisioning'].includes(launchView.label)}
+                  >
+                    {launchView.label === 'Failed' ? 'Retry Agent Launch' : 'Create Retell Agent'}
+                  </button>
                   <button className="btn-primary" onClick={() => handleLaunchToggle(!callingEnabled)} disabled={callingBusy}>
                     {callingEnabled ? 'Disable Queue' : 'Launch Queue'}
                   </button>
