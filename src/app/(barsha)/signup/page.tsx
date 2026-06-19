@@ -10,19 +10,24 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpRequested, setOtpRequested] = useState(false);
   const [phone, setPhone] = useState('');
   const [agreed, setAgreed] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
 
-  const handleSignup = async () => {
+  const requestOtp = async () => {
     setError('');
     setSuccess('');
 
-    if (!email || !password) {
-      setError('Email and password are required.');
+    if (!email) {
+      setError('Email is required.');
+      return;
+    }
+    if (!fullName.trim() || !businessName.trim()) {
+      setError('Full name and business name are required.');
       return;
     }
     if (!agreed) {
@@ -32,19 +37,50 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/signup`, {
+      const res = await fetch(`${API_URL}/api/auth/otp/request`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, fullName, businessName, phone }),
+        body: JSON.stringify({ email, intent: 'signup', fullName, businessName, phone }),
       });
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Signup failed.');
+        setError(data.error || 'Could not send a code.');
       } else {
-        setSuccess(data.message || 'Account created! Check your email.');
-        setTimeout(() => router.push(data.authenticated ? '/plan-select' : '/login'), 1200);
+        setOtpRequested(true);
+        setSuccess(data.message || 'Check your email for a six-digit code.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    setError('');
+    setSuccess('');
+
+    if (!/^\d{6}$/.test(otp)) {
+      setError('Enter the six-digit code from your email.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/otp/verify`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, token: otp }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'The code is invalid or expired.');
+      } else {
+        router.push('/plan-select');
       }
     } catch {
       setError('Network error. Please try again.');
@@ -97,27 +133,43 @@ export default function SignupPage() {
           )}
 
           <div className="start-grid">
-            <input className="ob-inp" type="text" placeholder="Your full name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-            <input className="ob-inp" type="text" placeholder="Business name" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
-            <input className="ob-inp" type="email" placeholder="Work email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input className="ob-inp" type="password" placeholder="Create password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input className="ob-inp" type="text" placeholder="Your full name" value={fullName} disabled={otpRequested} onChange={(e) => setFullName(e.target.value)} />
+            <input className="ob-inp" type="text" placeholder="Business name" value={businessName} disabled={otpRequested} onChange={(e) => setBusinessName(e.target.value)} />
+            <input className="ob-inp" type="email" autoComplete="email" placeholder="Work email" value={email} disabled={otpRequested} onChange={(e) => setEmail(e.target.value)} />
+            {otpRequested && (
+              <input
+                className="ob-inp"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                placeholder="Six-digit code"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            )}
           </div>
           <div style={{ marginTop: 12 }}>
-            <input className="ob-inp" type="text" placeholder="Phone number (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <input className="ob-inp" type="text" placeholder="Phone number (optional)" value={phone} disabled={otpRequested} onChange={(e) => setPhone(e.target.value)} />
           </div>
           <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <input type="checkbox" className="cb" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 2 }} />
             <span>I agree to the Terms and Privacy Policy, and I consent to communication regarding account setup.</span>
           </div>
           <div className="start-foot">
-            Already have an account?{' '}
-            <Link href="/login">Log in</Link>
+            {otpRequested ? (
+              <button className="btn-back" type="button" onClick={() => { setOtpRequested(false); setOtp(''); setError(''); setSuccess(''); }}>
+                Change account details
+              </button>
+            ) : (
+              <>Already have an account? <Link href="/login">Log in</Link></>
+            )}
           </div>
         </div>
         <div className="start-nav">
           <button className="btn-back" onClick={() => router.push('/')}>← Back</button>
-          <button className="btn-next" onClick={handleSignup} disabled={loading}>
-            {loading ? 'Creating…' : 'Continue'}{' '}
+          <button className="btn-next" onClick={otpRequested ? verifyOtp : requestOtp} disabled={loading}>
+            {loading ? 'Please wait…' : otpRequested ? 'Verify & Create Account' : 'Email Me a Code'}{' '}
             {!loading && (
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />

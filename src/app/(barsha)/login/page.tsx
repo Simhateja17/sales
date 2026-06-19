@@ -9,30 +9,61 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpRequested, setOtpRequested] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
+  const requestOtp = async () => {
     setError('');
 
-    if (!email || !password) {
-      setError('Email and password are required.');
+    if (!email) {
+      setError('Email is required.');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      const res = await fetch(`${API_URL}/api/auth/otp/request`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, intent: 'login' }),
       });
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Login failed.');
+        setError(data.error || 'Could not send a code.');
+      } else {
+        setOtpRequested(true);
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    setError('');
+
+    if (!/^\d{6}$/.test(otp)) {
+      setError('Enter the six-digit code from your email.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/otp/verify`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, token: otp }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'The code is invalid or expired.');
       } else {
         const state = await getWorkspace();
 
@@ -84,13 +115,24 @@ export default function LoginPage() {
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <input className="ob-inp" type="email" placeholder="Work email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input className="ob-inp" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <a href="#" style={{ fontSize: 12, color: 'var(--purple)', textDecoration: 'none' }}>
-                Forgot password?
-              </a>
-            </div>
+            <input className="ob-inp" type="email" autoComplete="email" placeholder="Work email" value={email} disabled={otpRequested} onChange={(e) => setEmail(e.target.value)} />
+            {otpRequested && (
+              <>
+                <input
+                  className="ob-inp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="Six-digit code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                />
+                <button className="btn-back" type="button" onClick={() => { setOtpRequested(false); setOtp(''); setError(''); }}>
+                  Use a different email
+                </button>
+              </>
+            )}
           </div>
           <div className="start-foot">
             New to Barsha AI?{' '}
@@ -99,8 +141,8 @@ export default function LoginPage() {
         </div>
         <div className="start-nav">
           <button className="btn-back" onClick={() => router.push('/signup')}>← Back</button>
-          <button className="btn-next" onClick={handleLogin} disabled={loading}>
-            {loading ? 'Logging in…' : 'Log In'}{' '}
+          <button className="btn-next" onClick={otpRequested ? verifyOtp : requestOtp} disabled={loading}>
+            {loading ? 'Please wait…' : otpRequested ? 'Verify & Log In' : 'Email Me a Code'}{' '}
             {!loading && (
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
