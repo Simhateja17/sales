@@ -65,7 +65,18 @@ export default function LoginPage() {
       if (!res.ok) {
         setError(data.error || 'The code is invalid or expired.');
       } else {
-        const state = await getWorkspace();
+        let state;
+        try {
+          state = await getWorkspace();
+        } catch (workspaceError) {
+          const message = workspaceError instanceof Error ? workspaceError.message : '';
+          setError(
+            message === 'Authentication required'
+              ? 'The code was accepted, but the browser did not store the session cookie. Please try again after the backend cookie configuration is updated.'
+              : message || 'Signed in, but your workspace could not be loaded.',
+          );
+          return;
+        }
 
         if (!state.workspace.plan) {
           router.push('/plan-select');
