@@ -42,7 +42,7 @@ export default function SummaryPage() {
     return String(v);
   };
 
-  const generatedPrompt = `# BARSHA AI — SYSTEM PROMPT
+  const generatedPrompt = `# CircleOn— SYSTEM PROMPT
 # Market: Singapore
 # Generated: ${generatedAt || '—'}
 

@@ -233,7 +233,7 @@ export default function OnboardingPage() {
   return (
     <div className="screen active" id="onboarding">
       <div className="ob-header">
-        <div className="ob-logo">Barsha AI <small>Singapore</small></div>
+        <div className="ob-logo">CircleOn<small>Singapore</small></div>
         <div className="prog-wrap">
           <div className="prog-lbl">
             <span>{current.cat}</span>
