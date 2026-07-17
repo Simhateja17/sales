@@ -1,79 +1,165 @@
 'use client';
-import { useEffect, useState } from 'react';
+
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  approveFollowUp,
-  attachTelephony,
+  approveInboxMessage,
+  connectSmtp,
+  createCampaign,
   createLead,
-  getAgentLaunchJob,
+  downloadCsvImportErrors,
+  generateCampaignEmails,
+  getCampaignPreview,
+  getCampaigns,
   getApolloFilters,
-  getCallingStatus,
+  getApolloImport,
+  getLeadImport,
+  getInbox,
   getLeads,
   getMeetings,
-  getOutcomes,
+  getSmtpStatus,
   getWorkspace,
   importApolloLeads,
-  importCsvLeads,
-  provisionVoiceAgent,
-  setCallingLaunch,
-  setLeadDncStatus,
-  setLeadVoiceConsent,
-  updateFollowUp,
+  launchCampaign,
+  pauseCampaign,
+  previewCsvMapping,
+  resumeCampaign,
+  startCsvImport,
+  syncApolloEmails,
+  testSmtp,
   type ApolloFilters,
-  type AgentConfig,
-  type CallOutcome,
-  type AIJob,
-  type CallingStatus,
-  type FollowUp,
+  type Campaign,
+  type ConnectedAccount,
+  type CsvMapping,
+  type EmailMessage,
   type Lead,
+  type LeadImportRun,
   type Meeting,
   type Workspace,
 } from '@/lib/api';
 
-type Page = 'dashboard' | 'leads' | 'calls' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'team';
-type SettingsPanel = 'identity' | 'voice' | 'script' | 'schedule' | 'compliance';
+type Page = 'overview' | 'campaigns' | 'leads' | 'inbox' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
+
+const navItems: Array<{ id: Page; label: string; marker: string }> = [
+  { id: 'overview', label: 'Overview', marker: 'Ov' },
+  { id: 'campaigns', label: 'Campaigns', marker: 'Ca' },
+  { id: 'leads', label: 'Leads', marker: 'Le' },
+  { id: 'inbox', label: 'Inbox', marker: 'In' },
+  { id: 'meetings', label: 'Meetings', marker: 'Me' },
+  { id: 'analytics', label: 'Analytics', marker: 'An' },
+  { id: 'settings', label: 'Settings', marker: 'Se' },
+  { id: 'billing', label: 'Billing', marker: 'Bi' },
+  { id: 'support', label: 'Support', marker: 'Su' },
+];
+
+const emptyLeadForm = {
+  full_name: '',
+  company_name: '',
+  title: '',
+  email: '',
+  phone: '',
+  notes_summary: '',
+};
+
+const emptyCampaignForm = {
+  name: '',
+  daily_send_cap: 40,
+  send_window_start: '09:00',
+  send_window_end: '17:30',
+  timezone: 'Asia/Singapore',
+  require_approval: true,
+  auto_send_replies: false,
+};
+
+const emptySmtpForm = {
+  from_email: '',
+  from_name: '',
+  reply_to_email: '',
+  smtp_host: '',
+  smtp_port: 587,
+  smtp_username: '',
+  smtp_password: '',
+  imap_host: '',
+  imap_port: 993,
+  imap_username: '',
+  imap_password: '',
+};
+
+const emptyApolloFilters: ApolloFilters = {
+  titles: ['Founder', 'CEO', 'Managing Director', 'Head of Sales'],
+  region: 'Singapore',
+  industry: '',
+  companySize: '',
+  limit: 25,
+};
+
+function initials(name?: string | null) {
+  if (!name) return 'NA';
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase())
+    .join('') || 'NA';
+}
+
+function statusBadge(status?: string | null) {
+  if (!status) return 'b-noanswer';
+  if (['active', 'sent', 'auto_sent', 'booked', 'positive'].includes(status)) return 'b-booked';
+  if (['ready', 'approved', 'interested'].includes(status)) return 'b-interested';
+  if (['draft', 'pending_approval', 'generating', 'queued'].includes(status)) return 'b-pending';
+  if (['failed', 'rejected', 'not_interested', 'dnc_request'].includes(status)) return 'b-noanswer';
+  return 'b-new';
+}
+
+function fmtDate(value?: string | null) {
+  if (!value) return 'Not scheduled';
+  return new Intl.DateTimeFormat('en-SG', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+const csvTargets = ['full_name', 'first_name', 'last_name', 'company_name', 'title', 'email', 'phone', 'location', 'linkedin_url', 'company_domain', 'company_industry', 'company_size', 'external_id', 'ignore'];
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [activePage, setActivePage] = useState<Page>('dashboard');
-  const [settingsPanel, setSettingsPanel] = useState<SettingsPanel>('identity');
-  const [selectedVoice, setSelectedVoice] = useState(0);
+  const [activePage, setActivePage] = useState<Page>('overview');
   const [today, setToday] = useState('');
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
-  const [agentConfig, setAgentConfig] = useState<AgentConfig | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
-  const [callingStatus, setCallingStatus] = useState<CallingStatus | null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [inbox, setInbox] = useState<EmailMessage[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [outcomes, setOutcomes] = useState<CallOutcome[]>([]);
-  const [leadMessage, setLeadMessage] = useState('');
-  const [callingMessage, setCallingMessage] = useState('');
-  const [savingLead, setSavingLead] = useState(false);
-  const [callingBusy, setCallingBusy] = useState(false);
-  const [launchJobId, setLaunchJobId] = useState('');
-  const [launchJob, setLaunchJob] = useState<AIJob | null>(null);
+  const [smtpAccount, setSmtpAccount] = useState<ConnectedAccount | null>(null);
+  const [selectedCampaignId, setSelectedCampaignId] = useState('');
+  const [preview, setPreview] = useState<EmailMessage[]>([]);
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState('');
+  const [leadForm, setLeadForm] = useState(emptyLeadForm);
+  const [campaignForm, setCampaignForm] = useState(emptyCampaignForm);
+  const [smtpForm, setSmtpForm] = useState(emptySmtpForm);
+  const [apolloFilters, setApolloFilters] = useState<ApolloFilters>(emptyApolloFilters);
   const [csvText, setCsvText] = useState('');
-  const [telephonyNumber, setTelephonyNumber] = useState('');
-  const [apolloBusy, setApolloBusy] = useState(false);
-  const [apolloFilters, setApolloFilters] = useState<ApolloFilters>({
-    titles: ['Founder', 'CEO', 'Managing Director', 'Head of Sales'],
-    region: 'Singapore',
-    industry: '',
-    companySize: '',
-    limit: 25,
-  });
-  const [leadForm, setLeadForm] = useState({
-    full_name: '',
-    company_name: '',
-    title: '',
-    phone: '',
-    email: '',
-    note: '',
-    next_action: '',
-    due_at: '',
-    priority: 'normal',
-    owner_type: 'agent',
-  });
+  const [csvMappings, setCsvMappings] = useState<CsvMapping[]>([]);
+  const [csvPreview, setCsvPreview] = useState<Record<string, unknown>[]>([]);
+  const [lastCsvRun, setLastCsvRun] = useState<LeadImportRun | null>(null);
+  const [csvMode, setCsvMode] = useState<'import' | 'suppress'>('import');
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+
+  const selectedCampaign = campaigns.find(campaign => campaign.id === selectedCampaignId) || campaigns[0] || null;
+  const emailLeads = useMemo(
+    () => leads.filter(lead => Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status)),
+    [leads]
+  );
+  const pendingReplies = useMemo(
+    () => inbox.filter(item => item.direction === 'inbound' || item.status === 'pending_approval'),
+    [inbox]
+  );
+  const sentMessages = preview.filter(item => item.status === 'sent' || item.status === 'auto_sent').length;
+  const openedMessages = preview.filter(item => item.open_count > 0).length;
 
   useEffect(() => {
     setToday(
@@ -91,902 +177,940 @@ export default function DashboardPage() {
     getWorkspace()
       .then(data => {
         setWorkspace(data.workspace);
-        setAgentConfig(data.agentConfig);
-
         if (!data.workspace.plan) {
           router.push('/plan-select');
         } else if (!data.workspace.onboarding_completed) {
           router.push('/onboarding');
         }
       })
-      .catch(() => {
-        router.push('/login');
-      });
+      .catch(() => router.push('/login'));
   }, [router]);
 
   useEffect(() => {
-    const queryJobId = typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('launchJobId')
-      : '';
-    const savedJobId = typeof window !== 'undefined' ? sessionStorage.getItem('barsha_launch_job_id') : '';
-    const initialJobId = queryJobId || savedJobId;
-
-    if (initialJobId) {
-      setLaunchJobId(initialJobId);
-      if (queryJobId) {
-        sessionStorage.setItem('barsha_launch_job_id', queryJobId);
-      }
-    }
-
-    refreshLeads().catch(() => {
-      // Auth routing is handled by workspace loading; keep this page resilient.
-    });
-    refreshCalling().catch(() => {
-      // Calling readiness is optional until backend/env is configured.
-    });
-    refreshOutcomes().catch(() => {
-      // Outcome pages stay empty until calls or calendar events exist.
-    });
+    refreshAll().catch(error => setMessage(error.message));
     getApolloFilters()
       .then(data => setApolloFilters(data.filters))
       .catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    if (!launchJobId) return undefined;
+    if (!selectedCampaign?.id) {
+      setPreview([]);
+      return;
+    }
+    getCampaignPreview(selectedCampaign.id)
+      .then(data => setPreview(data.messages))
+      .catch(() => setPreview([]));
+  }, [selectedCampaign?.id]);
 
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+  useEffect(() => {
+    setSelectedLeadIds(current => {
+      const eligibleIds = [...emailLeads].sort((a, b) => (b.fit_score || 0) - (a.fit_score || 0)).map(lead => lead.id);
+      const retained = current.filter(id => eligibleIds.includes(id));
+      return retained.length ? retained : eligibleIds.slice(0, 100);
+    });
+  }, [emailLeads]);
 
-    const poll = async () => {
-      try {
-        const data = await getAgentLaunchJob(launchJobId);
-        if (cancelled) return;
-        setLaunchJob(data.job);
-
-        if (data.job.status === 'completed' || data.job.status === 'failed') {
-          sessionStorage.removeItem('barsha_launch_job_id');
-          return;
-        }
-      } catch {
-        if (cancelled) return;
-      }
-
-      timer = setTimeout(poll, 2500);
-    };
-
-    poll();
-
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [launchJobId]);
-
-  async function refreshLeads() {
-    const data = await getLeads();
-    setLeads(data.leads);
-    setFollowUps(data.followUps);
-  }
-
-  async function refreshCalling() {
-    const data = await getCallingStatus();
-    setCallingStatus(data);
-    setTelephonyNumber(data.workspaceTelephony?.from_number || '');
-
-    if (data.latestLaunchJob) {
-      setLaunchJob(data.latestLaunchJob);
-      const queryLaunchJobId = typeof window !== 'undefined'
-        ? new URLSearchParams(window.location.search).get('launchJobId')
-        : '';
-
-      if (!launchJobId && !queryLaunchJobId) {
-        setLaunchJobId(data.latestLaunchJob.id);
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('barsha_launch_job_id', data.latestLaunchJob.id);
-        }
-      }
+  async function refreshAll() {
+    const [leadData, campaignData, inboxData, meetingData, smtpData] = await Promise.all([
+      getLeads(),
+      getCampaigns(),
+      getInbox(),
+      getMeetings(),
+      getSmtpStatus(),
+    ]);
+    console.log('[apollo:frontend:refresh_all]', {
+      leads: leadData.leads.length,
+      leadsWithEmail: leadData.leads.filter(lead => Boolean(lead.email)).length,
+      campaigns: campaignData.campaigns.length,
+      inbox: inboxData.conversations?.length || 0,
+    });
+    setLeads(leadData.leads);
+    setCampaigns(campaignData.campaigns);
+    setInbox(inboxData.conversations || []);
+    setMeetings(meetingData.meetings);
+    setSmtpAccount(smtpData.account);
+    if (!selectedCampaignId && campaignData.campaigns[0]) {
+      setSelectedCampaignId(campaignData.campaigns[0].id);
     }
   }
 
-  async function refreshOutcomes() {
-    const [meetingData, outcomeData] = await Promise.all([getMeetings(), getOutcomes()]);
-    setMeetings(meetingData.meetings);
-    setOutcomes(outcomeData.outcomes);
-  }
-
-  function updateLeadForm(key: string, value: string) {
-    setLeadForm(prev => ({ ...prev, [key]: value }));
-  }
-
-  function parseCsvRows(value: string) {
-    const lines = value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-    if (lines.length < 2) return [];
-
-    const headers = lines[0].split(',').map(header => header.trim().toLowerCase().replace(/\s+/g, '_'));
-    return lines.slice(1).map(line => {
-      const cells = line.split(',').map(cell => cell.trim());
-      return headers.reduce<Record<string, string>>((row, header, index) => {
-        row[header] = cells[index] || '';
-        return row;
-      }, {});
-    });
-  }
-
-  async function handleCreateLead() {
-    setLeadMessage('');
-    setSavingLead(true);
+  async function handleCreateLead(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy('lead');
+    setMessage('');
     try {
       await createLead({
         ...leadForm,
-        follow_up: leadForm.next_action || leadForm.due_at ? {
-          title: leadForm.next_action || 'Follow up with lead',
-          due_at: leadForm.due_at || null,
-          priority: leadForm.priority,
-          owner_type: leadForm.owner_type,
-          action_type: leadForm.owner_type === 'agent' ? 'call' : 'manual_task',
-        } : undefined,
+        source: 'manual',
       });
-      setLeadForm({
-        full_name: '',
-        company_name: '',
-        title: '',
-        phone: '',
-        email: '',
-        note: '',
-        next_action: '',
-        due_at: '',
-        priority: 'normal',
-        owner_type: 'agent',
-      });
-      setLeadMessage('Lead saved.');
-      await refreshLeads();
+      setLeadForm(emptyLeadForm);
+      const data = await getLeads();
+      setLeads(data.leads);
+      setMessage('Lead saved.');
     } catch (error) {
-      setLeadMessage(error instanceof Error ? error.message : 'Failed to save lead.');
+      setMessage(error instanceof Error ? error.message : 'Could not save lead');
     } finally {
-      setSavingLead(false);
+      setBusy('');
     }
   }
 
-  async function handleImportCsv() {
-    setLeadMessage('');
-    const rows = parseCsvRows(csvText);
-    if (!rows.length) {
-      setLeadMessage('CSV needs a header row and at least one lead row.');
+  async function waitForImport(runId: string, loader: (id: string) => Promise<{ importRun: LeadImportRun }>) {
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      const { importRun } = await loader(runId);
+      const meta = importRun.raw_meta || {};
+      setMessage(`Import ${importRun.status}: ${String(meta.ready_count ?? importRun.created_count)} ready/created, ${importRun.skipped_count} skipped.`);
+      if (['completed', 'partial', 'pending_enrichment', 'failed'].includes(importRun.status)) return importRun;
+      await new Promise(resolve => window.setTimeout(resolve, 2000));
+    }
+    throw new Error('Import is still running. You can safely refresh and check it later.');
+  }
+
+  async function handleCsvPreview() {
+    if (!csvText.trim()) {
+      setMessage('Choose a CSV file first.');
       return;
     }
-
-    setSavingLead(true);
+    setBusy('csv-preview');
+    setMessage('');
     try {
-      const result = await importCsvLeads(rows);
-      setLeadMessage(`CSV imported: ${result.importRun.created_count} created, ${result.importRun.updated_count} updated, ${result.importRun.skipped_count} skipped.`);
+      const data = await previewCsvMapping(csvText);
+      setCsvMappings(data.mappings);
+      setCsvPreview(data.preview);
+      setMessage(`AI mapped ${data.row_count} rows. Review the mapping before importing.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not map CSV');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleCsvImport() {
+    if (!csvMappings.length) {
+      setMessage('Review the AI column mapping first.');
+      return;
+    }
+    setBusy('csv');
+    setMessage('');
+    try {
+      const started = await startCsvImport(csvText, csvMappings, csvMode);
+      const run = await waitForImport(started.importRun.id, getLeadImport);
+      setLastCsvRun(run);
       setCsvText('');
-      await refreshLeads();
+      setCsvMappings([]);
+      setCsvPreview([]);
+      const data = await getLeads();
+      setLeads(data.leads);
+      setMessage(`CSV ${run.status}: ${run.created_count} created, ${run.updated_count} updated, ${run.skipped_count} skipped.`);
     } catch (error) {
-      setLeadMessage(error instanceof Error ? error.message : 'Failed to import CSV.');
+      setMessage(error instanceof Error ? error.message : 'Could not import leads');
     } finally {
-      setSavingLead(false);
+      setBusy('');
     }
   }
 
-  function updateApolloFilter(key: keyof ApolloFilters, value: string) {
-    setApolloFilters(prev => ({
-      ...prev,
-      [key]: key === 'titles'
-        ? value.split(',').map(item => item.trim()).filter(Boolean)
-        : key === 'limit'
-          ? Math.max(1, Number.parseInt(value, 10) || 25)
-          : value,
-    }));
-  }
-
-  async function handleImportApollo() {
-    setLeadMessage('');
-    setApolloBusy(true);
+  async function handleDownloadCsvErrors() {
+    if (!lastCsvRun) return;
     try {
-      const result = await importApolloLeads(apolloFilters);
-      setLeadMessage(`Apollo imported: ${result.importRun.created_count} created, ${result.importRun.updated_count} updated, ${result.importRun.skipped_count} skipped. Phone enrichment is pending by webhook.`);
-      await refreshLeads();
-      await refreshCalling().catch(() => undefined);
+      const blob = await downloadCsvImportErrors(lastCsvRun.id);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `barsha-import-${lastCsvRun.id}-errors.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
     } catch (error) {
-      setLeadMessage(error instanceof Error ? error.message : 'Failed to import Apollo leads.');
-    } finally {
-      setApolloBusy(false);
+      setMessage(error instanceof Error ? error.message : 'Could not download import errors');
     }
   }
 
-  async function completeFollowUp(followUpId: string) {
-    await updateFollowUp(followUpId, { status: 'completed' });
-    await refreshLeads();
-    await refreshCalling().catch(() => undefined);
-  }
-
-  async function handleAttachTelephony() {
-    setCallingMessage('');
-    setCallingBusy(true);
+  async function handleApolloImport() {
+    setBusy('apollo');
+    setMessage('');
+    console.log('[apollo:frontend:import_start]', apolloFilters);
     try {
-      await attachTelephony(telephonyNumber);
-      setCallingMessage('Dedicated calling number attached.');
-      await refreshCalling();
+      const data = await importApolloLeads(apolloFilters);
+      console.log('[apollo:frontend:import_response]', {
+        importRun: data.importRun,
+        sync: data.sync,
+      });
+      const run = await waitForImport(data.importRun.id, getApolloImport);
+      const leadData = await getLeads();
+      console.log('[apollo:frontend:leads_after_import]', {
+        leads: leadData.leads.length,
+        leadsWithEmail: leadData.leads.filter(lead => Boolean(lead.email)).length,
+        sample: leadData.leads.slice(0, 5).map(lead => ({
+          name: lead.full_name,
+          company: lead.company_name,
+          hasEmail: Boolean(lead.email),
+          status: lead.status,
+        })),
+      });
+      setLeads(leadData.leads);
+      const meta = run.raw_meta || {};
+      setMessage(`Apollo ${run.status}: ${String(meta.ready_count ?? 0)} ready leads from ${run.created_count} new candidates.`);
     } catch (error) {
-      setCallingMessage(error instanceof Error ? error.message : 'Failed to attach calling number.');
+      console.error('[apollo:frontend:import_failed]', error);
+      setMessage(error instanceof Error ? error.message : 'Could not import Apollo leads');
     } finally {
-      setCallingBusy(false);
+      setBusy('');
     }
   }
 
-  async function handleProvisionAgent() {
-    setCallingMessage('');
-    setCallingBusy(true);
+  async function handleApolloSync() {
+    setBusy('apollo-sync');
+    setMessage('');
+    console.log('[apollo:frontend:sync_start]');
     try {
-      const result = await provisionVoiceAgent();
-      setLaunchJobId(result.job.id);
-      setLaunchJob(result.job);
-      sessionStorage.setItem('barsha_launch_job_id', result.job.id);
-      setCallingMessage('Agent launch job started.');
-      await refreshCalling();
+      const data = await syncApolloEmails();
+      console.log('[apollo:frontend:sync_response]', data);
+      const leadData = await getLeads();
+      console.log('[apollo:frontend:leads_after_sync]', {
+        leads: leadData.leads.length,
+        leadsWithEmail: leadData.leads.filter(lead => Boolean(lead.email)).length,
+        sample: leadData.leads.slice(0, 5).map(lead => ({
+          name: lead.full_name,
+          company: lead.company_name,
+          hasEmail: Boolean(lead.email),
+          status: lead.status,
+        })),
+      });
+      setLeads(leadData.leads);
+      setMessage(`Apollo sync checked ${data.requestIds.length} requests: ${data.sync.updated} updated, ${data.sync.pending} pending.`);
     } catch (error) {
-      setCallingMessage(error instanceof Error ? error.message : 'Failed to launch AI agent.');
+      console.error('[apollo:frontend:sync_failed]', error);
+      setMessage(error instanceof Error ? error.message : 'Could not sync Apollo emails');
     } finally {
-      setCallingBusy(false);
+      setBusy('');
     }
   }
 
-  async function handleLaunchToggle(enabled: boolean) {
-    setCallingMessage('');
-    setCallingBusy(true);
+  async function handleCreateCampaign(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy('campaign');
+    setMessage('');
     try {
-      await setCallingLaunch(enabled);
-      setCallingMessage(enabled ? 'Automatic calling enabled.' : 'Automatic calling disabled.');
-      await refreshCalling();
+      const data = await createCampaign({
+        ...campaignForm,
+        target_segment: { source: 'dashboard', lead_count: emailLeads.length },
+      });
+      setCampaigns([data.campaign, ...campaigns]);
+      setSelectedCampaignId(data.campaign.id);
+      setCampaignForm(emptyCampaignForm);
+      setMessage('Campaign created.');
     } catch (error) {
-      setCallingMessage(error instanceof Error ? error.message : 'Failed to update calling launch state.');
-      await refreshCalling().catch(() => undefined);
+      setMessage(error instanceof Error ? error.message : 'Could not create campaign');
     } finally {
-      setCallingBusy(false);
+      setBusy('');
     }
   }
 
-  async function markLeadCallable(lead: Lead) {
-    setLeadMessage('');
-    setSavingLead(true);
+  async function handleGenerate() {
+    if (!selectedCampaign) return;
+    if (!selectedLeadIds.length) {
+      setMessage('Add leads with email addresses before generating.');
+      return;
+    }
+    setBusy('generate');
+    setMessage('');
     try {
-      await setLeadDncStatus(lead, 'clear');
-      setLeadMessage(`${lead.full_name} marked DNC-cleared for voice calls.`);
-      await refreshLeads();
-      await refreshCalling();
+      const data = await generateCampaignEmails(selectedCampaign.id, selectedLeadIds);
+      setPreview(data.messages);
+      await refreshCampaignsOnly(data.campaign.id);
+      setMessage(`${data.messages.length} emails generated for review.`);
     } catch (error) {
-      setLeadMessage(error instanceof Error ? error.message : 'Failed to mark lead callable.');
+      setMessage(error instanceof Error ? error.message : 'Could not generate emails');
     } finally {
-      setSavingLead(false);
+      setBusy('');
     }
   }
 
-  async function markLeadDoNotCall(lead: Lead) {
-    setLeadMessage('');
-    setSavingLead(true);
+  async function refreshCampaignsOnly(nextSelectedId?: string) {
+    const data = await getCampaigns();
+    setCampaigns(data.campaigns);
+    if (nextSelectedId) setSelectedCampaignId(nextSelectedId);
+  }
+
+  async function handleLaunch() {
+    if (!selectedCampaign) return;
+    setBusy('launch');
+    setMessage('');
     try {
-      await setLeadDncStatus(lead, 'blocked');
-      await setLeadVoiceConsent(lead.id, 'not_consented');
-      setLeadMessage(`${lead.full_name} blocked from voice calls.`);
-      await refreshLeads();
-      await refreshCalling();
+      const data = await launchCampaign(selectedCampaign.id);
+      await refreshCampaignsOnly(data.campaign.id);
+      setMessage(`${data.queued} emails queued.`);
     } catch (error) {
-      setLeadMessage(error instanceof Error ? error.message : 'Failed to block lead.');
+      setMessage(error instanceof Error ? error.message : 'Could not launch campaign');
     } finally {
-      setSavingLead(false);
+      setBusy('');
     }
   }
 
-  async function approveSuggestedFollowUp(followUp: FollowUp) {
-    const dueAt = followUp.due_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    await approveFollowUp(followUp.id, dueAt);
-    await refreshLeads();
-    await refreshCalling().catch(() => undefined);
+  async function toggleCampaign() {
+    if (!selectedCampaign) return;
+    setBusy('toggle');
+    setMessage('');
+    try {
+      const data = selectedCampaign.status === 'active'
+        ? await pauseCampaign(selectedCampaign.id)
+        : await resumeCampaign(selectedCampaign.id);
+      await refreshCampaignsOnly(data.campaign.id);
+      setMessage(selectedCampaign.status === 'active' ? 'Campaign paused.' : 'Campaign resumed.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not update campaign');
+    } finally {
+      setBusy('');
+    }
   }
 
-  function getLaunchView(job: AIJob | null) {
-    if (!job) {
-      return { label: 'Not started', detail: 'Launch my agent to generate a new playbook', badge: 'b-pending' };
+  async function handleSmtpConnect(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy('smtp');
+    setMessage('');
+    try {
+      const data = await connectSmtp({
+        ...smtpForm,
+        imap_username: smtpForm.imap_username || smtpForm.smtp_username,
+        imap_password: smtpForm.imap_password || smtpForm.smtp_password,
+      });
+      setSmtpAccount(data.account);
+      setSmtpForm(emptySmtpForm);
+      setMessage('Mailbox connected.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not connect mailbox');
+    } finally {
+      setBusy('');
     }
-
-    if (job.status === 'completed') {
-      return { label: 'Ready', detail: 'Gemini playbook and Retell agent are live', badge: 'b-active' };
-    }
-
-    if (job.status === 'failed') {
-      return { label: 'Failed', detail: job.error_message || 'Launch job failed', badge: 'b-called' };
-    }
-
-    const provisioning = ['provisioning_retell_llm', 'provisioning_retell_agent'].includes(job.current_step || '');
-    return provisioning
-      ? { label: 'Provisioning', detail: job.current_step || 'Provisioning Retell', badge: 'b-interested' }
-      : { label: 'Generating', detail: job.current_step || 'Generating playbook', badge: 'b-pending' };
   }
 
-  const launchView = getLaunchView(launchJob || callingStatus?.latestLaunchJob || null);
+  function applyMailboxPreset(provider: 'gmail' | 'outlook') {
+    setSmtpForm(current => provider === 'gmail' ? {
+      ...current,
+      smtp_host: 'smtp.gmail.com',
+      smtp_port: 587,
+      imap_host: 'imap.gmail.com',
+      imap_port: 993,
+    } : {
+      ...current,
+      smtp_host: 'smtp.office365.com',
+      smtp_port: 587,
+      imap_host: 'outlook.office365.com',
+      imap_port: 993,
+    });
+  }
 
-  const workspaceName = workspace?.name || 'your business';
-  const agentName = agentConfig?.agent_name || 'Aria';
-  const companyName = agentConfig?.company_name || workspaceName;
-  const valueProposition = agentConfig?.value_proposition
-    || 'We help Singapore SMEs automate their sales outreach - our clients typically see 3x more qualified meetings within the first 30 days.';
-  const bookingLink = agentConfig?.booking_link || 'https://calendly.com/yourname/discovery';
-  const planLabel = workspace?.plan
-    ? workspace.plan.charAt(0).toUpperCase() + workspace.plan.slice(1)
-    : 'Not selected';
-  const launchChecklist = [
-    { label: 'Plan selected', done: Boolean(workspace?.plan), action: 'Saved' },
-    { label: 'Business onboarding', done: Boolean(workspace?.onboarding_completed), action: 'Complete' },
-    { label: 'Agent prompt generated', done: Boolean(agentConfig?.system_prompt), action: 'Draft ready' },
-    { label: 'AI launch job', done: launchView.label === 'Ready', action: launchView.label },
-    { label: 'Lead memory', done: leads.length > 0, action: leads.length > 0 ? `${leads.length} lead${leads.length === 1 ? '' : 's'}` : 'No leads' },
-    { label: 'Callable leads', done: Boolean(callingStatus?.queue.callableLeads), action: callingStatus?.queue.callableLeads ? `${callingStatus.queue.callableLeads} callable` : 'Blocked' },
-    { label: 'Retell voice agent', done: callingStatus?.voiceAgent?.status === 'ready', action: callingStatus?.voiceAgent?.status || 'Not created' },
-    { label: 'Twilio/Retell number', done: ['attached', 'verified'].includes(callingStatus?.workspaceTelephony?.phone_number_status || ''), action: callingStatus?.workspaceTelephony?.phone_number_status || 'Missing' },
-  ];
-  const completedSteps = launchChecklist.filter(item => item.done).length;
-  const setupPct = Math.round((completedSteps / launchChecklist.length) * 100);
-  const integrations = [
-    { name: 'Apollo', purpose: 'Lead sourcing', status: 'Next' },
-    { name: 'Launch', purpose: 'Gemini + Retell provisioning', status: launchView.label },
-    { name: 'Retell', purpose: 'Voice agent runtime', status: callingStatus?.voiceAgent?.status === 'ready' ? 'Ready' : 'Not connected' },
-    { name: 'Twilio', purpose: 'Outbound calling number', status: ['attached', 'verified'].includes(callingStatus?.workspaceTelephony?.phone_number_status || '') ? 'Ready' : 'Not connected' },
-    { name: 'Calendly', purpose: bookingLink === 'https://calendly.com/yourname/discovery' ? 'Booking link missing' : 'Booking link saved', status: bookingLink === 'https://calendly.com/yourname/discovery' ? 'Needs setup' : 'Ready' },
-  ];
-  const calls = callingStatus?.calls || [];
-  const bookedCount = outcomes.filter(outcome => outcome.outcome_type === 'booked').length
-    + meetings.filter(meeting => meeting.status === 'scheduled').length;
-  const interestedCount = outcomes.filter(outcome => ['booking_link_sent', 'interested', 'follow_up_needed'].includes(outcome.outcome_type)).length;
-  const conversionRate = calls.length ? Math.round((bookedCount / calls.length) * 100) : 0;
-  const readinessChecks = callingStatus?.readiness.checks || [];
-  const callingEnabled = Boolean(callingStatus?.workspaceTelephony?.calling_enabled);
+  async function handleTestSmtp() {
+    setBusy('smtp-test');
+    setMessage('');
+    try {
+      const data = await testSmtp();
+      setSmtpAccount(data.account);
+      setMessage('SMTP test passed.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'SMTP test failed');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleApproveReply(messageId: string) {
+    setBusy(messageId);
+    setMessage('');
+    try {
+      await approveInboxMessage(messageId);
+      const data = await getInbox();
+      setInbox(data.conversations || []);
+      setMessage('Reply approved.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not approve reply');
+    } finally {
+      setBusy('');
+    }
+  }
 
   return (
-    <div className="screen active" id="app">
-      {/* SIDEBAR */}
-      <div className="sidebar">
+    <>
+      <aside className="sidebar">
         <div className="sb-brand">
           <div className="sb-logo">
             <div className="sb-mark">B</div>
             <div>
-              <div className="sb-name">Barsha AI</div>
-              <div className="sb-sub">Singapore</div>
+              <div className="sb-name">Barsha</div>
+              <div className="sb-sub">Email sales agent</div>
             </div>
           </div>
         </div>
-        <div className="sb-nav">
-          {([
-            ['dashboard', 'Overview', <svg key="d" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>, null],
-            ['leads', 'Leads', <svg key="l" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>, null],
-            ['calls', 'Calls', <svg key="c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>, null],
-            ['meetings', 'Meetings', <svg key="m" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, null],
-            ['analytics', 'Analytics', <svg key="an" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>, null],
-            ['settings', 'Agent Settings', <svg key="s" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>, null],
-            ['billing', 'Billing', <svg key="b" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>, null],
-            ['team', 'Team', <svg key="t" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>, null],
-          ] as [Page, string, React.ReactNode, string | null][]).map(([id, label, icon, badge]) => (
-            <div
-              key={id}
-              className={`nav-item${activePage === id ? ' active' : ''}`}
-              onClick={() => setActivePage(id)}
+        <nav className="sb-nav">
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              className={`nav-item ${activePage === item.id ? 'active' : ''}`}
+              onClick={() => setActivePage(item.id)}
+              style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left' }}
             >
-              {icon}{label}
-              {badge && <span className="nav-badge">{badge}</span>}
-            </div>
+              <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>{item.marker}</span>
+              {item.label}
+              {item.id === 'inbox' && pendingReplies.length > 0 ? <span className="nav-badge">{pendingReplies.length}</span> : null}
+            </button>
           ))}
-        </div>
+        </nav>
         <div className="agent-pill">
-          <div className="ap-lbl">Agent Status</div>
-          <div className="ap-row"><span className="ap-dot" /><span className="ap-name-txt">{agentName} · {launchView.label === 'Ready' ? 'Live' : 'Draft'}</span></div>
-          <div className="ap-num">{launchView.label === 'Not started' ? 'Launch not started' : `AI launch: ${launchView.label}`}</div>
+          <div className="ap-lbl">Mailbox</div>
+          <div className="ap-row">
+            <span className="ap-dot" style={{ background: smtpAccount?.status === 'connected' ? undefined : '#A89FB5' }} />
+            <div>
+              <div className="ap-name-txt">{smtpAccount?.from_email || 'Not connected'}</div>
+              <div className="ap-num">{workspace?.name || 'Workspace'}</div>
+            </div>
+          </div>
         </div>
-      </div>
+      </aside>
 
-      {/* DASHBOARD */}
-      <div className={`main-content page${activePage === 'dashboard' ? ' active' : ''}`}>
+      <main className="main-content">
         <div className="dash-topbar">
           <div>
-            <div className="dash-greeting">Good morning, <em>{workspaceName}</em></div>
-            <div className="dash-date">{today}</div>
+            <h1 className="dash-greeting">Email command center</h1>
+            <p className="dash-date">{today}</p>
           </div>
           <div className="page-actions">
-            <button className="btn-outline" onClick={() => setActivePage('settings')}>Review Agent</button>
-            <button className="btn-primary" onClick={() => setActivePage('leads')}>Connect Leads</button>
+            <button type="button" className="btn-outline" onClick={() => refreshAll().catch(error => setMessage(error.message))}>
+              Refresh
+            </button>
+            <button type="button" className="btn-primary" onClick={() => setActivePage('campaigns')}>
+              New campaign
+            </button>
           </div>
         </div>
-        <div className="pdpa-banner">
-          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-          <span><strong>PDPA Compliance Active</strong> — Your agent respects Singapore&apos;s Personal Data Protection Act and identifies as AI when asked.</span>
-        </div>
-        <div className="kpi-row">
-          <div className="kpi-card"><div className="kpi-icon ki-p">A</div><div className="kpi-val">{setupPct}%</div><div className="kpi-lbl">Launch Setup</div><div className="kpi-delta kd-neutral">{completedSteps} of {launchChecklist.length} complete</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-g">P</div><div className="kpi-val">{planLabel}</div><div className="kpi-lbl">Selected Plan</div><div className="kpi-delta kd-neutral">Payment before launch</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-gr">L</div><div className="kpi-val">{leads.length}</div><div className="kpi-lbl">Saved Leads</div><div className="kpi-delta kd-neutral">Manual and CSV</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-b">C</div><div className="kpi-val">{calls.length}</div><div className="kpi-lbl">Calls Placed</div><div className="kpi-delta kd-neutral">{callingEnabled ? 'Queue enabled' : 'Queue disabled'}</div></div>
-        </div>
-        <div className="dash-grid">
-          <div className="card">
-            <div className="card-head">
-              <div className="card-title"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{width:14,height:14}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Launch Checklist</div>
-              <span className="card-action">{setupPct}% ready</span>
-            </div>
-            <div style={{ padding: 20 }}>
-              <div style={{ height: 7, background: 'var(--cream-dark)', borderRadius: 999, overflow: 'hidden', marginBottom: 18 }}>
-                <div style={{ width: `${setupPct}%`, height: '100%', background: 'linear-gradient(90deg,var(--purple),var(--gold))', borderRadius: 999 }} />
-              </div>
-              {launchChecklist.map(item => (
-                <div key={item.label} className="msl-row">
-                  <span className="msl-lbl" style={{ color: item.done ? 'var(--text)' : 'var(--text-muted)' }}>{item.label}</span>
-                  <span className={`badge ${item.done ? 'b-active' : 'b-pending'}`}><span className="bdot" />{item.action}</span>
+
+        {message ? <div className="pdpa-banner">{message}</div> : null}
+
+        {activePage === 'overview' ? (
+          <section>
+            <KpiRow
+              items={[
+                ['Campaigns', campaigns.length, 'Ca'],
+                ['Email leads', emailLeads.length, 'Le'],
+                ['Inbox review', pendingReplies.length, 'In'],
+                ['Meetings', meetings.length, 'Me'],
+              ]}
+            />
+            <div className="dash-grid">
+              <div className="card">
+                <div className="card-head">
+                  <div className="card-title">Active campaigns</div>
+                  <button className="card-action" type="button" onClick={() => setActivePage('campaigns')}>Manage</button>
                 </div>
-              ))}
+                {campaigns.length ? campaigns.slice(0, 6).map(campaign => (
+                  <CampaignRow key={campaign.id} campaign={campaign} onClick={() => {
+                    setSelectedCampaignId(campaign.id);
+                    setActivePage('campaigns');
+                  }} />
+                )) : <EmptyState text="No campaigns yet." />}
+              </div>
+              <div className="card">
+                <div className="card-head">
+                  <div className="card-title">Readiness</div>
+                </div>
+                <div className="msl-list">
+                  <Metric label="Mailbox" value={smtpAccount ? smtpAccount.status : 'missing'} />
+                  <Metric label="Leads with email" value={emailLeads.length.toString()} />
+                  <Metric label="Campaign drafts" value={campaigns.filter(c => c.status === 'draft' || c.status === 'ready').length.toString()} />
+                  <Metric label="Human approvals" value={pendingReplies.length.toString()} />
+                </div>
+              </div>
             </div>
-          </div>
-          <div style={{display:'flex',flexDirection:'column',gap:18}}>
-            <div className="card">
-              <div className="card-head"><div className="card-title"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{width:14,height:14}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>Integration Status</div></div>
+          </section>
+        ) : null}
+
+        {activePage === 'campaigns' ? (
+          <section>
+            <div className="page-header">
               <div>
-                {integrations.map(item => (
-                  <div key={item.name} className="mtr">
-                    <div className="mtr-av">{item.name.slice(0, 2).toUpperCase()}</div>
-                    <div className="mtr-info"><div className="mtr-name">{item.name}</div><div className="mtr-detail">{item.purpose}</div></div>
-                    <span className={`badge ${item.status === 'Ready' ? 'b-active' : item.status === 'Next' ? 'b-interested' : item.status === 'Failed' ? 'b-called' : item.status === 'Provisioning' ? 'b-interested' : 'b-pending'}`}><span className="bdot" />{item.status}</span>
-                  </div>
-                ))}
+                <h2 className="page-title">Campaigns</h2>
+                <p className="page-sub">Generate, review, and launch email sequences.</p>
               </div>
-            </div>
-            <div className="card">
-              <div className="card-head"><div className="card-title">Agent Draft</div></div>
-              <div className="msl-list">
-                <div className="msl-row"><span className="msl-lbl">Agent</span><span className="msl-val">{agentName}</span></div>
-                <div className="msl-row"><span className="msl-lbl">Company</span><span className="msl-val">{companyName}</span></div>
-                <div className="msl-row"><span className="msl-lbl">Target Region</span><span className="msl-val">{agentConfig?.target_regions || 'Not set'}</span></div>
-                <div className="msl-row"><span className="msl-lbl">Tone</span><span className="msl-val" style={{color:'var(--purple)'}}>{agentConfig?.tone || 'Not set'}</span></div>
-              </div>
-            </div>
-            <div className="card">
-              <div className="card-head"><div className="card-title">Calling Control</div><span className={`badge ${callingEnabled ? 'b-active' : 'b-pending'}`}><span className="bdot" />{callingEnabled ? 'Enabled' : 'Off'}</span></div>
-              <div className="msl-list">
-                <div className="pdpa-banner" style={{ marginBottom: 10 }}>
-                  <span><strong>Launch status</strong> — {launchView.label}{launchView.detail ? ` · ${launchView.detail}` : ''}</span>
-                </div>
-                {callingMessage && <div className="pdpa-banner" style={{ marginBottom: 10 }}><span>{callingMessage}</span></div>}
-                {readinessChecks.map(check => (
-                  <div key={check.key} className="msl-row">
-                    <span className="msl-lbl">{check.label}</span>
-                    <span className={`badge ${check.ready ? 'b-active' : 'b-pending'}`}><span className="bdot" />{check.ready ? 'Ready' : check.reason}</span>
-                  </div>
-                ))}
-                <input className="sf-inp" placeholder="+65 dedicated number" value={telephonyNumber} onChange={e => setTelephonyNumber(e.target.value)} style={{ marginTop: 10 }} />
-                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                  <button className="btn-outline" onClick={handleAttachTelephony} disabled={callingBusy || !telephonyNumber.trim()}>Attach Number</button>
-                  <button
-                    className={launchView.label === 'Failed' ? 'btn-primary' : 'btn-outline'}
-                    onClick={handleProvisionAgent}
-                    disabled={callingBusy || !agentConfig?.system_prompt || ['Generating', 'Provisioning'].includes(launchView.label)}
-                  >
-                    {launchView.label === 'Failed' ? 'Retry Agent Launch' : 'Create Retell Agent'}
+              {selectedCampaign ? (
+                <div className="page-actions">
+                  <button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>
+                    {busy === 'generate' ? 'Generating...' : 'Generate emails'}
                   </button>
-                  <button className="btn-primary" onClick={() => handleLaunchToggle(!callingEnabled)} disabled={callingBusy}>
-                    {callingEnabled ? 'Disable Queue' : 'Launch Queue'}
+                  <button className="btn-primary" type="button" disabled={busy === 'launch'} onClick={handleLaunch}>
+                    {busy === 'launch' ? 'Launching...' : 'Launch'}
                   </button>
+                  {selectedCampaign.status === 'active' || selectedCampaign.status === 'paused' ? (
+                    <button className="btn-outline" type="button" disabled={busy === 'toggle'} onClick={toggleCampaign}>
+                      {selectedCampaign.status === 'active' ? 'Pause' : 'Resume'}
+                    </button>
+                  ) : null}
                 </div>
-              </div>
+              ) : null}
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* LEADS */}
-      <div className={`main-content page${activePage === 'leads' ? ' active' : ''}`}>
-        <div className="page-header">
-          <div>
-            <div className="page-title">Leads</div>
-            <div className="page-sub">{leads.length} saved lead{leads.length === 1 ? '' : 's'} · {followUps.length} active follow-up{followUps.length === 1 ? '' : 's'}</div>
-          </div>
-          <div className="page-actions"><button className="btn-outline" onClick={() => getApolloFilters().then(data => setApolloFilters(data.filters)).catch(() => undefined)}>Reset Apollo Filters</button></div>
-        </div>
-
-        {leadMessage && (
-          <div className="pdpa-banner" style={{ marginBottom: 18 }}>
-            <span>{leadMessage}</span>
-          </div>
-        )}
-
-        <div className="dash-grid" style={{ marginBottom: 18 }}>
-          <div className="card">
-            <div className="card-head"><div className="card-title">Apollo Import</div><span className="badge b-pending"><span className="bdot" />Phone gated</span></div>
-            <div style={{ padding: 20, display: 'grid', gap: 10 }}>
-              <div className="ss-grid">
-                <input
-                  className="sf-inp"
-                  placeholder="Titles"
-                  value={apolloFilters.titles.join(', ')}
-                  onChange={e => updateApolloFilter('titles', e.target.value)}
-                />
-                <input
-                  className="sf-inp"
-                  placeholder="Region"
-                  value={apolloFilters.region}
-                  onChange={e => updateApolloFilter('region', e.target.value)}
-                />
-                <input
-                  className="sf-inp"
-                  placeholder="Industry"
-                  value={apolloFilters.industry}
-                  onChange={e => updateApolloFilter('industry', e.target.value)}
-                />
-                <input
-                  className="sf-inp"
-                  placeholder="Company size"
-                  value={apolloFilters.companySize}
-                  onChange={e => updateApolloFilter('companySize', e.target.value)}
-                />
-                <input
-                  className="sf-inp"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={apolloFilters.limit}
-                  onChange={e => updateApolloFilter('limit', e.target.value)}
-                />
-              </div>
-              <p className="page-sub" style={{ margin: 0, lineHeight: 1.5 }}>
-                Imports create blocked Apollo leads first. Phone and email fields update after Apollo sends enrichment results to the webhook.
-              </p>
-              <button className="btn-gold" onClick={handleImportApollo} disabled={apolloBusy || !apolloFilters.titles.length}>
-                {apolloBusy ? 'Importing Apollo...' : `Import ${apolloFilters.limit || 25} Apollo Leads`}
-              </button>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="card-head"><div className="card-title">Add Old Lead</div></div>
-            <div style={{ padding: 20, display: 'grid', gap: 10 }}>
-              <div className="ss-grid">
-                <input className="sf-inp" placeholder="Lead name" value={leadForm.full_name} onChange={e => updateLeadForm('full_name', e.target.value)} />
-                <input className="sf-inp" placeholder="Company" value={leadForm.company_name} onChange={e => updateLeadForm('company_name', e.target.value)} />
-                <input className="sf-inp" placeholder="Title" value={leadForm.title} onChange={e => updateLeadForm('title', e.target.value)} />
-                <input className="sf-inp" placeholder="Phone" value={leadForm.phone} onChange={e => updateLeadForm('phone', e.target.value)} />
-                <input className="sf-inp" placeholder="Email" value={leadForm.email} onChange={e => updateLeadForm('email', e.target.value)} />
-                <input className="sf-inp" type="datetime-local" value={leadForm.due_at} onChange={e => updateLeadForm('due_at', e.target.value)} />
-              </div>
-              <textarea className="sf-ta" placeholder="What happened last time?" value={leadForm.note} onChange={e => updateLeadForm('note', e.target.value)} />
-              <input className="sf-inp" placeholder="Next action, e.g. Call again next Tuesday" value={leadForm.next_action} onChange={e => updateLeadForm('next_action', e.target.value)} />
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <select className="sf-sel" value={leadForm.owner_type} onChange={e => updateLeadForm('owner_type', e.target.value)} style={{ flex: 1 }}>
-                  <option value="agent">Agent follow-up</option>
-                  <option value="human">Human follow-up</option>
-                </select>
-                <select className="sf-sel" value={leadForm.priority} onChange={e => updateLeadForm('priority', e.target.value)} style={{ flex: 1 }}>
-                  <option value="urgent">Urgent</option>
-                  <option value="high">High</option>
-                  <option value="normal">Normal</option>
-                  <option value="low">Low</option>
-                </select>
-                <button className="btn-primary" onClick={handleCreateLead} disabled={savingLead}>{savingLead ? 'Saving...' : 'Save Lead'}</button>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="card-head"><div className="card-title">CSV Import</div></div>
-            <div style={{ padding: 20 }}>
-              <p className="page-sub" style={{ margin: '0 0 12px', lineHeight: 1.5 }}>
-                Paste CSV with headers like: name, company, title, phone, email, note, next_action, due_at, owner_type, priority.
-              </p>
-              <textarea
-                className="sf-ta"
-                placeholder={'name,company,phone,note,next_action,due_at\\nRahul,ABC Logistics,+65 1234 5678,Asked to call next week,Call next Tuesday,2026-06-09T15:00'}
-                value={csvText}
-                onChange={e => setCsvText(e.target.value)}
-                style={{ minHeight: 170 }}
-              />
-              <button className="btn-gold" onClick={handleImportCsv} disabled={savingLead || !csvText.trim()} style={{ marginTop: 12 }}>
-                {savingLead ? 'Importing...' : 'Import CSV'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="dash-grid">
-          <div className="card">
-            <div className="card-head"><div className="card-title">Saved Leads</div><span className="card-action">{leads.length}</span></div>
-            {leads.length === 0 ? (
-              <div style={{ padding: 28, textAlign: 'center' }}>
-                <div className="page-title" style={{ fontSize: 24 }}>No saved leads yet</div>
-                <p className="page-sub" style={{ marginTop: 8 }}>Add old client leads manually or import a CSV.</p>
-              </div>
-            ) : (
-              <table className="data-table">
-                <thead><tr><th>Name</th><th>Company</th><th>Contact</th><th>Status</th><th>Compliance</th><th>Action</th></tr></thead>
-                <tbody>
-                  {leads.map(lead => (
-                    <tr key={lead.id}>
-                      <td><div style={{ fontWeight: 500 }}>{lead.full_name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{lead.title || lead.source}</div></div></td>
-                      <td>{lead.company_name || '-'}</td>
-                      <td><div style={{ fontSize: 12 }}>{lead.phone || lead.email || (lead.source === 'apollo' ? 'Phone pending' : '-')}</div></td>
-                      <td><span className="badge b-new"><span className="bdot" />{lead.status.replaceAll('_', ' ')}</span></td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <span className={`badge ${lead.dnc_status === 'clear' || lead.voice_consent_status === 'consented' ? 'b-active' : lead.dnc_status === 'blocked' ? 'b-called' : 'b-pending'}`}>
-                            <span className="bdot" />{lead.voice_consent_status === 'consented' ? 'consented' : `DNC ${lead.dnc_status}`}
-                          </span>
-                          <span className="badge b-interested">{lead.priority}</span>
-                        </div>
-                        {lead.callable_block_reason && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{lead.callable_block_reason}</div>}
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <button className="btn-outline" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => markLeadCallable(lead)} disabled={savingLead || !lead.phone}>DNC Clear</button>
-                          <button className="btn-outline" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => markLeadDoNotCall(lead)} disabled={savingLead}>Block</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          <div className="card">
-            <div className="card-head"><div className="card-title">Follow-up Queue</div><span className="card-action">{followUps.length}</span></div>
-            {followUps.length === 0 ? (
-              <div style={{ padding: 28, textAlign: 'center' }}>
-                <div className="page-title" style={{ fontSize: 24 }}>No active follow-ups</div>
-                <p className="page-sub" style={{ marginTop: 8 }}>Follow-ups appear here from manual leads, CSV imports, and later call outcomes.</p>
-              </div>
-            ) : (
+            <div className="dash-grid">
               <div>
-                {followUps.map(item => (
-                  <div key={item.id} className="mtr">
-                    <div className="mtr-av">{item.owner_type === 'agent' ? 'AI' : 'HU'}</div>
-                    <div className="mtr-info">
-                      <div className="mtr-name">{item.title}</div>
-                      <div className="mtr-detail">{item.leads?.full_name || 'Lead'} · {item.status} · {item.due_at ? new Date(item.due_at).toLocaleString() : 'No due date'}</div>
-                      {item.context_note && <span className="ot ot-f">{item.context_note}</span>}
-                      {item.blocked_reason && <span className="ot ot-n">{item.blocked_reason}</span>}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                      <span className={`badge ${item.priority === 'urgent' || item.priority === 'high' ? 'b-called' : 'b-pending'}`}><span className="bdot" />{item.priority}</span>
-                      {item.status === 'suggested' ? (
-                        <button className="btn-primary" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => approveSuggestedFollowUp(item)}>Approve</button>
-                      ) : (
-                        <button className="btn-outline" style={{ padding: '5px 10px', fontSize: 11 }} onClick={() => completeFollowUp(item.id)}>Done</button>
-                      )}
-                    </div>
+                <div className="card" style={{ marginBottom: 18 }}>
+                  <div className="card-head">
+                    <div className="card-title">Campaign list</div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* CALLS */}
-      <div className={`main-content page${activePage === 'calls' ? ' active' : ''}`}>
-        <div className="page-header">
-          <div><div className="page-title">Call History</div><div className="page-sub">{calls.length} real call record{calls.length === 1 ? '' : 's'} · {callingEnabled ? 'automatic queue enabled' : 'automatic queue disabled'}</div></div>
-          <div className="page-actions"><button className="btn-outline" onClick={() => refreshCalling()}>Refresh</button><button className="btn-primary" disabled>{callingEnabled ? 'Queue live' : 'Calling disabled'}</button></div>
-        </div>
-        {calls.length === 0 ? (
-          <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-            <div className="sum-icon" style={{ margin: '0 auto 14px' }}>C</div>
-            <div className="page-title" style={{ fontSize: 26 }}>No calls have run yet</div>
-            <p className="page-sub" style={{ maxWidth: 620, margin: '8px auto 0', lineHeight: 1.6 }}>
-              Calls will appear here after a workspace has a Retell agent, a dedicated number, DNC-cleared leads, approved due follow-ups, and the launch toggle is enabled.
-            </p>
-          </div>
-        ) : (
-          <div className="card">
-            <div className="card-head"><div className="card-title">Recent Calls</div><span className="card-action">{calls.length}</span></div>
-            {calls.map(call => (
-              <div key={call.id} className="call-card">
-                <div className="call-av">{(call.leads?.full_name || 'Lead').slice(0, 2).toUpperCase()}</div>
-                <div className="call-meta">
-                  <div className="call-name">{call.leads?.full_name || call.to_number || 'Unknown lead'}</div>
-                  <div className="call-detail">{call.follow_ups?.title || 'Outbound call'} · {call.created_at ? new Date(call.created_at).toLocaleString() : ''}</div>
-                  {call.summary && <div className="page-sub" style={{ marginTop: 6, lineHeight: 1.5 }}>{call.summary}</div>}
-                  {call.error_message && <span className="ot ot-n">{call.error_message}</span>}
-                  {call.recording_url && <a className="card-action" href={call.recording_url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 6 }}>Recording</a>}
+                  {campaigns.length ? campaigns.map(campaign => (
+                    <CampaignRow key={campaign.id} campaign={campaign} active={campaign.id === selectedCampaign?.id} onClick={() => setSelectedCampaignId(campaign.id)} />
+                  )) : <EmptyState text="Create your first campaign." />}
                 </div>
-                <div className="call-right">
-                  <span className={`badge ${call.status === 'completed' ? 'b-active' : call.status === 'failed' || call.status === 'no_answer' ? 'b-called' : 'b-pending'}`}><span className="bdot" />{call.status.replaceAll('_', ' ')}</span>
-                  <div className="call-dur">{call.duration_seconds ? `${call.duration_seconds}s` : '-'}</div>
-                  <div className="call-time-txt">{call.sentiment || call.disconnection_reason || ''}</div>
+                <div className="card">
+                  <div className="card-head">
+                    <div className="card-title">Email preview</div>
+                    <span className="card-action">{preview.length} drafts</span>
+                  </div>
+                  {preview.length ? preview.slice(0, 5).map(item => (
+                    <div key={item.id} className="mtr">
+                      <div className="mtr-av">{initials(item.leads?.full_name)}</div>
+                      <div className="mtr-info">
+                        <div className="mtr-name">{item.subject || 'Untitled email'}</div>
+                        <div className="mtr-detail">{item.leads?.full_name || 'Lead'} at {item.leads?.company_name || 'Unknown company'}</div>
+                        <div className="mtr-detail" style={{ marginTop: 6 }}>{(item.body || item.draft_body || '').slice(0, 180)}</div>
+                      </div>
+                      <span className={`badge ${statusBadge(item.status)}`}><span className="bdot" />{item.status}</span>
+                    </div>
+                  )) : <EmptyState text="Generate emails to see previews." />}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* MEETINGS */}
-      <div className={`main-content page${activePage === 'meetings' ? ' active' : ''}`}>
-        <div className="page-header">
-          <div><div className="page-title">Meetings</div><div className="page-sub">{meetings.length} meeting record{meetings.length === 1 ? '' : 's'} · {outcomes.filter(o => o.meeting_requested).length} meeting request outcome{outcomes.filter(o => o.meeting_requested).length === 1 ? '' : 's'}</div></div>
-          <div className="page-actions"><button className="btn-outline" onClick={() => refreshOutcomes()}>Refresh</button><button className="btn-outline" disabled>Calendar sync pending</button></div>
-        </div>
-        {meetings.length === 0 ? (
-          <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-            <div className="sum-icon" style={{ margin: '0 auto 14px' }}>M</div>
-            <div className="page-title" style={{ fontSize: 26 }}>No scheduled meetings yet</div>
-            <p className="page-sub" style={{ maxWidth: 620, margin: '8px auto 0', lineHeight: 1.6 }}>
-              Booking-link and call outcomes can now be stored. Calendly or calendar webhooks can be connected next to turn requested meetings into scheduled meetings.
-            </p>
-          </div>
-        ) : (
-          <div className="card">
-            <div className="card-head"><div className="card-title">Meeting Records</div><span className="card-action">{meetings.length}</span></div>
-            {meetings.map(meeting => (
-              <div key={meeting.id} className="mtr">
-                <div className="mtr-av">MT</div>
-                <div className="mtr-info">
-                  <div className="mtr-name">{meeting.title}</div>
-                  <div className="mtr-detail">{meeting.leads?.full_name || meeting.invitee_name || 'Invitee'} · {meeting.starts_at ? new Date(meeting.starts_at).toLocaleString() : 'Time pending'}</div>
-                  {meeting.notes && <span className="ot ot-f">{meeting.notes}</span>}
-                </div>
-                <span className={`badge ${meeting.status === 'scheduled' ? 'b-active' : 'b-pending'}`}><span className="bdot" />{meeting.status}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ANALYTICS */}
-      <div className={`main-content page${activePage === 'analytics' ? ' active' : ''}`}>
-        <div className="page-header"><div><div className="page-title">Analytics</div><div className="page-sub">Performance reporting starts after the first real call.</div></div></div>
-        <div className="kpi-row">
-          <div className="kpi-card"><div className="kpi-icon ki-p">C</div><div className="kpi-val">{calls.length}</div><div className="kpi-lbl">Total Calls</div><div className="kpi-delta kd-neutral">{outcomes.length} analyzed</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-g">M</div><div className="kpi-val">{bookedCount}</div><div className="kpi-lbl">Meetings Booked</div><div className="kpi-delta kd-neutral">{interestedCount} interested</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-gr">D</div><div className="kpi-val">-</div><div className="kpi-lbl">Avg Duration</div><div className="kpi-delta kd-neutral">Twilio pending</div></div>
-          <div className="kpi-card"><div className="kpi-icon ki-b">R</div><div className="kpi-val">{calls.length ? `${conversionRate}%` : '-'}</div><div className="kpi-lbl">Conversion Rate</div><div className="kpi-delta kd-neutral">Booked / calls</div></div>
-        </div>
-        <div className="card">
-          <div className="card-head"><div className="card-title">Recent Outcomes</div><span className="card-action">{outcomes.length}</span></div>
-          {outcomes.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center' }}>
-              <div className="sum-icon" style={{ margin: '0 auto 14px' }}>A</div>
-              <div className="page-title" style={{ fontSize: 26 }}>No analyzed outcomes yet</div>
-              <p className="page-sub" style={{ maxWidth: 560, margin: '8px auto 0', lineHeight: 1.6 }}>
-                Retell call analysis will write normalized outcomes here: booked, interested, follow-up needed, not interested, no answer, or do not call.
-              </p>
-            </div>
-          ) : outcomes.slice(0, 12).map(outcome => (
-            <div key={outcome.id} className="mtr">
-              <div className="mtr-av">OC</div>
-              <div className="mtr-info">
-                <div className="mtr-name">{outcome.leads?.full_name || 'Lead'} · {outcome.outcome_type.replaceAll('_', ' ')}</div>
-                <div className="mtr-detail">{outcome.summary || outcome.next_action || 'No summary yet'}</div>
-              </div>
-              <span className={`badge ${outcome.outcome_type === 'booked' ? 'b-active' : outcome.outcome_type === 'not_interested' || outcome.outcome_type === 'do_not_call' ? 'b-called' : 'b-interested'}`}><span className="bdot" />{outcome.confidence}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* AGENT SETTINGS */}
-      <div className={`main-content page${activePage === 'settings' ? ' active' : ''}`}>
-        <div className="page-header"><div><div className="page-title">Agent Settings</div><div className="page-sub">Configure · {agentName} · {agentConfig?.city || 'Singapore'}</div></div></div>
-        <div className="set-grid">
-          <div className="set-nav">
-            {([
-              ['identity', 'Identity', <svg key="i" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>],
-              ['voice', 'Voice & Tone', <svg key="v" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>],
-              ['script', 'Call Script', <svg key="s" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>],
-              ['schedule', 'Schedule', <svg key="sc" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>],
-              ['compliance', 'Compliance', <svg key="c" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>],
-            ] as [SettingsPanel, string, React.ReactNode][]).map(([id, label, icon]) => (
-              <div key={id} className={`sn-item${settingsPanel === id ? ' active' : ''}`} onClick={() => setSettingsPanel(id)}>
-                {icon}{label}
-              </div>
-            ))}
-          </div>
-          <div>
-            {settingsPanel === 'identity' && (
-              <div className="set-panel">
-                <div className="sf"><div className="sf-lbl">Agent Name</div><div className="sf-hint">How your agent introduces itself on every call.</div><input className="sf-inp" type="text" value={agentName} readOnly /></div>
-                <div className="sf"><div className="sf-lbl">Company Name</div><input className="sf-inp" type="text" value={companyName} readOnly /></div>
-                <div className="sf"><div className="sf-lbl">Value Proposition</div><div className="sf-hint">The single most powerful statement your agent leads with on calls.</div><textarea className="sf-ta" value={valueProposition} readOnly /></div>
-                <div className="sf"><div className="sf-lbl">Booking Link (Calendly)</div><input className="sf-inp" type="text" value={bookingLink} readOnly /></div>
-                <div className="set-save"><button className="btn-outline">Reset</button><button className="btn-primary">Save Changes</button></div>
-              </div>
-            )}
-            {settingsPanel === 'voice' && (
-              <div className="set-panel">
+              <form className="set-panel" onSubmit={handleCreateCampaign}>
                 <div className="sf">
-                  <div className="sf-lbl">Voice Profile</div>
-                  <div className="sf-hint">Choose a Retell AI voice for your agent. Click Preview to hear a sample.</div>
-                  <div className="voice-grid">
-                    {[{n:'Aria (SG English)',d:'Warm, professional'},{n:'Sophie (AU English)',d:'Friendly, clear'},{n:'James (UK English)',d:'Polished, formal'},{n:'Maya (US English)',d:'Confident, direct'}].map((v,i) => (
-                      <div key={i} className={`voice-card${selectedVoice===i?' selected':''}`} onClick={() => setSelectedVoice(i)}>
-                        <div className="vc-name">{v.n}</div><div className="vc-desc">{v.d}</div>
-                        <div className="vc-play"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>Preview</div>
-                      </div>
-                    ))}
-                  </div>
+                  <div className="sf-lbl">New campaign</div>
+                  <input className="sf-inp" value={campaignForm.name} onChange={event => setCampaignForm({ ...campaignForm, name: event.target.value })} placeholder="Q3 founder outreach" required />
                 </div>
-                <div className="sf"><div className="sf-lbl">Communication Tone</div><select className="sf-sel"><option>Professional &amp; Warm</option><option>Consultative</option><option>Direct &amp; Bold</option><option>Conversational</option></select></div>
-                <div className="sf"><div className="sf-lbl">Speech Speed</div><input type="range" style={{marginTop:8}} min={0.8} max={1.3} step={0.1} defaultValue={1.0} /></div>
-                <div className="set-save"><button className="btn-outline">Reset</button><button className="btn-primary">Save Changes</button></div>
-              </div>
-            )}
-            {settingsPanel === 'script' && (
-              <div className="set-panel">
-                <div className="sf"><div className="sf-lbl">Opening Line</div><textarea className="sf-ta" style={{minHeight:70}} defaultValue="Hi, this is Aria calling from [Your Company] — I'll keep this to under 2 minutes. Is now a good time?" /></div>
-                <div className="sf"><div className="sf-lbl">Objection Handling</div><textarea className="sf-ta" defaultValue={"1. Too busy: \"I completely understand — when would be a better 2 minutes for a quick chat?\"\n2. Already have a solution: \"That's great — what would you change about what you're using now?\"\n3. Not in budget: \"Totally fair — most of our clients find this pays for itself within 60 days. Could I send you a quick overview?\""} /></div>
-                <div className="sf"><div className="sf-lbl">Closing Statement</div><textarea className="sf-ta" style={{minHeight:70}} defaultValue="I'd love to show you how this could work for your business — can I send you a Calendly link for a quick 20-minute chat?" /></div>
-                <div className="set-save"><button className="btn-outline">Reset</button><button className="btn-primary">Save Changes</button></div>
-              </div>
-            )}
-            {settingsPanel === 'schedule' && (
-              <div className="set-panel">
-                <div className="sf"><div className="sf-lbl">Calling Hours (SGT)</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:8}}><input className="sf-inp" type="time" defaultValue="09:00" /><input className="sf-inp" type="time" defaultValue="18:00" /></div></div>
-                <div className="sf"><div className="sf-lbl">Active Days</div><div style={{display:'flex',gap:8,flexWrap:'wrap' as const,marginTop:8}}>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i) => <div key={d} className={`chip${i<5?' active':''}`}>{d}</div>)}</div></div>
-                <div className="sf"><div className="sf-lbl">Maximum Calls Per Day</div><input className="sf-inp" type="number" defaultValue={150} /></div>
-                <div className="sf"><div className="sf-lbl">Retry Attempts for No Answer</div><input className="sf-inp" type="number" defaultValue={2} /></div>
-                <div className="set-save"><button className="btn-outline">Reset</button><button className="btn-primary">Save Changes</button></div>
-              </div>
-            )}
-            {settingsPanel === 'compliance' && (
-              <div className="set-panel">
-                <div className="sf"><div className="sf-lbl">PDPA Compliance Settings</div>
+                <div className="sf">
+                  <div className="sf-lbl">Daily send cap</div>
+                  <input className="sf-inp" type="number" min={1} max={300} value={campaignForm.daily_send_cap} onChange={event => setCampaignForm({ ...campaignForm, daily_send_cap: Number(event.target.value) })} />
+                </div>
+                <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
-                    {[
-                      {n:'DND Registry Check',d:"Check Singapore's Do Not Call Registry before every call."},
-                      {n:'AI Identity Disclosure',d:'Agent identifies itself as AI if the prospect directly asks.'},
-                      {n:'Immediate Opt-Out Logging',d:'If prospect says "remove me" or "don\'t call again", log immediately as DND.'},
-                      {n:'Call Recording Consent Notice',d:'Agent informs prospect that the call may be recorded for quality purposes.'},
-                    ].map(item => (
-                      <div key={item.n} className="tog-switch">
-                        <div><div className="ts-name">{item.n}</div><div className="ts-desc">{item.d}</div></div>
-                        <label className="ts-ctrl"><input type="checkbox" defaultChecked /><span className="ts-sldr" /></label>
-                      </div>
-                    ))}
+                    <div className="sf-lbl">Start</div>
+                    <input className="sf-inp" value={campaignForm.send_window_start} onChange={event => setCampaignForm({ ...campaignForm, send_window_start: event.target.value })} />
+                  </div>
+                  <div>
+                    <div className="sf-lbl">End</div>
+                    <input className="sf-inp" value={campaignForm.send_window_end} onChange={event => setCampaignForm({ ...campaignForm, send_window_end: event.target.value })} />
                   </div>
                 </div>
-                <div className="set-save"><button className="btn-primary">Save Changes</button></div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* BILLING */}
-      <div className={`main-content page${activePage === 'billing' ? ' active' : ''}`}>
-        <div className="page-header"><div><div className="page-title">Billing</div><div className="page-sub">Payment is required before launching the agent.</div></div></div>
-        <div className="bill-grid">
-          <div className="plan-card">
-            <div className="plan-tag">Selected Plan</div>
-            <div className="plan-name">{planLabel}</div>
-            <div style={{marginTop:16}}>
-              <div className="plan-feat">Plan selection is saved to your workspace.</div>
-              <div className="plan-feat">Stripe checkout is not connected yet.</div>
-              <div className="plan-feat">Usage counters will stay at zero until real calls run.</div>
+                <label className="tog-switch">
+                  <span>
+                    <span className="ts-name">Require approval</span>
+                    <span className="ts-desc">Keep replies in inbox review.</span>
+                  </span>
+                  <span className="ts-ctrl">
+                    <input type="checkbox" checked={campaignForm.require_approval} onChange={event => setCampaignForm({ ...campaignForm, require_approval: event.target.checked })} />
+                    <span className="ts-sldr" />
+                  </span>
+                </label>
+                <div className="set-save">
+                  <button className="btn-primary" type="submit" disabled={busy === 'campaign'}>{busy === 'campaign' ? 'Creating...' : 'Create campaign'}</button>
+                </div>
+              </form>
             </div>
-            <div style={{marginTop:20,display:'flex',gap:10}}><button className="btn-primary" disabled style={{flex:1}}>Connect payment next</button></div>
-          </div>
-          <div className="card" style={{ padding: 24 }}>
-            <div className="card-title">Usage</div>
-            <div className="usage-wrap"><div className="usage-lbl"><span>Calls Used</span><span>0</span></div><div className="usage-bar"><div className="usage-fill" style={{width:'0%'}} /></div></div>
-            <div className="usage-wrap"><div className="usage-lbl"><span>Leads Imported</span><span>0</span></div><div className="usage-bar"><div className="usage-fill" style={{width:'0%'}} /></div></div>
-            <div className="usage-wrap"><div className="usage-lbl"><span>Meetings Booked</span><span>0</span></div><div className="usage-bar"><div className="usage-fill" style={{width:'0%'}} /></div></div>
-          </div>
-        </div>
-      </div>
+          </section>
+        ) : null}
 
-      {/* TEAM */}
-      <div className={`main-content page${activePage === 'team' ? ' active' : ''}`}>
-        <div className="page-header"><div><div className="page-title">Team</div><div className="page-sub">Team management is not enabled in the MVP yet.</div></div></div>
-        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <div className="sum-icon" style={{ margin: '0 auto 14px' }}>T</div>
-          <div className="page-title" style={{ fontSize: 26 }}>Single-owner workspace</div>
-          <p className="page-sub" style={{ maxWidth: 560, margin: '8px auto 0', lineHeight: 1.6 }}>
-            This workspace is currently scoped to the signed-in owner. Invitations and roles should come after core lead and calling flows.
-          </p>
+        {activePage === 'leads' ? (
+          <section>
+            <div className="page-header">
+              <div>
+                <h2 className="page-title">Leads</h2>
+                <p className="page-sub">{emailLeads.length} of {leads.length} leads have email addresses.</p>
+              </div>
+            </div>
+            <div className="dash-grid">
+              <div className="card">
+                <div className="card-head">
+                  <div className="card-title">Lead list</div>
+                </div>
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Select</th><th>Name</th><th>Company</th><th>Email</th><th>Fit</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    {leads.map(lead => (
+                      <tr key={lead.id}>
+                        <td><input type="checkbox" checked={selectedLeadIds.includes(lead.id)} disabled={!lead.email || !['ready', 'selected_for_campaign'].includes(lead.lifecycle_status)} onChange={() => setSelectedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} /></td>
+                        <td>{lead.full_name}</td>
+                        <td>{lead.company_name || '-'}</td>
+                        <td>{lead.email || '-'}</td>
+                        <td title={(lead.fit_reasons || []).map(reason => `+${reason.points} ${reason.reason}`).join('\n')}>{lead.fit_score || 0}</td>
+                        <td><span className={`badge ${statusBadge(lead.lifecycle_status || lead.status)}`}><span className="bdot" />{lead.lifecycle_status || lead.status}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!leads.length ? <EmptyState text="No leads imported yet." /> : null}
+              </div>
+              <div>
+                <div className="set-panel" style={{ marginBottom: 18 }}>
+                  <div className="sf">
+                    <div className="sf-lbl">Apollo import</div>
+                    <div className="sf-hint">Filters are prefilled from onboarding and can be adjusted per import.</div>
+                  </div>
+                  <div className="sf">
+                    <input
+                      className="sf-inp"
+                      value={apolloFilters.titles.join(', ')}
+                      onChange={event => setApolloFilters({
+                        ...apolloFilters,
+                        titles: event.target.value.split(',').map(item => item.trim()).filter(Boolean),
+                      })}
+                      placeholder="Founder, CEO, Head of Sales"
+                    />
+                  </div>
+                  <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <input
+                      className="sf-inp"
+                      value={apolloFilters.region}
+                      onChange={event => setApolloFilters({ ...apolloFilters, region: event.target.value })}
+                      placeholder="Singapore"
+                    />
+                    <input
+                      className="sf-inp"
+                      value={apolloFilters.industry}
+                      onChange={event => setApolloFilters({ ...apolloFilters, industry: event.target.value })}
+                      placeholder="Industry"
+                    />
+                  </div>
+                  <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 10 }}>
+                    <input
+                      className="sf-inp"
+                      value={apolloFilters.companySize}
+                      onChange={event => setApolloFilters({ ...apolloFilters, companySize: event.target.value })}
+                      placeholder="11-50"
+                    />
+                    <input
+                      className="sf-inp"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={apolloFilters.limit}
+                      onChange={event => setApolloFilters({ ...apolloFilters, limit: Number(event.target.value) })}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button className="btn-primary" type="button" disabled={busy === 'apollo'} onClick={handleApolloImport}>
+                      {busy === 'apollo' ? 'Importing...' : 'Import from Apollo'}
+                    </button>
+                    <button className="btn-outline" type="button" disabled={busy === 'apollo-sync'} onClick={handleApolloSync}>
+                      {busy === 'apollo-sync' ? 'Syncing...' : 'Sync Apollo emails'}
+                    </button>
+                  </div>
+                </div>
+                <form className="set-panel" onSubmit={handleCreateLead}>
+                  <div className="sf-lbl">Add lead</div>
+                  {Object.keys(emptyLeadForm).map(key => (
+                    <div className="sf" key={key}>
+                      <input
+                        className="sf-inp"
+                        value={leadForm[key as keyof typeof leadForm]}
+                        onChange={event => setLeadForm({ ...leadForm, [key]: event.target.value })}
+                        placeholder={key.replaceAll('_', ' ')}
+                        required={key === 'full_name' || key === 'email'}
+                      />
+                    </div>
+                  ))}
+                  <button className="btn-primary" type="submit" disabled={busy === 'lead'}>{busy === 'lead' ? 'Saving...' : 'Save lead'}</button>
+                </form>
+                <div className="set-panel" style={{ marginTop: 18 }}>
+                  <div className="sf">
+                    <div className="sf-lbl">CSV import</div>
+                    <div className="sf-hint">Upload a CSV, let AI map the columns, then confirm the preview before anything is written.</div>
+                    <input
+                      className="sf-inp"
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={async event => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        setCsvText(await file.text());
+                        setCsvMappings([]);
+                        setCsvPreview([]);
+                      }}
+                    />
+                  </div>
+                  <div className="sf">
+                    <select className="sf-inp" value={csvMode} onChange={event => setCsvMode(event.target.value as 'import' | 'suppress')}>
+                      <option value="import">Import leads</option>
+                      <option value="suppress">Exclude from future searches</option>
+                    </select>
+                  </div>
+                  <button className="btn-outline" type="button" disabled={!csvText || busy === 'csv-preview'} onClick={handleCsvPreview}>{busy === 'csv-preview' ? 'Mapping...' : 'Map columns with AI'}</button>
+                  {csvMappings.length ? (
+                    <div style={{ marginTop: 14 }}>
+                      {csvMappings.map((mapping, index) => (
+                        <div key={`${mapping.source}-${index}`} className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          <div className="sf-hint">{mapping.source} · {Math.round(Number(mapping.confidence || 0) * 100)}%</div>
+                          <select
+                            className="sf-inp"
+                            value={mapping.target}
+                            onChange={event => setCsvMappings(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, target: event.target.value } : item))}
+                          >
+                            {csvTargets.map(target => <option key={target} value={target}>{target}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                      {csvPreview.length ? <pre className="sf-hint" style={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto' }}>{JSON.stringify(csvPreview, null, 2)}</pre> : null}
+                      <button className="btn-primary" type="button" disabled={busy === 'csv'} onClick={handleCsvImport}>{busy === 'csv' ? 'Importing...' : `Confirm and ${csvMode === 'suppress' ? 'exclude' : 'import'}`}</button>
+                    </div>
+                  ) : null}
+                  {lastCsvRun && lastCsvRun.skipped_count > 0 ? (
+                    <button className="btn-outline" type="button" style={{ marginTop: 10 }} onClick={handleDownloadCsvErrors}>
+                      Download skipped-row report
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {activePage === 'inbox' ? (
+          <section>
+            <div className="page-header">
+              <div>
+                <h2 className="page-title">Inbox</h2>
+                <p className="page-sub">Inbound replies and AI drafted responses.</p>
+              </div>
+            </div>
+            <div className="card">
+              {inbox.length ? inbox.map(item => (
+                <div key={item.id} className="call-card">
+                  <div className="call-av">{initials(item.leads?.full_name)}</div>
+                  <div className="call-meta">
+                    <div className="call-name">{item.leads?.full_name || item.subject || 'Inbound email'}</div>
+                    <div className="call-detail">{item.leads?.company_name || item.leads?.email || 'Unknown lead'} · {fmtDate(item.received_at || item.created_at)}</div>
+                    <div className="call-detail" style={{ marginTop: 7 }}>{(item.draft_body || item.body || '').slice(0, 220)}</div>
+                  </div>
+                  <div className="call-right">
+                    <span className={`badge ${statusBadge(item.intent_classification || item.status)}`}><span className="bdot" />{item.intent_classification || item.status}</span>
+                    <div style={{ marginTop: 10 }}>
+                      <button className="btn-outline" type="button" disabled={busy === item.id} onClick={() => handleApproveReply(item.id)}>
+                        Approve
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )) : <EmptyState text="No inbound replies yet." />}
+            </div>
+          </section>
+        ) : null}
+
+        {activePage === 'meetings' ? (
+          <section>
+            <div className="page-header">
+              <div>
+                <h2 className="page-title">Meetings</h2>
+                <p className="page-sub">Booked meetings from positive replies.</p>
+              </div>
+            </div>
+            <div className="card">
+              {meetings.length ? meetings.map(meeting => (
+                <div key={meeting.id} className="mtg-item">
+                  <div className="mi-time">{fmtDate(meeting.starts_at)}</div>
+                  <div className="mi-name">{meeting.title}</div>
+                  <div className="mi-detail">{meeting.invitee_name || meeting.invitee_email || meeting.leads?.full_name || 'Invitee pending'}</div>
+                  <span className="mi-type">{meeting.status}</span>
+                </div>
+              )) : <EmptyState text="No meetings booked yet." />}
+            </div>
+          </section>
+        ) : null}
+
+        {activePage === 'analytics' ? (
+          <section>
+            <div className="page-header">
+              <div>
+                <h2 className="page-title">Analytics</h2>
+                <p className="page-sub">Live counts from campaigns, messages, and inbox.</p>
+              </div>
+            </div>
+            <KpiRow
+              items={[
+                ['Generated', preview.length, 'Ge'],
+                ['Sent', sentMessages, 'Se'],
+                ['Opened', openedMessages, 'Op'],
+                ['Replies', inbox.length, 'Re'],
+              ]}
+            />
+            <div className="an-grid">
+              <div className="card">
+                <div className="card-head"><div className="card-title">Campaign status</div></div>
+                <div className="chart-wrap">
+                  {['draft', 'ready', 'active', 'paused', 'completed'].map(status => (
+                    <Metric key={status} label={status} value={campaigns.filter(c => c.status === status).length.toString()} />
+                  ))}
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-head"><div className="card-title">Reply intent</div></div>
+                <div className="chart-wrap">
+                  {['positive', 'pricing', 'not_interested', 'dnc_request', 'auto_reply'].map(intent => (
+                    <Metric key={intent} label={intent} value={inbox.filter(item => item.intent_classification === intent).length.toString()} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {activePage === 'settings' ? (
+          <section>
+            <div className="page-header">
+              <div>
+                <h2 className="page-title">Settings</h2>
+                <p className="page-sub">Connect the sender mailbox used by campaigns and inbox polling.</p>
+              </div>
+            </div>
+            <div className="set-grid">
+              <div className="set-nav">
+                <div className="sn-item active">SMTP and IMAP</div>
+                <div className="sn-item">Workspace</div>
+                <div className="sn-item">Compliance</div>
+              </div>
+              <form className="set-panel" onSubmit={handleSmtpConnect}>
+                <div className="sf">
+                  <div className="sf-lbl">Connected account</div>
+                  <div className="sf-hint">{smtpAccount ? `${smtpAccount.from_email} · ${smtpAccount.status}` : 'No mailbox connected.'}</div>
+                  {smtpAccount ? <div className="sf-hint">SMTP {smtpAccount.smtp_verified_at ? 'verified' : 'not verified'} · IMAP {smtpAccount.imap_verified_at ? 'verified' : 'not verified'}</div> : null}
+                </div>
+                <div className="sf" style={{ display: 'flex', gap: 10 }}>
+                  <button className="btn-outline" type="button" onClick={() => applyMailboxPreset('gmail')}>Gmail preset</button>
+                  <button className="btn-outline" type="button" onClick={() => applyMailboxPreset('outlook')}>Outlook preset</button>
+                </div>
+                <div className="sf-hint">Use an app password when your provider requires two-step verification. Your credentials are encrypted before storage.</div>
+                <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <input className="sf-inp" value={smtpForm.from_email} onChange={event => setSmtpForm({ ...smtpForm, from_email: event.target.value })} placeholder="sender@company.com" required />
+                  <input className="sf-inp" value={smtpForm.from_name} onChange={event => setSmtpForm({ ...smtpForm, from_name: event.target.value })} placeholder="Display name" required />
+                </div>
+                <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 12 }}>
+                  <input className="sf-inp" value={smtpForm.smtp_host} onChange={event => setSmtpForm({ ...smtpForm, smtp_host: event.target.value })} placeholder="smtp.gmail.com" required />
+                  <input className="sf-inp" type="number" value={smtpForm.smtp_port} onChange={event => setSmtpForm({ ...smtpForm, smtp_port: Number(event.target.value) })} required />
+                </div>
+                <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <input className="sf-inp" value={smtpForm.smtp_username} onChange={event => setSmtpForm({ ...smtpForm, smtp_username: event.target.value })} placeholder="SMTP username" required />
+                  <input className="sf-inp" type="password" value={smtpForm.smtp_password} onChange={event => setSmtpForm({ ...smtpForm, smtp_password: event.target.value })} placeholder="SMTP password" required />
+                </div>
+                <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 12 }}>
+                  <input className="sf-inp" value={smtpForm.imap_host} onChange={event => setSmtpForm({ ...smtpForm, imap_host: event.target.value })} placeholder="imap.gmail.com" required />
+                  <input className="sf-inp" type="number" value={smtpForm.imap_port} onChange={event => setSmtpForm({ ...smtpForm, imap_port: Number(event.target.value) })} />
+                </div>
+                <div className="set-save">
+                  <button className="btn-outline" type="button" disabled={!smtpAccount || busy === 'smtp-test'} onClick={handleTestSmtp}>
+                    {busy === 'smtp-test' ? 'Testing...' : 'Test SMTP'}
+                  </button>
+                  <button className="btn-primary" type="submit" disabled={busy === 'smtp'}>{busy === 'smtp' ? 'Connecting...' : 'Save mailbox'}</button>
+                </div>
+              </form>
+            </div>
+          </section>
+        ) : null}
+
+        {activePage === 'billing' ? (
+          <section>
+            <div className="page-header">
+              <div>
+                <h2 className="page-title">Billing</h2>
+                <p className="page-sub">Current plan and usage controls.</p>
+              </div>
+            </div>
+            <div className="bill-grid">
+              <div className="plan-card">
+                <div className="plan-tag">{workspace?.plan || 'No plan'}</div>
+                <div className="plan-name">Email automation</div>
+                <div className="plan-price">V1 <small>configured locally</small></div>
+                <div style={{ marginTop: 18 }}>
+                  <Metric label="Daily cap across active campaign" value={selectedCampaign?.daily_send_cap?.toString() || '0'} />
+                  <Metric label="Mailbox" value={smtpAccount?.from_email || 'missing'} />
+                </div>
+              </div>
+              <div className="up-card">
+                <div className="up-title">Stripe</div>
+                <div className="up-sub">Checkout and subscription management are not connected in this build yet.</div>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {activePage === 'support' ? (
+          <section>
+            <div className="page-header">
+              <div>
+                <h2 className="page-title">Support</h2>
+                <p className="page-sub">Operational checks for the email workflow.</p>
+              </div>
+            </div>
+            <div className="an-grid">
+              <div className="card">
+                <div className="card-head"><div className="card-title">Setup checklist</div></div>
+                <div className="msl-list">
+                  <Metric label="Mailbox connected" value={smtpAccount ? 'yes' : 'no'} />
+                  <Metric label="Leads with email" value={emailLeads.length.toString()} />
+                  <Metric label="Campaign selected" value={selectedCampaign ? selectedCampaign.name : 'none'} />
+                  <Metric label="Replies pending" value={pendingReplies.length.toString()} />
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-head"><div className="card-title">Known backend requirements</div></div>
+                <div className="msl-list">
+                  <Metric label="Redis worker" value="required for launch" />
+                  <Metric label="Service role key" value="required for workers" />
+                  <Metric label="Gemini key" value="required for generation" />
+                  <Metric label="SMTP app password" value="required to send" />
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
+      </main>
+    </>
+  );
+}
+
+function KpiRow({ items }: { items: Array<[string, number, string]> }) {
+  return (
+    <div className="kpi-row">
+      {items.map(([label, value, marker], index) => (
+        <div className="kpi-card" key={label}>
+          <div className={`kpi-icon ${['ki-p', 'ki-g', 'ki-gr', 'ki-b'][index]}`}>{marker}</div>
+          <div className="kpi-val">{value}</div>
+          <div className="kpi-lbl">{label}</div>
+          <span className="kpi-delta kd-neutral">Live</span>
         </div>
-      </div>
+      ))}
     </div>
   );
+}
+
+function CampaignRow({ campaign, active, onClick }: { campaign: Campaign; active?: boolean; onClick: () => void }) {
+  return (
+    <button
+      className="mtr"
+      type="button"
+      onClick={onClick}
+      style={{ width: '100%', border: 0, textAlign: 'left', background: active ? 'var(--purple-pale)' : 'transparent' }}
+    >
+      <div className="mtr-av">{initials(campaign.name)}</div>
+      <div className="mtr-info">
+        <div className="mtr-name">{campaign.name}</div>
+        <div className="mtr-detail">{campaign.daily_send_cap}/day · {campaign.send_window_start}-{campaign.send_window_end}</div>
+      </div>
+      <span className={`badge ${statusBadge(campaign.status)}`}><span className="bdot" />{campaign.status}</span>
+    </button>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="msl-row">
+      <span className="msl-lbl">{label}</span>
+      <span className="msl-val">{value}</span>
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className="sf-hint" style={{ padding: 20 }}>{text}</div>;
 }

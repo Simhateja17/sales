@@ -41,6 +41,10 @@ export interface AgentConfig {
 
 export type LeadStatus = 'new' | 'contacted' | 'interested' | 'not_interested' | 'follow_up' | 'booked' | 'do_not_call';
 export type Priority = 'low' | 'normal' | 'high' | 'urgent';
+export type CampaignStatus = 'draft' | 'generating' | 'ready' | 'active' | 'paused' | 'completed' | 'archived';
+export type MessageStatus = 'draft' | 'pending_approval' | 'approved' | 'queued' | 'sent' | 'failed' | 'received' | 'auto_sent' | 'rejected';
+export type MessageDirection = 'outbound' | 'inbound';
+export type IntentClassification = 'positive' | 'pricing' | 'not_interested' | 'dnc_request' | 'auto_reply' | null;
 
 export interface Lead {
   id: string;
@@ -53,6 +57,14 @@ export interface Lead {
   phone: string | null;
   phone_e164: string | null;
   email: string | null;
+  email_status: 'unknown' | 'user_provided' | 'verified' | 'likely' | 'unverified' | 'invalid' | 'not_found';
+  email_source: string | null;
+  linkedin_url: string | null;
+  company_domain: string | null;
+  lifecycle_status: 'candidate' | 'enriching' | 'ready' | 'selected_for_campaign' | 'contacted' | 'rejected_no_email' | 'suppressed';
+  enrichment_status: 'not_started' | 'pending' | 'completed' | 'failed' | 'cooldown';
+  fit_score: number;
+  fit_reasons: Array<{ points: number; reason: string }>;
   location: string | null;
   status: LeadStatus;
   priority: Priority;
@@ -64,6 +76,88 @@ export interface Lead {
   notes_summary: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ConnectedAccount {
+  id: string;
+  workspace_id: string;
+  provider: 'smtp';
+  from_email: string;
+  from_name: string | null;
+  reply_to_email: string | null;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_username: string;
+  imap_host: string | null;
+  imap_port: number | null;
+  imap_username: string;
+  status: 'connected' | 'error' | 'disconnected';
+  smtp_verified_at: string | null;
+  imap_verified_at: string | null;
+  last_error: string | null;
+  last_tested_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Campaign {
+  id: string;
+  workspace_id: string;
+  name: string;
+  status: CampaignStatus;
+  target_segment: Record<string, unknown>;
+  daily_send_cap: number;
+  timezone: string;
+  send_window_start: string;
+  send_window_end: string;
+  auto_send_replies: boolean;
+  require_approval: boolean;
+  launched_at: string | null;
+  paused_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  email_sequences?: EmailSequence[];
+}
+
+export interface EmailSequence {
+  id: string;
+  workspace_id: string;
+  campaign_id: string;
+  step_number: number;
+  subject_template: string;
+  body_template: string;
+  delay_days: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface EmailMessage {
+  id: string;
+  workspace_id: string;
+  campaign_id: string | null;
+  lead_id: string | null;
+  sequence_step: number | null;
+  direction: MessageDirection;
+  channel: 'email';
+  subject: string | null;
+  body: string | null;
+  draft_body: string | null;
+  status: MessageStatus;
+  provider_message_id: string | null;
+  message_id_header: string | null;
+  in_reply_to: string | null;
+  sent_at: string | null;
+  received_at: string | null;
+  opened_at: string | null;
+  open_count: number;
+  clicked_at: string | null;
+  intent_classification: IntentClassification;
+  ai_confidence: number | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  leads?: Pick<Lead, 'full_name' | 'company_name' | 'title' | 'email' | 'status'>;
 }
 
 export interface FollowUp {
@@ -216,13 +310,20 @@ export interface CallingStatus {
 export interface LeadImportRun {
   id: string;
   source: 'manual' | 'csv' | 'apollo';
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'searching' | 'enriching' | 'pending_enrichment' | 'completed' | 'partial' | 'failed';
   total_rows: number;
   created_count: number;
   updated_count: number;
   skipped_count: number;
   error_message?: string | null;
   raw_meta?: Record<string, unknown>;
+}
+
+export interface CsvMapping {
+  source: string;
+  target: string;
+  confidence: number;
+  reason: string;
 }
 
 export interface ApolloFilters {
@@ -289,6 +390,13 @@ export function saveOnboardingDraft(answers: Answers, step: number) {
   });
 }
 
+export function getTargetSuggestions(input: { product: string; buyer?: string; industry?: string }) {
+  return apiFetch<{ suggestions: { titles: string[]; consumer_warning: boolean; explanation: string } }>('/api/workspace/target-suggestions', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 export function getLeads() {
   return apiFetch<{ leads: Lead[]; followUps: FollowUp[] }>('/api/leads');
 }
@@ -300,11 +408,31 @@ export function createLead(lead: Record<string, unknown>) {
   });
 }
 
-export function importCsvLeads(rows: Record<string, string>[]) {
-  return apiFetch<{ importRun: LeadImportRun }>('/api/leads/import-csv', {
+export function previewCsvMapping(csvText: string) {
+  return apiFetch<{ headers: string[]; row_count: number; mappings: CsvMapping[]; preview: Record<string, unknown>[] }>('/api/leads/csv/preview', {
     method: 'POST',
-    body: JSON.stringify({ rows }),
+    body: JSON.stringify({ csv_text: csvText }),
   });
+}
+
+export function startCsvImport(csvText: string, mappings: CsvMapping[], mode: 'import' | 'suppress') {
+  return apiFetch<{ importRun: LeadImportRun }>('/api/leads/csv/import', {
+    method: 'POST',
+    body: JSON.stringify({ csv_text: csvText, mappings, mode }),
+  });
+}
+
+export async function downloadCsvImportErrors(runId: string) {
+  const response = await fetch(`${API_URL}/api/leads/imports/${runId}/errors.csv`, { credentials: 'include' });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to download import errors');
+  }
+  return response.blob();
+}
+
+export function getLeadImport(runId: string) {
+  return apiFetch<{ importRun: LeadImportRun }>(`/api/leads/imports/${runId}`);
 }
 
 export function getApolloFilters() {
@@ -312,9 +440,19 @@ export function getApolloFilters() {
 }
 
 export function importApolloLeads(filters: ApolloFilters) {
-  return apiFetch<{ importRun: LeadImportRun }>('/api/apollo/import', {
+  return apiFetch<{ importRun: LeadImportRun; sync?: { updated: number; skipped: number; pending: number } }>('/api/apollo/import', {
     method: 'POST',
     body: JSON.stringify({ filters }),
+  });
+}
+
+export function getApolloImport(runId: string) {
+  return apiFetch<{ importRun: LeadImportRun }>(`/api/apollo/imports/${runId}`);
+}
+
+export function syncApolloEmails() {
+  return apiFetch<{ sync: { updated: number; skipped: number; pending: number }; requestIds: string[] }>('/api/apollo/sync-pending', {
+    method: 'POST',
   });
 }
 
@@ -385,4 +523,110 @@ export function getOutcomes() {
 
 export function getMeetings() {
   return apiFetch<{ meetings: Meeting[] }>('/api/outcomes/meetings');
+}
+
+export interface ConnectSmtpPayload {
+  from_email: string;
+  from_name: string;
+  reply_to_email?: string;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_username: string;
+  smtp_password: string;
+  imap_host: string;
+  imap_port: number;
+  imap_username: string;
+  imap_password: string;
+}
+
+export function getSmtpStatus() {
+  return apiFetch<{ account: ConnectedAccount | null }>('/api/emails/smtp/status');
+}
+
+export function connectSmtp(account: ConnectSmtpPayload) {
+  return apiFetch<{ account: ConnectedAccount }>('/api/emails/smtp/connect', {
+    method: 'POST',
+    body: JSON.stringify({ account }),
+  });
+}
+
+export function testSmtp() {
+  return apiFetch<{ ok: boolean; account: ConnectedAccount }>('/api/emails/smtp/test', {
+    method: 'POST',
+  });
+}
+
+export function getCampaigns() {
+  return apiFetch<{ campaigns: Campaign[] }>('/api/campaigns');
+}
+
+export function createCampaign(campaign: Partial<Campaign> & { name: string }) {
+  return apiFetch<{ campaign: Campaign }>('/api/campaigns', {
+    method: 'POST',
+    body: JSON.stringify({ campaign }),
+  });
+}
+
+export function getCampaign(campaignId: string) {
+  return apiFetch<{ campaign: Campaign }>(`/api/campaigns/${campaignId}`);
+}
+
+export function generateCampaignEmails(campaignId: string, leadIds: string[]) {
+  return apiFetch<{ campaign: Campaign; messages: EmailMessage[] }>(`/api/campaigns/${campaignId}/generate`, {
+    method: 'POST',
+    body: JSON.stringify({ lead_ids: leadIds }),
+  });
+}
+
+export function getCampaignPreview(campaignId: string) {
+  return apiFetch<{ messages: EmailMessage[] }>(`/api/campaigns/${campaignId}/preview`);
+}
+
+export function launchCampaign(campaignId: string) {
+  return apiFetch<{ campaign: Campaign; queued: number }>(`/api/campaigns/${campaignId}/launch`, {
+    method: 'POST',
+  });
+}
+
+export function pauseCampaign(campaignId: string) {
+  return apiFetch<{ campaign: Campaign }>(`/api/campaigns/${campaignId}/pause`, {
+    method: 'POST',
+  });
+}
+
+export function resumeCampaign(campaignId: string) {
+  return apiFetch<{ campaign: Campaign }>(`/api/campaigns/${campaignId}/resume`, {
+    method: 'POST',
+  });
+}
+
+export function getCampaignMessages(campaignId: string) {
+  return apiFetch<{ messages: EmailMessage[] }>(`/api/campaigns/${campaignId}/messages`);
+}
+
+export function getInbox() {
+  return apiFetch<{ conversations: EmailMessage[] }>('/api/inbox');
+}
+
+export function getConversation(leadId: string) {
+  return apiFetch<{ lead: Lead; messages: EmailMessage[] }>(`/api/inbox/${leadId}`);
+}
+
+export function approveInboxMessage(messageId: string, body?: string) {
+  return apiFetch<{ message: EmailMessage }>(`/api/inbox/messages/${messageId}/approve`, {
+    method: 'POST',
+    body: JSON.stringify(body ? { body } : {}),
+  });
+}
+
+export function regenerateInboxMessage(messageId: string) {
+  return apiFetch<{ message: EmailMessage }>(`/api/inbox/messages/${messageId}/regenerate`, {
+    method: 'POST',
+  });
+}
+
+export function rejectInboxMessage(messageId: string) {
+  return apiFetch<{ message: EmailMessage }>(`/api/inbox/messages/${messageId}/reject`, {
+    method: 'POST',
+  });
 }
