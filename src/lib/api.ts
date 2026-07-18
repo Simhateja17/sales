@@ -597,9 +597,20 @@ export function getCampaign(campaignId: string) {
   return apiFetch<{ campaign: Campaign }>(`/api/campaigns/${campaignId}`);
 }
 
-export function generateCampaignEmails(campaignId: string, leadIds: string[]) {
+export function generateCampaignEmails(campaignId: string) {
   return apiFetch<{ campaign: Campaign; messages: EmailMessage[] }>(`/api/campaigns/${campaignId}/generate`, {
     method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export function getCampaignLeads(campaignId: string) {
+  return apiFetch<{ lead_ids: string[] }>(`/api/campaigns/${campaignId}/leads`);
+}
+
+export function replaceCampaignLeads(campaignId: string, leadIds: string[]) {
+  return apiFetch<{ lead_ids: string[] }>(`/api/campaigns/${campaignId}/leads`, {
+    method: 'PUT',
     body: JSON.stringify({ lead_ids: leadIds }),
   });
 }
@@ -628,6 +639,12 @@ export function resumeCampaign(campaignId: string) {
 
 export function getCampaignMessages(campaignId: string) {
   return apiFetch<{ messages: EmailMessage[] }>(`/api/campaigns/${campaignId}/messages`);
+}
+
+export function sendCampaignEmailNow(campaignId: string, messageId: string) {
+  return apiFetch<{ queued: boolean; message_id: string }>(`/api/campaigns/${campaignId}/messages/${messageId}/send-now`, {
+    method: 'POST',
+  });
 }
 
 export function getInbox() {

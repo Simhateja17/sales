@@ -220,6 +220,7 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;b
 .mtr{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--cream-dark);cursor:pointer;transition:background .15s;}
 .mtr:hover{background:var(--cream);}
 .mtr:last-child{border-bottom:none;}
+.mtr-button{width:100%;border:0;text-align:left;background:transparent;font:inherit;color:inherit;}
 .mtr-av{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--purple-pale),var(--gold-pale));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--purple);flex-shrink:0;}
 .mtr-info{flex:1;}
 .mtr-name{font-size:13px;font-weight:500;color:var(--text);}
@@ -347,6 +348,18 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;b
 .ts-ctrl input:checked + .ts-sldr{background:var(--purple);}
 .ts-ctrl input:checked + .ts-sldr::before{transform:translateX(18px);background:white;}
 .set-save{display:flex;justify-content:flex-end;gap:10px;padding-top:18px;border-top:1px solid var(--cream-dark);margin-top:18px;}
+.modal-backdrop{position:fixed;inset:0;z-index:300;background:rgba(26,20,32,.35);display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(3px);}
+.modal-card{width:min(720px,100%);max-height:calc(100vh - 48px);overflow:auto;background:var(--white);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 56px rgba(26,20,32,.24);padding:0 24px 24px;}
+.modal-card .card-head{margin:0 -24px;padding:16px 24px;position:sticky;top:0;background:var(--white);z-index:1;}
+.lead-picker-list{max-height:55vh;overflow:auto;margin:18px 0;border:1px solid var(--cream-dark);border-radius:10px;}
+.lead-picker-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--cream-dark);cursor:pointer;}
+.lead-picker-row:last-child{border-bottom:0;}
+.lead-picker-row>span:nth-child(2){flex:1;display:grid;gap:3px;font-size:13px;}
+.lead-picker-row small{font-size:11px;color:var(--text-muted);}
+.email-detail-body{padding:22px 0 6px;}
+.email-detail-label{font-size:10px;font-weight:600;color:var(--purple);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:7px;}
+.email-detail-subject{font-size:17px;font-weight:600;margin-bottom:22px;}
+.email-detail-copy{white-space:pre-wrap;font-size:14px;line-height:1.7;color:var(--text);background:var(--cream);border:1px solid var(--cream-dark);border-radius:10px;padding:16px;}
 
 /* BILLING */
 .bill-grid{display:grid;grid-template-columns:1fr 300px;gap:20px;}

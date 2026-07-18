@@ -10,6 +10,7 @@ import {
   deleteLead,
   downloadCsvImportErrors,
   generateCampaignEmails,
+  getCampaignLeads,
   getCampaignPreview,
   getCampaigns,
   getApolloFilters,
@@ -26,7 +27,9 @@ import {
   logout,
   pauseCampaign,
   previewCsvMapping,
+  replaceCampaignLeads,
   resumeCampaign,
+  sendCampaignEmailNow,
   startCsvImport,
   syncApolloEmails,
   testSmtp,
@@ -156,6 +159,9 @@ export default function DashboardPage() {
   const [csvMode, setCsvMode] = useState<'import' | 'suppress'>('import');
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [managedLeadIds, setManagedLeadIds] = useState<string[]>([]);
+  const [campaignLeadPickerIds, setCampaignLeadPickerIds] = useState<string[]>([]);
+  const [showCampaignLeadPicker, setShowCampaignLeadPicker] = useState(false);
+  const [openedEmail, setOpenedEmail] = useState<EmailMessage | null>(null);
   const [editingLeadId, setEditingLeadId] = useState('');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('mailbox');
   const [mailboxProvider, setMailboxProvider] = useState<'gmail' | 'outlook' | 'manual'>('manual');
@@ -166,8 +172,13 @@ export default function DashboardPage() {
   const apolloRecoveryStartedRef = useRef(false);
 
   const selectedCampaign = campaigns.find(campaign => campaign.id === selectedCampaignId) || campaigns[0] || null;
+  const canEditSelectedCampaign = Boolean(selectedCampaign && ['draft', 'paused'].includes(selectedCampaign.status));
   const emailLeads = useMemo(
     () => leads.filter(lead => Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status)),
+    [leads]
+  );
+  const visibleLeads = useMemo(
+    () => leads.filter(lead => lead.source !== 'apollo' || ['ready', 'selected_for_campaign', 'contacted'].includes(lead.lifecycle_status)),
     [leads]
   );
   const pendingReplies = useMemo(
@@ -233,20 +244,19 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedCampaign?.id) {
       setPreview([]);
+      setSelectedLeadIds([]);
       return;
     }
-    getCampaignPreview(selectedCampaign.id)
-      .then(data => setPreview(data.messages))
-      .catch(() => setPreview([]));
+    Promise.all([getCampaignPreview(selectedCampaign.id), getCampaignLeads(selectedCampaign.id)])
+      .then(([previewData, leadData]) => {
+        setPreview(previewData.messages);
+        setSelectedLeadIds(leadData.lead_ids);
+      })
+      .catch(() => {
+        setPreview([]);
+        setSelectedLeadIds([]);
+      });
   }, [selectedCampaign?.id]);
-
-  useEffect(() => {
-    setSelectedLeadIds(current => {
-      const eligibleIds = [...emailLeads].sort((a, b) => (b.fit_score || 0) - (a.fit_score || 0)).map(lead => lead.id);
-      const retained = current.filter(id => eligibleIds.includes(id));
-      return retained.length ? retained : eligibleIds.slice(0, 100);
-    });
-  }, [emailLeads]);
 
   async function refreshAll() {
     const [leadData, campaignData, inboxData, meetingData, smtpData] = await Promise.all([
@@ -491,19 +501,101 @@ export default function DashboardPage() {
 
   async function handleGenerate() {
     if (!selectedCampaign) return;
+    if (!canEditSelectedCampaign) {
+      setMessage('Pause the campaign before generating additional emails.');
+      return;
+    }
     if (!selectedLeadIds.length) {
-      setMessage('Add leads with email addresses before generating.');
+      setMessage('Select campaign leads before generating.');
       return;
     }
     setBusy('generate');
     setMessage('');
     try {
-      const data = await generateCampaignEmails(selectedCampaign.id, selectedLeadIds);
+      const data = await generateCampaignEmails(selectedCampaign.id);
       setPreview(data.messages);
       await refreshCampaignsOnly(data.campaign.id);
       setMessage(`${data.messages.length} emails generated for review.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not generate emails');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  function openCampaignLeadPicker() {
+    if (!canEditSelectedCampaign) {
+      setMessage('Pause the campaign before changing its selected leads.');
+      return;
+    }
+    setCampaignLeadPickerIds(selectedLeadIds);
+    setShowCampaignLeadPicker(true);
+  }
+
+  async function saveCampaignLeadSelection(leadIds = campaignLeadPickerIds) {
+    if (!selectedCampaign) return;
+    setBusy('campaign-leads');
+    setMessage('');
+    try {
+      const data = await replaceCampaignLeads(selectedCampaign.id, leadIds);
+      setSelectedLeadIds(data.lead_ids);
+      setCampaignLeadPickerIds(data.lead_ids);
+      setShowCampaignLeadPicker(false);
+      const leadData = await getLeads();
+      setLeads(leadData.leads);
+      setMessage(`${data.lead_ids.length} lead${data.lead_ids.length === 1 ? '' : 's'} selected for ${selectedCampaign.name}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not update campaign leads');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function toggleLeadInSelectedCampaign(leadId: string) {
+    if (!selectedCampaign) {
+      setMessage('Choose a campaign first.');
+      return;
+    }
+    const nextIds = selectedLeadIds.includes(leadId)
+      ? selectedLeadIds.filter(id => id !== leadId)
+      : [...selectedLeadIds, leadId];
+    await saveCampaignLeadSelection(nextIds);
+  }
+
+  async function addManagedLeadsToCampaign() {
+    if (!selectedCampaign) {
+      setActivePage('campaigns');
+      setMessage('Choose or create a campaign, then add the selected leads.');
+      return;
+    }
+    if (!canEditSelectedCampaign) {
+      setMessage('Pause the campaign before adding leads.');
+      return;
+    }
+    const eligibleIds = managedLeadIds.filter(id => {
+      const lead = leads.find(item => item.id === id);
+      return Boolean(lead?.email) && ['ready', 'selected_for_campaign'].includes(lead?.lifecycle_status || '');
+    });
+    if (!eligibleIds.length) {
+      setMessage('Select at least one ready lead with an email address.');
+      return;
+    }
+    await saveCampaignLeadSelection([...new Set([...selectedLeadIds, ...eligibleIds])]);
+    setManagedLeadIds([]);
+  }
+
+  async function handleSendEmailNow() {
+    if (!selectedCampaign || !openedEmail) return;
+    if (!window.confirm(`Send this email to ${openedEmail.leads?.email || 'this lead'} now?`)) return;
+    setBusy('send-now');
+    setMessage('');
+    try {
+      await sendCampaignEmailNow(selectedCampaign.id, openedEmail.id);
+      setOpenedEmail({ ...openedEmail, status: 'approved' });
+      setPreview(current => current.map(item => item.id === openedEmail.id ? { ...item, status: 'approved' } : item));
+      setMessage('Email queued to send immediately.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not queue the email');
     } finally {
       setBusy('');
     }
@@ -745,7 +837,7 @@ export default function DashboardPage() {
               </div>
               {selectedCampaign ? (
                 <div className="page-actions">
-                  <button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>
+                  <button className="btn-outline" type="button" disabled={busy === 'generate' || !canEditSelectedCampaign} onClick={handleGenerate}>
                     {busy === 'generate' ? 'Generating...' : 'Generate emails'}
                   </button>
                   <button className="btn-primary" type="button" disabled={busy === 'launch'} onClick={handleLaunch}>
@@ -775,10 +867,10 @@ export default function DashboardPage() {
                 <div className="card">
                   <div className="card-head">
                     <div className="card-title">Email preview</div>
-                    <span className="card-action">{preview.length} drafts</span>
+                    <span className="card-action">{preview.length} draft{preview.length === 1 ? '' : 's'}</span>
                   </div>
-                  {preview.length ? preview.slice(0, 5).map(item => (
-                    <div key={item.id} className="mtr">
+                  {preview.length ? preview.map(item => (
+                    <button key={item.id} className="mtr mtr-button" type="button" onClick={() => setOpenedEmail(item)}>
                       <div className="mtr-av">{initials(item.leads?.full_name)}</div>
                       <div className="mtr-info">
                         <div className="mtr-name">{item.subject || 'Untitled email'}</div>
@@ -786,7 +878,7 @@ export default function DashboardPage() {
                         <div className="mtr-detail" style={{ marginTop: 6 }}>{(item.body || item.draft_body || '').slice(0, 180)}</div>
                       </div>
                       <span className={`badge ${statusBadge(item.status)}`}><span className="bdot" />{item.status}</span>
-                    </div>
+                    </button>
                   )) : <EmptyState text="Generate emails to see previews." />}
                 </div>
               </div>
@@ -828,7 +920,7 @@ export default function DashboardPage() {
                     <span className={`badge ${statusBadge(selectedCampaign.status)}`}><span className="bdot" />{selectedCampaign.status}</span>
                   </div>
                   <div className="msl-list">
-                    <Metric label="Ready leads" value={selectedLeadIds.length.toString()} />
+                    <Metric label="Selected leads" value={selectedLeadIds.length.toString()} />
                     <Metric label="Generated emails" value={preview.length.toString()} />
                     <Metric label="Daily cap" value={selectedCampaign.daily_send_cap.toString()} />
                     <Metric label="Send window" value={`${selectedCampaign.sending_hours_start || '09:00'}–${selectedCampaign.sending_hours_end || '18:00'}`} />
@@ -844,11 +936,14 @@ export default function DashboardPage() {
                     ))}
                   </div>
                   <div className="sf-hint" style={{ marginTop: 16 }}>
-                    Generate emails, review the previews, connect a verified mailbox, then launch.
+                    Select leads, generate and review the emails, then launch from a verified mailbox.
                   </div>
                   <div className="set-save">
                     <button className="btn-outline" type="button" onClick={() => setShowCampaignForm(true)}>Create another</button>
-                    <button className="btn-primary" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>Generate emails</button>
+                    <button className="btn-outline" type="button" disabled={busy === 'campaign-leads' || !canEditSelectedCampaign} onClick={openCampaignLeadPicker}>
+                      {selectedLeadIds.length ? `Manage ${selectedLeadIds.length} leads` : 'Select leads'}
+                    </button>
+                    <button className="btn-primary" type="button" disabled={busy === 'generate' || !canEditSelectedCampaign} onClick={handleGenerate}>Generate emails</button>
                   </div>
                 </div>
               )}
@@ -861,7 +956,7 @@ export default function DashboardPage() {
             <div className="page-header">
               <div>
                 <h2 className="page-title">Leads</h2>
-                <p className="page-sub">{emailLeads.length} of {leads.length} leads have email addresses.</p>
+                <p className="page-sub">{emailLeads.length} enriched leads are ready for campaigns.</p>
               </div>
             </div>
             <div className="dash-grid">
@@ -869,7 +964,12 @@ export default function DashboardPage() {
                 <div className="card-head">
                   <div className="card-title">Lead list</div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span className="card-action">{managedLeadIds.length ? `${managedLeadIds.length} selected` : `${leads.length} total`}</span>
+                    <span className="card-action">{managedLeadIds.length ? `${managedLeadIds.length} selected` : `${visibleLeads.length} total`}</span>
+                    {managedLeadIds.length ? (
+                    <button className="btn-primary" type="button" disabled={busy === 'campaign-leads' || !canEditSelectedCampaign} onClick={addManagedLeadsToCampaign}>
+                        Add to {selectedCampaign?.name || 'campaign'}
+                      </button>
+                    ) : null}
                     {managedLeadIds.length ? (
                       <button className="btn-outline" type="button" disabled={busy === 'lead-delete'} onClick={() => handleDeleteLeads(managedLeadIds)}>Delete selected</button>
                     ) : null}
@@ -878,12 +978,12 @@ export default function DashboardPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th><input aria-label="Select all leads" type="checkbox" checked={Boolean(leads.length) && managedLeadIds.length === leads.length} onChange={event => setManagedLeadIds(event.target.checked ? leads.map(lead => lead.id) : [])} /></th>
-                      <th>Name</th><th>Company</th><th>Email</th><th>Fit</th><th>Status</th><th>Campaign</th><th>Actions</th>
+                      <th><input aria-label="Select all leads" type="checkbox" checked={Boolean(visibleLeads.length) && managedLeadIds.length === visibleLeads.length} onChange={event => setManagedLeadIds(event.target.checked ? visibleLeads.map(lead => lead.id) : [])} /></th>
+                      <th>Name</th><th>Company</th><th>Email</th><th>Fit</th><th>Status</th><th>In campaign</th><th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {leads.map(lead => (
+                    {visibleLeads.map(lead => (
                       <tr key={lead.id}>
                         <td><input aria-label={`Select ${lead.full_name}`} type="checkbox" checked={managedLeadIds.includes(lead.id)} onChange={() => setManagedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} /></td>
                         <td>{lead.full_name}</td>
@@ -891,7 +991,7 @@ export default function DashboardPage() {
                         <td>{lead.email || '-'}</td>
                         <td title={(lead.fit_reasons || []).map(reason => `+${reason.points} ${reason.reason}`).join('\n')}>{lead.fit_score || 0}</td>
                         <td><span className={`badge ${statusBadge(lead.lifecycle_status || lead.status)}`}><span className="bdot" />{lead.lifecycle_status || lead.status}</span></td>
-                        <td><input aria-label={`Use ${lead.full_name} in campaigns`} type="checkbox" checked={selectedLeadIds.includes(lead.id)} disabled={!lead.email || !['ready', 'selected_for_campaign'].includes(lead.lifecycle_status)} onChange={() => setSelectedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} /></td>
+                        <td><input aria-label={`Use ${lead.full_name} in ${selectedCampaign?.name || 'campaign'}`} type="checkbox" checked={selectedLeadIds.includes(lead.id)} disabled={!canEditSelectedCampaign || busy === 'campaign-leads' || !lead.email || !['ready', 'selected_for_campaign'].includes(lead.lifecycle_status)} onChange={() => toggleLeadInSelectedCampaign(lead.id)} /></td>
                         <td>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button className="card-action" type="button" onClick={() => beginEditLead(lead)}>Edit</button>
@@ -902,7 +1002,7 @@ export default function DashboardPage() {
                     ))}
                   </tbody>
                 </table>
-                {!leads.length ? <EmptyState text="No leads imported yet." /> : null}
+                {!visibleLeads.length ? <EmptyState text="No enriched leads are ready yet." /> : null}
               </div>
               <div>
                 <div className="set-panel" style={{ marginBottom: 18 }}>
@@ -1209,7 +1309,7 @@ export default function DashboardPage() {
                     <Metric label="Name" value={workspace?.name || 'Workspace'} />
                     <Metric label="Plan" value={workspace?.plan || 'Not selected'} />
                     <Metric label="Onboarding" value={workspace?.onboarding_completed ? 'Complete' : 'Incomplete'} />
-                    <Metric label="Leads" value={leads.length.toString()} />
+                    <Metric label="Visible leads" value={visibleLeads.length.toString()} />
                   </div>
                   <div className="sf-hint" style={{ marginTop: 18 }}>Lead targeting and email-writing preferences are managed through onboarding. Billing controls are kept separate.</div>
                   <div className="set-save">
@@ -1296,6 +1396,70 @@ export default function DashboardPage() {
           </section>
         ) : null}
       </main>
+      {showCampaignLeadPicker && selectedCampaign ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowCampaignLeadPicker(false)}>
+          <section className="modal-card campaign-lead-picker" role="dialog" aria-modal="true" aria-label={`Select leads for ${selectedCampaign.name}`} onMouseDown={event => event.stopPropagation()}>
+            <div className="card-head">
+              <div>
+                <div className="card-title">Select campaign leads</div>
+                <div className="sf-hint" style={{ marginTop: 4 }}>{campaignLeadPickerIds.length} ready leads selected for {selectedCampaign.name}.</div>
+              </div>
+              <button className="btn-outline" type="button" onClick={() => setShowCampaignLeadPicker(false)}>Close</button>
+            </div>
+            <div className="lead-picker-list">
+              {emailLeads.map(lead => (
+                <label className="lead-picker-row" key={lead.id}>
+                  <input
+                    type="checkbox"
+                    checked={campaignLeadPickerIds.includes(lead.id)}
+                    onChange={() => setCampaignLeadPickerIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])}
+                  />
+                  <span>
+                    <strong>{lead.full_name}</strong>
+                    <small>{lead.title ? `${lead.title} · ` : ''}{lead.company_name || 'Unknown company'} · {lead.email}</small>
+                  </span>
+                  <span className="badge b-interested">Fit {lead.fit_score || 0}</span>
+                </label>
+              ))}
+              {!emailLeads.length ? <EmptyState text="No ready leads with email addresses are available." /> : null}
+            </div>
+            <div className="set-save">
+              <button className="btn-outline" type="button" onClick={() => setCampaignLeadPickerIds([])}>Clear selection</button>
+              <button className="btn-primary" type="button" disabled={busy === 'campaign-leads'} onClick={() => saveCampaignLeadSelection()}>
+                {busy === 'campaign-leads' ? 'Saving...' : `Save ${campaignLeadPickerIds.length} leads`}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+      {openedEmail ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpenedEmail(null)}>
+          <section className="modal-card email-detail" role="dialog" aria-modal="true" aria-label="Campaign email" onMouseDown={event => event.stopPropagation()}>
+            <div className="card-head">
+              <div>
+                <div className="card-title">Email to {openedEmail.leads?.full_name || 'lead'}</div>
+                <div className="sf-hint" style={{ marginTop: 4 }}>{openedEmail.leads?.email || 'No email address'}</div>
+              </div>
+              <button className="btn-outline" type="button" onClick={() => setOpenedEmail(null)}>Close</button>
+            </div>
+            <div className="email-detail-body">
+              <div className="email-detail-label">Subject</div>
+              <div className="email-detail-subject">{openedEmail.subject || 'Untitled email'}</div>
+              <div className="email-detail-label">Message</div>
+              <div className="email-detail-copy">{openedEmail.body || openedEmail.draft_body || 'No email body was generated.'}</div>
+            </div>
+            <div className="set-save">
+              {selectedCampaign?.status === 'active' && ['draft', 'approved'].includes(openedEmail.status) ? (
+                <button className="btn-primary" type="button" disabled={busy === 'send-now'} onClick={handleSendEmailNow}>
+                  {busy === 'send-now' ? 'Queueing...' : 'Send immediately'}
+                </button>
+              ) : (
+                <div className="sf-hint">Send immediately is available after this campaign is launched.</div>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </>
   );
 }
