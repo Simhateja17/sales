@@ -108,8 +108,11 @@ export interface Campaign {
   target_segment: Record<string, unknown>;
   daily_send_cap: number;
   timezone: string;
-  send_window_start: string;
-  send_window_end: string;
+  sending_hours_start: string;
+  sending_hours_end: string;
+  active_days: number[];
+  cadence_per_hour: number;
+  lead_source: 'apollo' | 'csv' | 'manual';
   auto_send_replies: boolean;
   require_approval: boolean;
   launched_at: string | null;
@@ -317,6 +320,8 @@ export interface LeadImportRun {
   skipped_count: number;
   error_message?: string | null;
   raw_meta?: Record<string, unknown>;
+  created_at: string;
+  completed_at?: string | null;
 }
 
 export interface CsvMapping {
@@ -365,6 +370,12 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   return data as T;
 }
 
+export function logout() {
+  return apiFetch<{ message: string }>('/api/auth/logout', {
+    method: 'POST',
+  });
+}
+
 export function getWorkspace() {
   return apiFetch<WorkspaceResponse>('/api/workspace/me');
 }
@@ -408,6 +419,17 @@ export function createLead(lead: Record<string, unknown>) {
   });
 }
 
+export function updateLead(leadId: string, patch: Record<string, unknown>) {
+  return apiFetch<{ lead: Lead }>(`/api/leads/${leadId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteLead(leadId: string) {
+  return apiFetch<{ deleted: boolean; leadId: string }>(`/api/leads/${leadId}`, { method: 'DELETE' });
+}
+
 export function previewCsvMapping(csvText: string) {
   return apiFetch<{ headers: string[]; row_count: number; mappings: CsvMapping[]; preview: Record<string, unknown>[] }>('/api/leads/csv/preview', {
     method: 'POST',
@@ -448,6 +470,10 @@ export function importApolloLeads(filters: ApolloFilters) {
 
 export function getApolloImport(runId: string) {
   return apiFetch<{ importRun: LeadImportRun }>(`/api/apollo/imports/${runId}`);
+}
+
+export function getLatestApolloImport() {
+  return apiFetch<{ importRun: LeadImportRun | null }>('/api/apollo/imports/latest');
 }
 
 export function syncApolloEmails() {

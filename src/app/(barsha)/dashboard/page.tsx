@@ -1,18 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   approveInboxMessage,
   connectSmtp,
   createCampaign,
   createLead,
+  deleteLead,
   downloadCsvImportErrors,
   generateCampaignEmails,
   getCampaignPreview,
   getCampaigns,
   getApolloFilters,
   getApolloImport,
+  getLatestApolloImport,
   getLeadImport,
   getInbox,
   getLeads,
@@ -21,12 +23,14 @@ import {
   getWorkspace,
   importApolloLeads,
   launchCampaign,
+  logout,
   pauseCampaign,
   previewCsvMapping,
   resumeCampaign,
   startCsvImport,
   syncApolloEmails,
   testSmtp,
+  updateLead,
   type ApolloFilters,
   type Campaign,
   type ConnectedAccount,
@@ -39,6 +43,7 @@ import {
 } from '@/lib/api';
 
 type Page = 'overview' | 'campaigns' | 'leads' | 'inbox' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
+type SettingsSection = 'mailbox' | 'workspace' | 'compliance';
 
 const navItems: Array<{ id: Page; label: string; marker: string }> = [
   { id: 'overview', label: 'Overview', marker: 'Ov' },
@@ -64,11 +69,12 @@ const emptyLeadForm = {
 const emptyCampaignForm = {
   name: '',
   daily_send_cap: 40,
-  send_window_start: '09:00',
-  send_window_end: '17:30',
+  sending_hours_start: '09:00',
+  sending_hours_end: '17:30',
   timezone: 'Asia/Singapore',
-  require_approval: true,
-  auto_send_replies: false,
+  active_days: [1, 2, 3, 4, 5],
+  cadence_per_hour: 25,
+  lead_source: 'manual' as const,
 };
 
 const emptySmtpForm = {
@@ -123,6 +129,7 @@ function fmtDate(value?: string | null) {
 }
 
 const csvTargets = ['full_name', 'first_name', 'last_name', 'company_name', 'title', 'email', 'phone', 'location', 'linkedin_url', 'company_domain', 'company_industry', 'company_size', 'external_id', 'ignore'];
+const terminalImportStatuses = new Set(['completed', 'partial', 'failed']);
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -148,6 +155,15 @@ export default function DashboardPage() {
   const [lastCsvRun, setLastCsvRun] = useState<LeadImportRun | null>(null);
   const [csvMode, setCsvMode] = useState<'import' | 'suppress'>('import');
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [managedLeadIds, setManagedLeadIds] = useState<string[]>([]);
+  const [editingLeadId, setEditingLeadId] = useState('');
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('mailbox');
+  const [mailboxProvider, setMailboxProvider] = useState<'gmail' | 'outlook' | 'manual'>('manual');
+  const [showCampaignForm, setShowCampaignForm] = useState(false);
+  const [activeApolloRun, setActiveApolloRun] = useState<LeadImportRun | null>(null);
+  const [apolloElapsedSeconds, setApolloElapsedSeconds] = useState(0);
+  const apolloMonitorRef = useRef('');
+  const apolloRecoveryStartedRef = useRef(false);
 
   const selectedCampaign = campaigns.find(campaign => campaign.id === selectedCampaignId) || campaigns[0] || null;
   const emailLeads = useMemo(
@@ -191,7 +207,28 @@ export default function DashboardPage() {
     getApolloFilters()
       .then(data => setApolloFilters(data.filters))
       .catch(() => undefined);
+    if (!apolloRecoveryStartedRef.current) {
+      apolloRecoveryStartedRef.current = true;
+      getLatestApolloImport()
+        .then(({ importRun }) => {
+          if (!importRun) return;
+          setActiveApolloRun(importRun);
+          if (!terminalImportStatuses.has(importRun.status)) {
+            monitorApolloImport(importRun.id).catch(error => setMessage(error.message));
+          }
+        })
+        .catch(() => undefined);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!activeApolloRun?.created_at) return;
+    const updateElapsed = () => setApolloElapsedSeconds(Math.max(0, Math.floor((Date.now() - new Date(activeApolloRun.created_at).getTime()) / 1000)));
+    updateElapsed();
+    if (terminalImportStatuses.has(activeApolloRun.status)) return;
+    const timer = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(timer);
+  }, [activeApolloRun?.id, activeApolloRun?.status, activeApolloRun?.created_at]);
 
   useEffect(() => {
     if (!selectedCampaign?.id) {
@@ -240,16 +277,51 @@ export default function DashboardPage() {
     setBusy('lead');
     setMessage('');
     try {
-      await createLead({
-        ...leadForm,
-        source: 'manual',
-      });
+      if (editingLeadId) await updateLead(editingLeadId, leadForm);
+      else await createLead({ ...leadForm, source: 'manual' });
       setLeadForm(emptyLeadForm);
+      setEditingLeadId('');
       const data = await getLeads();
       setLeads(data.leads);
-      setMessage('Lead saved.');
+      setMessage(editingLeadId ? 'Lead updated.' : 'Lead saved.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not save lead');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  function beginEditLead(lead: Lead) {
+    setEditingLeadId(lead.id);
+    setLeadForm({
+      full_name: lead.full_name || '',
+      company_name: lead.company_name || '',
+      title: lead.title || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      notes_summary: lead.notes_summary || '',
+    });
+    setMessage(`Editing ${lead.full_name}.`);
+  }
+
+  function cancelEditLead() {
+    setEditingLeadId('');
+    setLeadForm(emptyLeadForm);
+  }
+
+  async function handleDeleteLeads(ids: string[]) {
+    if (!ids.length || !window.confirm(`Delete ${ids.length} selected lead${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    setBusy('lead-delete');
+    setMessage('');
+    try {
+      await Promise.all(ids.map(id => deleteLead(id)));
+      setLeads(current => current.filter(lead => !ids.includes(lead.id)));
+      setManagedLeadIds(current => current.filter(id => !ids.includes(id)));
+      setSelectedLeadIds(current => current.filter(id => !ids.includes(id)));
+      if (editingLeadId && ids.includes(editingLeadId)) cancelEditLead();
+      setMessage(`${ids.length} lead${ids.length === 1 ? '' : 's'} deleted.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not delete leads');
     } finally {
       setBusy('');
     }
@@ -260,10 +332,34 @@ export default function DashboardPage() {
       const { importRun } = await loader(runId);
       const meta = importRun.raw_meta || {};
       setMessage(`Import ${importRun.status}: ${String(meta.ready_count ?? importRun.created_count)} ready/created, ${importRun.skipped_count} skipped.`);
-      if (['completed', 'partial', 'pending_enrichment', 'failed'].includes(importRun.status)) return importRun;
+      if (terminalImportStatuses.has(importRun.status)) return importRun;
       await new Promise(resolve => window.setTimeout(resolve, 2000));
     }
     throw new Error('Import is still running. You can safely refresh and check it later.');
+  }
+
+  async function monitorApolloImport(runId: string) {
+    apolloMonitorRef.current = runId;
+    setBusy('apollo');
+    for (let attempt = 0; attempt < 450; attempt += 1) {
+      if (apolloMonitorRef.current !== runId) return null;
+      const { importRun } = await getApolloImport(runId);
+      setActiveApolloRun(importRun);
+      if (terminalImportStatuses.has(importRun.status)) {
+        const leadData = await getLeads();
+        setLeads(leadData.leads);
+        setBusy('');
+        const meta = importRun.raw_meta || {};
+        setMessage(importRun.status === 'failed'
+          ? `Apollo import failed: ${importRun.error_message || 'Unknown provider error'}`
+          : `Apollo ${importRun.status}: ${String(meta.ready_count ?? 0)} ready leads from ${importRun.created_count} candidates.`);
+        return importRun;
+      }
+      await new Promise(resolve => window.setTimeout(resolve, 2000));
+    }
+    setBusy('');
+    setMessage('Apollo is taking longer than expected. The import is still running in the background and this page will keep its latest progress.');
+    return null;
   }
 
   async function handleCsvPreview() {
@@ -334,26 +430,13 @@ export default function DashboardPage() {
         importRun: data.importRun,
         sync: data.sync,
       });
-      const run = await waitForImport(data.importRun.id, getApolloImport);
-      const leadData = await getLeads();
-      console.log('[apollo:frontend:leads_after_import]', {
-        leads: leadData.leads.length,
-        leadsWithEmail: leadData.leads.filter(lead => Boolean(lead.email)).length,
-        sample: leadData.leads.slice(0, 5).map(lead => ({
-          name: lead.full_name,
-          company: lead.company_name,
-          hasEmail: Boolean(lead.email),
-          status: lead.status,
-        })),
-      });
-      setLeads(leadData.leads);
-      const meta = run.raw_meta || {};
-      setMessage(`Apollo ${run.status}: ${String(meta.ready_count ?? 0)} ready leads from ${run.created_count} new candidates.`);
+      setActiveApolloRun(data.importRun);
+      await monitorApolloImport(data.importRun.id);
     } catch (error) {
       console.error('[apollo:frontend:import_failed]', error);
       setMessage(error instanceof Error ? error.message : 'Could not import Apollo leads');
     } finally {
-      setBusy('');
+      if (!activeApolloRun || terminalImportStatuses.has(activeApolloRun.status)) setBusy('');
     }
   }
 
@@ -397,6 +480,7 @@ export default function DashboardPage() {
       setCampaigns([data.campaign, ...campaigns]);
       setSelectedCampaignId(data.campaign.id);
       setCampaignForm(emptyCampaignForm);
+      setShowCampaignForm(false);
       setMessage('Campaign created.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not create campaign');
@@ -484,6 +568,7 @@ export default function DashboardPage() {
   }
 
   function applyMailboxPreset(provider: 'gmail' | 'outlook') {
+    setMailboxProvider(provider);
     setSmtpForm(current => provider === 'gmail' ? {
       ...current,
       smtp_host: 'smtp.gmail.com',
@@ -497,6 +582,7 @@ export default function DashboardPage() {
       imap_host: 'outlook.office365.com',
       imap_port: 993,
     });
+    setMessage(`${provider === 'gmail' ? 'Gmail' : 'Outlook'} settings applied. Enter your email, username, and app password below.`);
   }
 
   async function handleTestSmtp() {
@@ -523,6 +609,19 @@ export default function DashboardPage() {
       setMessage('Reply approved.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not approve reply');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleLogout() {
+    setBusy('logout');
+    setMessage('');
+    try {
+      await logout();
+      router.replace('/login');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not log out. Please try again.');
     } finally {
       setBusy('');
     }
@@ -565,6 +664,16 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        <button
+          type="button"
+          className="nav-item sb-logout"
+          onClick={handleLogout}
+          disabled={busy === 'logout'}
+          style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left' }}
+        >
+          <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>Lo</span>
+          {busy === 'logout' ? 'Logging out...' : 'Log out'}
+        </button>
       </aside>
 
       <main className="main-content">
@@ -577,7 +686,10 @@ export default function DashboardPage() {
             <button type="button" className="btn-outline" onClick={() => refreshAll().catch(error => setMessage(error.message))}>
               Refresh
             </button>
-            <button type="button" className="btn-primary" onClick={() => setActivePage('campaigns')}>
+            <button type="button" className="btn-primary" onClick={() => {
+              setActivePage('campaigns');
+              setShowCampaignForm(true);
+            }}>
               New campaign
             </button>
           </div>
@@ -604,6 +716,7 @@ export default function DashboardPage() {
                 {campaigns.length ? campaigns.slice(0, 6).map(campaign => (
                   <CampaignRow key={campaign.id} campaign={campaign} onClick={() => {
                     setSelectedCampaignId(campaign.id);
+                    setShowCampaignForm(false);
                     setActivePage('campaigns');
                   }} />
                 )) : <EmptyState text="No campaigns yet." />}
@@ -653,7 +766,10 @@ export default function DashboardPage() {
                     <div className="card-title">Campaign list</div>
                   </div>
                   {campaigns.length ? campaigns.map(campaign => (
-                    <CampaignRow key={campaign.id} campaign={campaign} active={campaign.id === selectedCampaign?.id} onClick={() => setSelectedCampaignId(campaign.id)} />
+                    <CampaignRow key={campaign.id} campaign={campaign} active={campaign.id === selectedCampaign?.id} onClick={() => {
+                      setSelectedCampaignId(campaign.id);
+                      setShowCampaignForm(false);
+                    }} />
                   )) : <EmptyState text="Create your first campaign." />}
                 </div>
                 <div className="card">
@@ -674,7 +790,7 @@ export default function DashboardPage() {
                   )) : <EmptyState text="Generate emails to see previews." />}
                 </div>
               </div>
-              <form className="set-panel" onSubmit={handleCreateCampaign}>
+              {showCampaignForm || !selectedCampaign ? <form className="set-panel" onSubmit={handleCreateCampaign}>
                 <div className="sf">
                   <div className="sf-lbl">New campaign</div>
                   <input className="sf-inp" value={campaignForm.name} onChange={event => setCampaignForm({ ...campaignForm, name: event.target.value })} placeholder="Q3 founder outreach" required />
@@ -686,27 +802,56 @@ export default function DashboardPage() {
                 <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
                     <div className="sf-lbl">Start</div>
-                    <input className="sf-inp" value={campaignForm.send_window_start} onChange={event => setCampaignForm({ ...campaignForm, send_window_start: event.target.value })} />
+                    <input className="sf-inp" type="time" value={campaignForm.sending_hours_start} onChange={event => setCampaignForm({ ...campaignForm, sending_hours_start: event.target.value })} />
                   </div>
                   <div>
                     <div className="sf-lbl">End</div>
-                    <input className="sf-inp" value={campaignForm.send_window_end} onChange={event => setCampaignForm({ ...campaignForm, send_window_end: event.target.value })} />
+                    <input className="sf-inp" type="time" value={campaignForm.sending_hours_end} onChange={event => setCampaignForm({ ...campaignForm, sending_hours_end: event.target.value })} />
                   </div>
                 </div>
-                <label className="tog-switch">
-                  <span>
-                    <span className="ts-name">Require approval</span>
-                    <span className="ts-desc">Keep replies in inbox review.</span>
-                  </span>
-                  <span className="ts-ctrl">
-                    <input type="checkbox" checked={campaignForm.require_approval} onChange={event => setCampaignForm({ ...campaignForm, require_approval: event.target.checked })} />
-                    <span className="ts-sldr" />
-                  </span>
-                </label>
+                <div className="sf">
+                  <div className="sf-lbl">Emails per hour</div>
+                  <input className="sf-inp" type="number" min={1} max={100} value={campaignForm.cadence_per_hour} onChange={event => setCampaignForm({ ...campaignForm, cadence_per_hour: Number(event.target.value) })} />
+                  <div className="sf-hint">Barsha spaces sends across the selected daily window.</div>
+                </div>
                 <div className="set-save">
+                  {selectedCampaign ? <button className="btn-outline" type="button" onClick={() => setShowCampaignForm(false)}>Cancel</button> : null}
                   <button className="btn-primary" type="submit" disabled={busy === 'campaign'}>{busy === 'campaign' ? 'Creating...' : 'Create campaign'}</button>
                 </div>
-              </form>
+              </form> : (
+                <div className="set-panel">
+                  <div className="sf" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+                    <div>
+                      <div className="sf-lbl">Campaign details</div>
+                      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 25, marginTop: 8 }}>{selectedCampaign.name}</div>
+                    </div>
+                    <span className={`badge ${statusBadge(selectedCampaign.status)}`}><span className="bdot" />{selectedCampaign.status}</span>
+                  </div>
+                  <div className="msl-list">
+                    <Metric label="Ready leads" value={selectedLeadIds.length.toString()} />
+                    <Metric label="Generated emails" value={preview.length.toString()} />
+                    <Metric label="Daily cap" value={selectedCampaign.daily_send_cap.toString()} />
+                    <Metric label="Send window" value={`${selectedCampaign.sending_hours_start || '09:00'}–${selectedCampaign.sending_hours_end || '18:00'}`} />
+                    <Metric label="Cadence" value={`${selectedCampaign.cadence_per_hour || 25}/hour`} />
+                  </div>
+                  <div className="sf" style={{ marginTop: 18 }}>
+                    <div className="sf-lbl">Sequence</div>
+                    {(selectedCampaign.email_sequences || []).map(sequence => (
+                      <div className="msl-row" key={sequence.id}>
+                        <span className="msl-lbl">Step {sequence.step_number}</span>
+                        <span className="msl-val">{sequence.delay_days ? `Day ${sequence.delay_days}` : 'Immediately'}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="sf-hint" style={{ marginTop: 16 }}>
+                    Generate emails, review the previews, connect a verified mailbox, then launch.
+                  </div>
+                  <div className="set-save">
+                    <button className="btn-outline" type="button" onClick={() => setShowCampaignForm(true)}>Create another</button>
+                    <button className="btn-primary" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>Generate emails</button>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         ) : null}
@@ -723,20 +868,36 @@ export default function DashboardPage() {
               <div className="card">
                 <div className="card-head">
                   <div className="card-title">Lead list</div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span className="card-action">{managedLeadIds.length ? `${managedLeadIds.length} selected` : `${leads.length} total`}</span>
+                    {managedLeadIds.length ? (
+                      <button className="btn-outline" type="button" disabled={busy === 'lead-delete'} onClick={() => handleDeleteLeads(managedLeadIds)}>Delete selected</button>
+                    ) : null}
+                  </div>
                 </div>
                 <table className="data-table">
                   <thead>
-                    <tr><th>Select</th><th>Name</th><th>Company</th><th>Email</th><th>Fit</th><th>Status</th></tr>
+                    <tr>
+                      <th><input aria-label="Select all leads" type="checkbox" checked={Boolean(leads.length) && managedLeadIds.length === leads.length} onChange={event => setManagedLeadIds(event.target.checked ? leads.map(lead => lead.id) : [])} /></th>
+                      <th>Name</th><th>Company</th><th>Email</th><th>Fit</th><th>Status</th><th>Campaign</th><th>Actions</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {leads.map(lead => (
                       <tr key={lead.id}>
-                        <td><input type="checkbox" checked={selectedLeadIds.includes(lead.id)} disabled={!lead.email || !['ready', 'selected_for_campaign'].includes(lead.lifecycle_status)} onChange={() => setSelectedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} /></td>
+                        <td><input aria-label={`Select ${lead.full_name}`} type="checkbox" checked={managedLeadIds.includes(lead.id)} onChange={() => setManagedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} /></td>
                         <td>{lead.full_name}</td>
                         <td>{lead.company_name || '-'}</td>
                         <td>{lead.email || '-'}</td>
                         <td title={(lead.fit_reasons || []).map(reason => `+${reason.points} ${reason.reason}`).join('\n')}>{lead.fit_score || 0}</td>
                         <td><span className={`badge ${statusBadge(lead.lifecycle_status || lead.status)}`}><span className="bdot" />{lead.lifecycle_status || lead.status}</span></td>
+                        <td><input aria-label={`Use ${lead.full_name} in campaigns`} type="checkbox" checked={selectedLeadIds.includes(lead.id)} disabled={!lead.email || !['ready', 'selected_for_campaign'].includes(lead.lifecycle_status)} onChange={() => setSelectedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} /></td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="card-action" type="button" onClick={() => beginEditLead(lead)}>Edit</button>
+                            <button className="card-action" type="button" disabled={busy === 'lead-delete'} onClick={() => handleDeleteLeads([lead.id])}>Delete</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -798,9 +959,17 @@ export default function DashboardPage() {
                       {busy === 'apollo-sync' ? 'Syncing...' : 'Sync Apollo emails'}
                     </button>
                   </div>
+                  {activeApolloRun ? (
+                    <ApolloImportProgress run={activeApolloRun} elapsedSeconds={apolloElapsedSeconds} />
+                  ) : (
+                    <div className="sf-hint" style={{ marginTop: 14 }}>Most 25-lead imports take roughly 2–5 minutes. Apollo response time can vary.</div>
+                  )}
                 </div>
                 <form className="set-panel" onSubmit={handleCreateLead}>
-                  <div className="sf-lbl">Add lead</div>
+                  <div className="sf" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="sf-lbl">{editingLeadId ? 'Edit lead' : 'Add lead'}</div>
+                    {editingLeadId ? <button className="card-action" type="button" onClick={cancelEditLead}>Cancel edit</button> : null}
+                  </div>
                   {Object.keys(emptyLeadForm).map(key => (
                     <div className="sf" key={key}>
                       <input
@@ -812,7 +981,7 @@ export default function DashboardPage() {
                       />
                     </div>
                   ))}
-                  <button className="btn-primary" type="submit" disabled={busy === 'lead'}>{busy === 'lead' ? 'Saving...' : 'Save lead'}</button>
+                  <button className="btn-primary" type="submit" disabled={busy === 'lead'}>{busy === 'lead' ? 'Saving...' : editingLeadId ? 'Update lead' : 'Save lead'}</button>
                 </form>
                 <div className="set-panel" style={{ marginTop: 18 }}>
                   <div className="sf">
@@ -966,19 +1135,24 @@ export default function DashboardPage() {
             </div>
             <div className="set-grid">
               <div className="set-nav">
-                <div className="sn-item active">SMTP and IMAP</div>
-                <div className="sn-item">Workspace</div>
-                <div className="sn-item">Compliance</div>
+                <button type="button" className={`sn-item${settingsSection === 'mailbox' ? ' active' : ''}`} onClick={() => setSettingsSection('mailbox')}>SMTP and IMAP</button>
+                <button type="button" className={`sn-item${settingsSection === 'workspace' ? ' active' : ''}`} onClick={() => setSettingsSection('workspace')}>Workspace</button>
+                <button type="button" className={`sn-item${settingsSection === 'compliance' ? ' active' : ''}`} onClick={() => setSettingsSection('compliance')}>Compliance</button>
               </div>
-              <form className="set-panel" onSubmit={handleSmtpConnect}>
+              {settingsSection === 'mailbox' ? <form className="set-panel" onSubmit={handleSmtpConnect}>
                 <div className="sf">
                   <div className="sf-lbl">Connected account</div>
                   <div className="sf-hint">{smtpAccount ? `${smtpAccount.from_email} · ${smtpAccount.status}` : 'No mailbox connected.'}</div>
                   {smtpAccount ? <div className="sf-hint">SMTP {smtpAccount.smtp_verified_at ? 'verified' : 'not verified'} · IMAP {smtpAccount.imap_verified_at ? 'verified' : 'not verified'}</div> : null}
                 </div>
                 <div className="sf" style={{ display: 'flex', gap: 10 }}>
-                  <button className="btn-outline" type="button" onClick={() => applyMailboxPreset('gmail')}>Gmail preset</button>
-                  <button className="btn-outline" type="button" onClick={() => applyMailboxPreset('outlook')}>Outlook preset</button>
+                  <button className={mailboxProvider === 'gmail' ? 'btn-primary' : 'btn-outline'} type="button" onClick={() => applyMailboxPreset('gmail')}>Gmail preset</button>
+                  <button className={mailboxProvider === 'outlook' ? 'btn-primary' : 'btn-outline'} type="button" onClick={() => applyMailboxPreset('outlook')}>Outlook preset</button>
+                  <button className={mailboxProvider === 'manual' ? 'btn-primary' : 'btn-outline'} type="button" onClick={() => {
+                    setMailboxProvider('manual');
+                    setSmtpForm(current => ({ ...current, smtp_host: '', imap_host: '' }));
+                    setMessage('Manual setup selected. Enter the SMTP and IMAP values supplied by your email provider.');
+                  }}>Manual</button>
                 </div>
                 <div className="sf-hint">Use an app password when your provider requires two-step verification. Your credentials are encrypted before storage.</div>
                 <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -999,11 +1173,68 @@ export default function DashboardPage() {
                 </div>
                 <div className="set-save">
                   <button className="btn-outline" type="button" disabled={!smtpAccount || busy === 'smtp-test'} onClick={handleTestSmtp}>
-                    {busy === 'smtp-test' ? 'Testing...' : 'Test SMTP'}
+                    {busy === 'smtp-test' ? 'Testing...' : 'Test connection'}
                   </button>
                   <button className="btn-primary" type="submit" disabled={busy === 'smtp'}>{busy === 'smtp' ? 'Connecting...' : 'Save mailbox'}</button>
                 </div>
-              </form>
+                <div className="sf" style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--cream-dark)' }}>
+                  <div className="sf-lbl">{mailboxProvider === 'gmail' ? 'Connect Gmail' : mailboxProvider === 'outlook' ? 'Connect Outlook' : 'Manual connection instructions'}</div>
+                  {mailboxProvider === 'gmail' ? (
+                    <ol className="sf-hint" style={{ lineHeight: 1.8, paddingLeft: 20 }}>
+                      <li>Turn on two-step verification for your Google account.</li>
+                      <li>Create an app password for Mail and paste it into SMTP password.</li>
+                      <li>Use your complete Gmail address as the SMTP username.</li>
+                      <li>Save the mailbox; Barsha will verify both sending and inbox access.</li>
+                    </ol>
+                  ) : mailboxProvider === 'outlook' ? (
+                    <ol className="sf-hint" style={{ lineHeight: 1.8, paddingLeft: 20 }}>
+                      <li>Use your complete Microsoft 365 email as the SMTP username.</li>
+                      <li>Use an app password if your organization requires multi-factor authentication and permits app passwords.</li>
+                      <li>Ask your Microsoft 365 administrator to enable authenticated SMTP and IMAP for this mailbox if verification fails.</li>
+                      <li>Save the mailbox; Barsha will verify both protocols before marking it connected.</li>
+                    </ol>
+                  ) : (
+                    <ol className="sf-hint" style={{ lineHeight: 1.8, paddingLeft: 20 }}>
+                      <li>Copy the SMTP and IMAP hosts, ports, username, and app password from your provider.</li>
+                      <li>SMTP port 587 normally uses TLS; IMAP commonly uses port 993.</li>
+                      <li>Save first, then use Test connection to verify sending and inbox access.</li>
+                    </ol>
+                  )}
+                </div>
+              </form> : null}
+              {settingsSection === 'workspace' ? (
+                <div className="set-panel">
+                  <div className="sf-lbl">Workspace</div>
+                  <div className="msl-list" style={{ marginTop: 16 }}>
+                    <Metric label="Name" value={workspace?.name || 'Workspace'} />
+                    <Metric label="Plan" value={workspace?.plan || 'Not selected'} />
+                    <Metric label="Onboarding" value={workspace?.onboarding_completed ? 'Complete' : 'Incomplete'} />
+                    <Metric label="Leads" value={leads.length.toString()} />
+                  </div>
+                  <div className="sf-hint" style={{ marginTop: 18 }}>Lead targeting and email-writing preferences are managed through onboarding. Billing controls are kept separate.</div>
+                  <div className="set-save">
+                    <button className="btn-outline" type="button" onClick={() => router.push('/onboarding')}>Edit targeting</button>
+                    <button className="btn-primary" type="button" onClick={() => setActivePage('billing')}>View billing</button>
+                  </div>
+                </div>
+              ) : null}
+              {settingsSection === 'compliance' ? (
+                <div className="set-panel">
+                  <div className="sf-lbl">Email compliance</div>
+                  <div className="sf-hint" style={{ marginTop: 8 }}>These safeguards are applied to campaign sending and replies.</div>
+                  <div className="msl-list" style={{ marginTop: 18 }}>
+                    <Metric label="Verified sender required" value="Enabled" />
+                    <Metric label="Unsubscribe footer" value="Added automatically" />
+                    <Metric label="Reply opt-outs" value="Block future sends" />
+                    <Metric label="Suppression CSV" value="Available in Leads" />
+                    <Metric label="Generic emails" value="Rejected during enrichment" />
+                  </div>
+                  <div className="sf-hint" style={{ marginTop: 18 }}>Barsha stops future campaign selection after an unsubscribe or suppression match. Your organization remains responsible for its sending identity, lawful basis, audience, and regional requirements.</div>
+                  <div className="set-save">
+                    <button className="btn-outline" type="button" onClick={() => setActivePage('leads')}>Manage suppressions</button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </section>
         ) : null}
@@ -1095,9 +1326,12 @@ function CampaignRow({ campaign, active, onClick }: { campaign: Campaign; active
       <div className="mtr-av">{initials(campaign.name)}</div>
       <div className="mtr-info">
         <div className="mtr-name">{campaign.name}</div>
-        <div className="mtr-detail">{campaign.daily_send_cap}/day · {campaign.send_window_start}-{campaign.send_window_end}</div>
+        <div className="mtr-detail">{campaign.daily_send_cap}/day · {campaign.sending_hours_start || '09:00'}–{campaign.sending_hours_end || '18:00'}</div>
       </div>
-      <span className={`badge ${statusBadge(campaign.status)}`}><span className="bdot" />{campaign.status}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span className={`badge ${statusBadge(campaign.status)}`}><span className="bdot" />{campaign.status}</span>
+        <span className="card-action">Open →</span>
+      </div>
     </button>
   );
 }
@@ -1113,4 +1347,59 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function EmptyState({ text }: { text: string }) {
   return <div className="sf-hint" style={{ padding: 20 }}>{text}</div>;
+}
+
+function formatDuration(totalSeconds: number) {
+  const seconds = Math.max(0, Math.round(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  if (!minutes) return `${remainder}s`;
+  return `${minutes}m ${remainder.toString().padStart(2, '0')}s`;
+}
+
+function ApolloImportProgress({ run, elapsedSeconds }: { run: LeadImportRun; elapsedSeconds: number }) {
+  const meta = run.raw_meta || {};
+  const stage = String(meta.stage || run.status);
+  const page = Number(meta.current_page || 0);
+  const pageCap = Number(meta.page_cap || 10);
+  const batch = Number(meta.current_enrichment_batch || 0);
+  const totalBatches = Number(meta.total_enrichment_batches || 1);
+  const ready = Number(meta.ready_count || 0);
+  const target = Number(meta.target_ready_count || meta.requested_limit || run.total_rows || 0);
+  const lastProgressAt = String(meta.last_progress_at || run.created_at || '');
+  const lastProgressOffset = lastProgressAt && run.created_at
+    ? Math.max(0, Math.floor((new Date(lastProgressAt).getTime() - new Date(run.created_at).getTime()) / 1000))
+    : 0;
+  const progressAgeSeconds = Math.max(0, elapsedSeconds - lastProgressOffset);
+  const backendEta = Number(meta.eta_seconds || 0);
+  const remainingSeconds = Math.max(0, backendEta - progressAgeSeconds);
+  const stalled = !terminalImportStatuses.has(run.status) && progressAgeSeconds > 90;
+  let percent = 5;
+  if (stage === 'searching') percent = 10 + Math.round(Math.min(1, page / Math.max(1, pageCap)) * 25);
+  if (stage === 'enriching') percent = 40 + Math.round(Math.min(1, batch / Math.max(1, totalBatches)) * 40);
+  if (stage === 'waiting_for_enrichment') percent = 82 + Math.round(Math.min(1, ready / Math.max(1, target)) * 15);
+  if (terminalImportStatuses.has(run.status)) percent = 100;
+
+  return (
+    <div className={`import-progress${run.status === 'failed' ? ' failed' : ''}`}>
+      <div className="import-progress-head">
+        <div>
+          <div className="import-progress-stage">{String(meta.stage_label || 'Preparing import')}</div>
+          <div className="sf-hint">Elapsed {formatDuration(elapsedSeconds)}</div>
+        </div>
+        <strong>{percent}%</strong>
+      </div>
+      <div className="import-progress-track"><span style={{ width: `${percent}%` }} /></div>
+      <div className="import-progress-stats">
+        <span>Searched <strong>{Number(meta.searched_count || 0)}</strong></span>
+        <span>Candidates <strong>{Number(meta.candidate_count || run.created_count || 0)}</strong></span>
+        <span>Enrichment requested <strong>{Number(meta.enrichment_requested_count || 0)}</strong></span>
+        <span>Ready <strong>{ready}/{target}</strong></span>
+      </div>
+      {run.status === 'failed' ? <div className="import-progress-note">{run.error_message || 'The import failed. Check the backend log and retry.'}</div>
+        : terminalImportStatuses.has(run.status) ? <div className="import-progress-note">Finished in {formatDuration(elapsedSeconds)}.</div>
+          : stalled ? <div className="import-progress-note">This stage is taking longer than usual. Barsha is still checking; you can leave this page and return later.</div>
+            : <div className="import-progress-note">{remainingSeconds > 5 ? `About ${formatDuration(remainingSeconds)} remaining` : 'Finishing this stage…'} · This is a live estimate.</div>}
+    </div>
+  );
 }
