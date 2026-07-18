@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getTargetSuggestions, getWorkspace, saveOnboarding, saveOnboardingDraft } from '@/lib/api';
+import { getApolloFilters, getTargetSuggestions, getWorkspace, saveOnboarding, saveOnboardingDraft } from '@/lib/api';
 
 type StepType = 'text' | 'textarea' | 'select' | 'choice' | 'tags' | 'range';
 
@@ -26,6 +26,7 @@ const STEPS: Step[] = [
   { cat: 'Business', q: 'What is the name of your business?', hint: 'We use this as your workspace and sender identity.', type: 'text', placeholder: 'e.g. Apex Solutions Pte Ltd', key: 'company' },
   { cat: 'Find customers', q: 'What do you sell?', hint: 'Use everyday language. For example: accounting software for small companies.', type: 'textarea', placeholder: 'Describe your main product or service...', key: 'product' },
   { cat: 'Find customers', q: 'Who usually buys it?', hint: 'Choose common buyers and add your own role if needed.', type: 'tags', tags: ['Founder / CEO', 'Operations', 'Sales', 'Marketing', 'Finance', 'IT', 'Procurement', 'HR / People'], key: 'titles' },
+  { cat: 'Find customers', q: 'Which industry should we search?', hint: 'Choose an Apollo industry or type a more specific market. This helps your agent focus on the right companies.', type: 'text', placeholder: 'e.g. information technology & services', key: 'industry' },
   { cat: 'Find customers', q: 'Where are the customers you want to reach?', hint: 'Choose a common market or enter any city, region, or country.', type: 'choice', choices: [{ i: '🇸🇬', l: 'Singapore', s: 'Singapore only' }, { i: '🌏', l: 'Southeast Asia', s: 'Regional customers' }, { i: '🌍', l: 'Worldwide', s: 'No regional restriction' }, { i: '✎', l: 'Other', s: 'Add your own location' }], key: 'region' },
   { cat: 'Find customers', q: 'What size company is usually a good fit?', hint: 'Choose the closest option or add your own.', type: 'choice', choices: [{ i: '🌱', l: '1–20', s: 'Very small businesses' }, { i: '📈', l: '21–200', s: 'Growing companies' }, { i: '🏗️', l: '201–1000', s: 'Mid-market' }, { i: '🏦', l: '1000+', s: 'Enterprise' }, { i: '✎', l: 'Other', s: 'Add your own range' }], key: 'companySize' },
 ];
@@ -41,6 +42,7 @@ export default function OnboardingPage() {
   const [draftStatus, setDraftStatus] = useState('');
   const [suggestedTitles, setSuggestedTitles] = useState<string[]>([]);
   const [suggestionMessage, setSuggestionMessage] = useState('');
+  const [apolloIndustryOptions, setApolloIndustryOptions] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -56,11 +58,12 @@ export default function OnboardingPage() {
   }, [step, current.type]);
 
   useEffect(() => {
-    getWorkspace()
-      .then(data => {
+    Promise.all([getWorkspace(), getApolloFilters()])
+      .then(([data, apollo]) => {
         if (data.agentConfig?.raw_answers) {
           setAnswers(data.agentConfig.raw_answers);
         }
+        setApolloIndustryOptions(apollo.industryOptions);
         if (!data.workspace.onboarding_completed && data.workspace.onboarding_step > 0) {
           setStep(Math.min(data.workspace.onboarding_step, STEPS.length - 1));
         }
@@ -147,15 +150,23 @@ export default function OnboardingPage() {
 
     if (s.type === 'text') {
       return (
-        <input
-          ref={inputRef}
-          className="ob-inp"
-          type="text"
-          placeholder={s.placeholder}
-          value={(val as string) || ''}
-          onChange={e => setAnswer(s.key, e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') next(); }}
-        />
+        <>
+          <input
+            ref={inputRef}
+            className="ob-inp"
+            type="text"
+            placeholder={s.placeholder}
+            value={(val as string) || ''}
+            onChange={e => setAnswer(s.key, e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') next(); }}
+            list={s.key === 'industry' ? 'apollo-onboarding-industry-options' : undefined}
+          />
+          {s.key === 'industry' ? (
+            <datalist id="apollo-onboarding-industry-options">
+              {apolloIndustryOptions.map(industry => <option key={industry} value={industry} />)}
+            </datalist>
+          ) : null}
+        </>
       );
     }
 

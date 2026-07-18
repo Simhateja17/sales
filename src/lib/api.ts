@@ -339,6 +339,11 @@ export interface ApolloFilters {
   limit: number;
 }
 
+export interface ApolloFilterDefaults {
+  filters: ApolloFilters;
+  industryOptions: string[];
+}
+
 export interface WorkspaceResponse {
   user: {
     id: string;
@@ -458,7 +463,7 @@ export function getLeadImport(runId: string) {
 }
 
 export function getApolloFilters() {
-  return apiFetch<{ filters: ApolloFilters }>('/api/apollo/filters');
+  return apiFetch<ApolloFilterDefaults>('/api/apollo/filters');
 }
 
 export function importApolloLeads(filters: ApolloFilters) {
@@ -641,9 +646,23 @@ export function getCampaignMessages(campaignId: string) {
   return apiFetch<{ messages: EmailMessage[] }>(`/api/campaigns/${campaignId}/messages`);
 }
 
+export function updateCampaignEmail(campaignId: string, messageId: string, updates: { subject: string; body: string }) {
+  return apiFetch<{ message: EmailMessage }>(`/api/campaigns/${campaignId}/messages/${messageId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  });
+}
+
 export function sendCampaignEmailNow(campaignId: string, messageId: string) {
   return apiFetch<{ queued: boolean; message_id: string }>(`/api/campaigns/${campaignId}/messages/${messageId}/send-now`, {
     method: 'POST',
+  });
+}
+
+export function sendCampaignEmailsNow(campaignId: string, messageIds: string[]) {
+  return apiFetch<{ queued: number; message_ids: string[] }>(`/api/campaigns/${campaignId}/messages/send-now`, {
+    method: 'POST',
+    body: JSON.stringify({ message_ids: messageIds }),
   });
 }
 

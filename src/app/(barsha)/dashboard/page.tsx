@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   approveInboxMessage,
   connectSmtp,
@@ -9,7 +9,6 @@ import {
   createLead,
   deleteLead,
   downloadCsvImportErrors,
-  generateCampaignEmails,
   getCampaignLeads,
   getCampaignPreview,
   getCampaigns,
@@ -23,13 +22,8 @@ import {
   getSmtpStatus,
   getWorkspace,
   importApolloLeads,
-  launchCampaign,
-  logout,
-  pauseCampaign,
   previewCsvMapping,
   replaceCampaignLeads,
-  resumeCampaign,
-  sendCampaignEmailNow,
   startCsvImport,
   syncApolloEmails,
   testSmtp,
@@ -44,21 +38,12 @@ import {
   type Meeting,
   type Workspace,
 } from '@/lib/api';
+import Sidebar from './_lib/Sidebar';
+import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, navItems, statusBadge, type Page } from './_lib/ui';
 
-type Page = 'overview' | 'campaigns' | 'leads' | 'inbox' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
 type SettingsSection = 'mailbox' | 'workspace' | 'compliance';
 
-const navItems: Array<{ id: Page; label: string; marker: string }> = [
-  { id: 'overview', label: 'Overview', marker: 'Ov' },
-  { id: 'campaigns', label: 'Campaigns', marker: 'Ca' },
-  { id: 'leads', label: 'Leads', marker: 'Le' },
-  { id: 'inbox', label: 'Inbox', marker: 'In' },
-  { id: 'meetings', label: 'Meetings', marker: 'Me' },
-  { id: 'analytics', label: 'Analytics', marker: 'An' },
-  { id: 'settings', label: 'Settings', marker: 'Se' },
-  { id: 'billing', label: 'Billing', marker: 'Bi' },
-  { id: 'support', label: 'Support', marker: 'Su' },
-];
+const pageIds = new Set<string>(navItems.map(item => item.id));
 
 const emptyLeadForm = {
   full_name: '',
@@ -102,41 +87,23 @@ const emptyApolloFilters: ApolloFilters = {
   limit: 25,
 };
 
-function initials(name?: string | null) {
-  if (!name) return 'NA';
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase())
-    .join('') || 'NA';
-}
-
-function statusBadge(status?: string | null) {
-  if (!status) return 'b-noanswer';
-  if (['active', 'sent', 'auto_sent', 'booked', 'positive'].includes(status)) return 'b-booked';
-  if (['ready', 'approved', 'interested'].includes(status)) return 'b-interested';
-  if (['draft', 'pending_approval', 'generating', 'queued'].includes(status)) return 'b-pending';
-  if (['failed', 'rejected', 'not_interested', 'dnc_request'].includes(status)) return 'b-noanswer';
-  return 'b-new';
-}
-
-function fmtDate(value?: string | null) {
-  if (!value) return 'Not scheduled';
-  return new Intl.DateTimeFormat('en-SG', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
-
-const csvTargets = ['full_name', 'first_name', 'last_name', 'company_name', 'title', 'email', 'phone', 'location', 'linkedin_url', 'company_domain', 'company_industry', 'company_size', 'external_id', 'ignore'];
+const csvTargets =['full_name', 'first_name', 'last_name', 'company_name', 'title', 'email', 'phone', 'location', 'linkedin_url', 'company_domain', 'company_industry', 'company_size', 'external_id', 'ignore'];
 const terminalImportStatuses = new Set(['completed', 'partial', 'failed']);
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
   const router = useRouter();
-  const [activePage, setActivePage] = useState<Page>('overview');
+  const searchParams = useSearchParams();
+  const requestedPage = searchParams.get('page');
+  const activePage: Page = requestedPage && pageIds.has(requestedPage) ? requestedPage as Page : 'overview';
+  const setActivePage = (page: Page) => router.push(page === 'overview' ? '/dashboard' : `/dashboard?page=${page}`);
   const [today, setToday] = useState('');
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -152,6 +119,7 @@ export default function DashboardPage() {
   const [campaignForm, setCampaignForm] = useState(emptyCampaignForm);
   const [smtpForm, setSmtpForm] = useState(emptySmtpForm);
   const [apolloFilters, setApolloFilters] = useState<ApolloFilters>(emptyApolloFilters);
+  const [apolloIndustryOptions, setApolloIndustryOptions] = useState<string[]>([]);
   const [csvText, setCsvText] = useState('');
   const [csvMappings, setCsvMappings] = useState<CsvMapping[]>([]);
   const [csvPreview, setCsvPreview] = useState<Record<string, unknown>[]>([]);
@@ -159,9 +127,6 @@ export default function DashboardPage() {
   const [csvMode, setCsvMode] = useState<'import' | 'suppress'>('import');
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [managedLeadIds, setManagedLeadIds] = useState<string[]>([]);
-  const [campaignLeadPickerIds, setCampaignLeadPickerIds] = useState<string[]>([]);
-  const [showCampaignLeadPicker, setShowCampaignLeadPicker] = useState(false);
-  const [openedEmail, setOpenedEmail] = useState<EmailMessage | null>(null);
   const [editingLeadId, setEditingLeadId] = useState('');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('mailbox');
   const [mailboxProvider, setMailboxProvider] = useState<'gmail' | 'outlook' | 'manual'>('manual');
@@ -216,7 +181,10 @@ export default function DashboardPage() {
   useEffect(() => {
     refreshAll().catch(error => setMessage(error.message));
     getApolloFilters()
-      .then(data => setApolloFilters(data.filters))
+      .then(data => {
+        setApolloFilters(data.filters);
+        setApolloIndustryOptions(data.industryOptions);
+      })
       .catch(() => undefined);
     if (!apolloRecoveryStartedRef.current) {
       apolloRecoveryStartedRef.current = true;
@@ -499,48 +467,13 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleGenerate() {
-    if (!selectedCampaign) return;
-    if (!canEditSelectedCampaign) {
-      setMessage('Pause the campaign before generating additional emails.');
-      return;
-    }
-    if (!selectedLeadIds.length) {
-      setMessage('Select campaign leads before generating.');
-      return;
-    }
-    setBusy('generate');
-    setMessage('');
-    try {
-      const data = await generateCampaignEmails(selectedCampaign.id);
-      setPreview(data.messages);
-      await refreshCampaignsOnly(data.campaign.id);
-      setMessage(`${data.messages.length} emails generated for review.`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not generate emails');
-    } finally {
-      setBusy('');
-    }
-  }
-
-  function openCampaignLeadPicker() {
-    if (!canEditSelectedCampaign) {
-      setMessage('Pause the campaign before changing its selected leads.');
-      return;
-    }
-    setCampaignLeadPickerIds(selectedLeadIds);
-    setShowCampaignLeadPicker(true);
-  }
-
-  async function saveCampaignLeadSelection(leadIds = campaignLeadPickerIds) {
+  async function saveCampaignLeadSelection(leadIds: string[]) {
     if (!selectedCampaign) return;
     setBusy('campaign-leads');
     setMessage('');
     try {
       const data = await replaceCampaignLeads(selectedCampaign.id, leadIds);
       setSelectedLeadIds(data.lead_ids);
-      setCampaignLeadPickerIds(data.lead_ids);
-      setShowCampaignLeadPicker(false);
       const leadData = await getLeads();
       setLeads(leadData.leads);
       setMessage(`${data.lead_ids.length} lead${data.lead_ids.length === 1 ? '' : 's'} selected for ${selectedCampaign.name}.`);
@@ -584,59 +517,11 @@ export default function DashboardPage() {
     setManagedLeadIds([]);
   }
 
-  async function handleSendEmailNow() {
-    if (!selectedCampaign || !openedEmail) return;
-    if (!window.confirm(`Send this email to ${openedEmail.leads?.email || 'this lead'} now?`)) return;
-    setBusy('send-now');
-    setMessage('');
-    try {
-      await sendCampaignEmailNow(selectedCampaign.id, openedEmail.id);
-      setOpenedEmail({ ...openedEmail, status: 'approved' });
-      setPreview(current => current.map(item => item.id === openedEmail.id ? { ...item, status: 'approved' } : item));
-      setMessage('Email queued to send immediately.');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not queue the email');
-    } finally {
-      setBusy('');
-    }
-  }
 
   async function refreshCampaignsOnly(nextSelectedId?: string) {
     const data = await getCampaigns();
     setCampaigns(data.campaigns);
     if (nextSelectedId) setSelectedCampaignId(nextSelectedId);
-  }
-
-  async function handleLaunch() {
-    if (!selectedCampaign) return;
-    setBusy('launch');
-    setMessage('');
-    try {
-      const data = await launchCampaign(selectedCampaign.id);
-      await refreshCampaignsOnly(data.campaign.id);
-      setMessage(`${data.queued} emails queued.`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not launch campaign');
-    } finally {
-      setBusy('');
-    }
-  }
-
-  async function toggleCampaign() {
-    if (!selectedCampaign) return;
-    setBusy('toggle');
-    setMessage('');
-    try {
-      const data = selectedCampaign.status === 'active'
-        ? await pauseCampaign(selectedCampaign.id)
-        : await resumeCampaign(selectedCampaign.id);
-      await refreshCampaignsOnly(data.campaign.id);
-      setMessage(selectedCampaign.status === 'active' ? 'Campaign paused.' : 'Campaign resumed.');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not update campaign');
-    } finally {
-      setBusy('');
-    }
   }
 
   async function handleSmtpConnect(event: React.FormEvent<HTMLFormElement>) {
@@ -706,67 +591,17 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleLogout() {
-    setBusy('logout');
-    setMessage('');
-    try {
-      await logout();
-      router.replace('/login');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not log out. Please try again.');
-    } finally {
-      setBusy('');
-    }
-  }
-
   return (
     <>
-      <aside className="sidebar">
-        <div className="sb-brand">
-          <div className="sb-logo">
-            <div className="sb-mark">B</div>
-            <div>
-              <div className="sb-name">Barsha</div>
-              <div className="sb-sub">Email sales agent</div>
-            </div>
-          </div>
-        </div>
-        <nav className="sb-nav">
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              className={`nav-item ${activePage === item.id ? 'active' : ''}`}
-              onClick={() => setActivePage(item.id)}
-              style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left' }}
-            >
-              <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>{item.marker}</span>
-              {item.label}
-              {item.id === 'inbox' && pendingReplies.length > 0 ? <span className="nav-badge">{pendingReplies.length}</span> : null}
-            </button>
-          ))}
-        </nav>
-        <div className="agent-pill">
-          <div className="ap-lbl">Mailbox</div>
-          <div className="ap-row">
-            <span className="ap-dot" style={{ background: smtpAccount?.status === 'connected' ? undefined : '#A89FB5' }} />
-            <div>
-              <div className="ap-name-txt">{smtpAccount?.from_email || 'Not connected'}</div>
-              <div className="ap-num">{workspace?.name || 'Workspace'}</div>
-            </div>
-          </div>
-        </div>
-        <button
-          type="button"
-          className="nav-item sb-logout"
-          onClick={handleLogout}
-          disabled={busy === 'logout'}
-          style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left' }}
-        >
-          <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>Lo</span>
-          {busy === 'logout' ? 'Logging out...' : 'Log out'}
-        </button>
-      </aside>
+      <Sidebar
+        activePage={activePage}
+        onNavigate={setActivePage}
+        workspace={workspace}
+        smtpAccount={smtpAccount}
+        pendingReplies={pendingReplies.length}
+        onError={setMessage}
+      />
+
 
       <main className="main-content">
         <div className="dash-topbar">
@@ -833,56 +668,25 @@ export default function DashboardPage() {
             <div className="page-header">
               <div>
                 <h2 className="page-title">Campaigns</h2>
-                <p className="page-sub">Generate, review, and launch email sequences.</p>
+                <p className="page-sub">Open a campaign to review its emails, select leads, and launch.</p>
               </div>
-              {selectedCampaign ? (
+              {!showCampaignForm ? (
                 <div className="page-actions">
-                  <button className="btn-outline" type="button" disabled={busy === 'generate' || !canEditSelectedCampaign} onClick={handleGenerate}>
-                    {busy === 'generate' ? 'Generating...' : 'Generate emails'}
-                  </button>
-                  <button className="btn-primary" type="button" disabled={busy === 'launch'} onClick={handleLaunch}>
-                    {busy === 'launch' ? 'Launching...' : 'Launch'}
-                  </button>
-                  {selectedCampaign.status === 'active' || selectedCampaign.status === 'paused' ? (
-                    <button className="btn-outline" type="button" disabled={busy === 'toggle'} onClick={toggleCampaign}>
-                      {selectedCampaign.status === 'active' ? 'Pause' : 'Resume'}
-                    </button>
-                  ) : null}
+                  <button className="btn-primary" type="button" onClick={() => setShowCampaignForm(true)}>New campaign</button>
                 </div>
               ) : null}
             </div>
             <div className="dash-grid">
-              <div>
-                <div className="card" style={{ marginBottom: 18 }}>
-                  <div className="card-head">
-                    <div className="card-title">Campaign list</div>
-                  </div>
-                  {campaigns.length ? campaigns.map(campaign => (
-                    <CampaignRow key={campaign.id} campaign={campaign} active={campaign.id === selectedCampaign?.id} onClick={() => {
-                      setSelectedCampaignId(campaign.id);
-                      setShowCampaignForm(false);
-                    }} />
-                  )) : <EmptyState text="Create your first campaign." />}
+              <div className="card">
+                <div className="card-head">
+                  <div className="card-title">Campaign list</div>
+                  <span className="card-action">{campaigns.length} campaign{campaigns.length === 1 ? '' : 's'}</span>
                 </div>
-                <div className="card">
-                  <div className="card-head">
-                    <div className="card-title">Email preview</div>
-                    <span className="card-action">{preview.length} draft{preview.length === 1 ? '' : 's'}</span>
-                  </div>
-                  {preview.length ? preview.map(item => (
-                    <button key={item.id} className="mtr mtr-button" type="button" onClick={() => setOpenedEmail(item)}>
-                      <div className="mtr-av">{initials(item.leads?.full_name)}</div>
-                      <div className="mtr-info">
-                        <div className="mtr-name">{item.subject || 'Untitled email'}</div>
-                        <div className="mtr-detail">{item.leads?.full_name || 'Lead'} at {item.leads?.company_name || 'Unknown company'}</div>
-                        <div className="mtr-detail" style={{ marginTop: 6 }}>{(item.body || item.draft_body || '').slice(0, 180)}</div>
-                      </div>
-                      <span className={`badge ${statusBadge(item.status)}`}><span className="bdot" />{item.status}</span>
-                    </button>
-                  )) : <EmptyState text="Generate emails to see previews." />}
-                </div>
+                {campaigns.length ? campaigns.map(campaign => (
+                  <CampaignRow key={campaign.id} campaign={campaign} onClick={() => router.push(`/dashboard/campaigns/${campaign.id}`)} />
+                )) : <EmptyState text="Create your first campaign." />}
               </div>
-              {showCampaignForm || !selectedCampaign ? <form className="set-panel" onSubmit={handleCreateCampaign}>
+              {showCampaignForm || !campaigns.length ? <form className="set-panel" onSubmit={handleCreateCampaign}>
                 <div className="sf">
                   <div className="sf-lbl">New campaign</div>
                   <input className="sf-inp" value={campaignForm.name} onChange={event => setCampaignForm({ ...campaignForm, name: event.target.value })} placeholder="Q3 founder outreach" required />
@@ -907,43 +711,23 @@ export default function DashboardPage() {
                   <div className="sf-hint">Barsha spaces sends across the selected daily window.</div>
                 </div>
                 <div className="set-save">
-                  {selectedCampaign ? <button className="btn-outline" type="button" onClick={() => setShowCampaignForm(false)}>Cancel</button> : null}
+                  {campaigns.length ? <button className="btn-outline" type="button" onClick={() => setShowCampaignForm(false)}>Cancel</button> : null}
                   <button className="btn-primary" type="submit" disabled={busy === 'campaign'}>{busy === 'campaign' ? 'Creating...' : 'Create campaign'}</button>
                 </div>
               </form> : (
                 <div className="set-panel">
-                  <div className="sf" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
-                    <div>
-                      <div className="sf-lbl">Campaign details</div>
-                      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 25, marginTop: 8 }}>{selectedCampaign.name}</div>
-                    </div>
-                    <span className={`badge ${statusBadge(selectedCampaign.status)}`}><span className="bdot" />{selectedCampaign.status}</span>
+                  <div className="sf-lbl">Campaigns</div>
+                  <div className="sf-hint" style={{ marginTop: 10 }}>
+                    Select a campaign from the list to review its generated emails, manage leads, and launch or pause sending.
                   </div>
-                  <div className="msl-list">
-                    <Metric label="Selected leads" value={selectedLeadIds.length.toString()} />
-                    <Metric label="Generated emails" value={preview.length.toString()} />
-                    <Metric label="Daily cap" value={selectedCampaign.daily_send_cap.toString()} />
-                    <Metric label="Send window" value={`${selectedCampaign.sending_hours_start || '09:00'}–${selectedCampaign.sending_hours_end || '18:00'}`} />
-                    <Metric label="Cadence" value={`${selectedCampaign.cadence_per_hour || 25}/hour`} />
-                  </div>
-                  <div className="sf" style={{ marginTop: 18 }}>
-                    <div className="sf-lbl">Sequence</div>
-                    {(selectedCampaign.email_sequences || []).map(sequence => (
-                      <div className="msl-row" key={sequence.id}>
-                        <span className="msl-lbl">Step {sequence.step_number}</span>
-                        <span className="msl-val">{sequence.delay_days ? `Day ${sequence.delay_days}` : 'Immediately'}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="sf-hint" style={{ marginTop: 16 }}>
-                    Select leads, generate and review the emails, then launch from a verified mailbox.
+                  <div className="msl-list" style={{ marginTop: 18 }}>
+                    <Metric label="Active" value={campaigns.filter(c => c.status === 'active').length.toString()} />
+                    <Metric label="Draft" value={campaigns.filter(c => c.status === 'draft').length.toString()} />
+                    <Metric label="Paused" value={campaigns.filter(c => c.status === 'paused').length.toString()} />
+                    <Metric label="Leads with email" value={emailLeads.length.toString()} />
                   </div>
                   <div className="set-save">
-                    <button className="btn-outline" type="button" onClick={() => setShowCampaignForm(true)}>Create another</button>
-                    <button className="btn-outline" type="button" disabled={busy === 'campaign-leads' || !canEditSelectedCampaign} onClick={openCampaignLeadPicker}>
-                      {selectedLeadIds.length ? `Manage ${selectedLeadIds.length} leads` : 'Select leads'}
-                    </button>
-                    <button className="btn-primary" type="button" disabled={busy === 'generate' || !canEditSelectedCampaign} onClick={handleGenerate}>Generate emails</button>
+                    <button className="btn-primary" type="button" onClick={() => setShowCampaignForm(true)}>Create another</button>
                   </div>
                 </div>
               )}
@@ -1033,7 +817,11 @@ export default function DashboardPage() {
                       value={apolloFilters.industry}
                       onChange={event => setApolloFilters({ ...apolloFilters, industry: event.target.value })}
                       placeholder="Industry"
+                      list="apollo-industry-options"
                     />
+                    <datalist id="apollo-industry-options">
+                      {apolloIndustryOptions.map(industry => <option key={industry} value={industry} />)}
+                    </datalist>
                   </div>
                   <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 10 }}>
                     <input
@@ -1396,121 +1184,8 @@ export default function DashboardPage() {
           </section>
         ) : null}
       </main>
-      {showCampaignLeadPicker && selectedCampaign ? (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowCampaignLeadPicker(false)}>
-          <section className="modal-card campaign-lead-picker" role="dialog" aria-modal="true" aria-label={`Select leads for ${selectedCampaign.name}`} onMouseDown={event => event.stopPropagation()}>
-            <div className="card-head">
-              <div>
-                <div className="card-title">Select campaign leads</div>
-                <div className="sf-hint" style={{ marginTop: 4 }}>{campaignLeadPickerIds.length} ready leads selected for {selectedCampaign.name}.</div>
-              </div>
-              <button className="btn-outline" type="button" onClick={() => setShowCampaignLeadPicker(false)}>Close</button>
-            </div>
-            <div className="lead-picker-list">
-              {emailLeads.map(lead => (
-                <label className="lead-picker-row" key={lead.id}>
-                  <input
-                    type="checkbox"
-                    checked={campaignLeadPickerIds.includes(lead.id)}
-                    onChange={() => setCampaignLeadPickerIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])}
-                  />
-                  <span>
-                    <strong>{lead.full_name}</strong>
-                    <small>{lead.title ? `${lead.title} · ` : ''}{lead.company_name || 'Unknown company'} · {lead.email}</small>
-                  </span>
-                  <span className="badge b-interested">Fit {lead.fit_score || 0}</span>
-                </label>
-              ))}
-              {!emailLeads.length ? <EmptyState text="No ready leads with email addresses are available." /> : null}
-            </div>
-            <div className="set-save">
-              <button className="btn-outline" type="button" onClick={() => setCampaignLeadPickerIds([])}>Clear selection</button>
-              <button className="btn-primary" type="button" disabled={busy === 'campaign-leads'} onClick={() => saveCampaignLeadSelection()}>
-                {busy === 'campaign-leads' ? 'Saving...' : `Save ${campaignLeadPickerIds.length} leads`}
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-      {openedEmail ? (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpenedEmail(null)}>
-          <section className="modal-card email-detail" role="dialog" aria-modal="true" aria-label="Campaign email" onMouseDown={event => event.stopPropagation()}>
-            <div className="card-head">
-              <div>
-                <div className="card-title">Email to {openedEmail.leads?.full_name || 'lead'}</div>
-                <div className="sf-hint" style={{ marginTop: 4 }}>{openedEmail.leads?.email || 'No email address'}</div>
-              </div>
-              <button className="btn-outline" type="button" onClick={() => setOpenedEmail(null)}>Close</button>
-            </div>
-            <div className="email-detail-body">
-              <div className="email-detail-label">Subject</div>
-              <div className="email-detail-subject">{openedEmail.subject || 'Untitled email'}</div>
-              <div className="email-detail-label">Message</div>
-              <div className="email-detail-copy">{openedEmail.body || openedEmail.draft_body || 'No email body was generated.'}</div>
-            </div>
-            <div className="set-save">
-              {selectedCampaign?.status === 'active' && ['draft', 'approved'].includes(openedEmail.status) ? (
-                <button className="btn-primary" type="button" disabled={busy === 'send-now'} onClick={handleSendEmailNow}>
-                  {busy === 'send-now' ? 'Queueing...' : 'Send immediately'}
-                </button>
-              ) : (
-                <div className="sf-hint">Send immediately is available after this campaign is launched.</div>
-              )}
-            </div>
-          </section>
-        </div>
-      ) : null}
     </>
   );
-}
-
-function KpiRow({ items }: { items: Array<[string, number, string]> }) {
-  return (
-    <div className="kpi-row">
-      {items.map(([label, value, marker], index) => (
-        <div className="kpi-card" key={label}>
-          <div className={`kpi-icon ${['ki-p', 'ki-g', 'ki-gr', 'ki-b'][index]}`}>{marker}</div>
-          <div className="kpi-val">{value}</div>
-          <div className="kpi-lbl">{label}</div>
-          <span className="kpi-delta kd-neutral">Live</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CampaignRow({ campaign, active, onClick }: { campaign: Campaign; active?: boolean; onClick: () => void }) {
-  return (
-    <button
-      className="mtr"
-      type="button"
-      onClick={onClick}
-      style={{ width: '100%', border: 0, textAlign: 'left', background: active ? 'var(--purple-pale)' : 'transparent' }}
-    >
-      <div className="mtr-av">{initials(campaign.name)}</div>
-      <div className="mtr-info">
-        <div className="mtr-name">{campaign.name}</div>
-        <div className="mtr-detail">{campaign.daily_send_cap}/day · {campaign.sending_hours_start || '09:00'}–{campaign.sending_hours_end || '18:00'}</div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span className={`badge ${statusBadge(campaign.status)}`}><span className="bdot" />{campaign.status}</span>
-        <span className="card-action">Open →</span>
-      </div>
-    </button>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="msl-row">
-      <span className="msl-lbl">{label}</span>
-      <span className="msl-val">{value}</span>
-    </div>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return <div className="sf-hint" style={{ padding: 20 }}>{text}</div>;
 }
 
 function formatDuration(totalSeconds: number) {
