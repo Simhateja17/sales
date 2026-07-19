@@ -64,6 +64,10 @@ body::before {
 .btn-gold:hover{transform:translateY(-1px);}
 .btn-outline{background:none;border:1.5px solid var(--border-dark);color:var(--text-muted);padding:10px 20px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;}
 .btn-outline:hover{border-color:var(--purple);color:var(--purple);}
+/* Disabled buttons must read as disabled: without this they look clickable and silently do nothing. */
+.btn-primary:disabled,.btn-gold:disabled,.btn-outline:disabled,.card-action:disabled,.ptab:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+.btn-primary:disabled:hover,.btn-gold:disabled:hover,.btn-outline:disabled:hover,.card-action:disabled:hover,.ptab:disabled:hover{transform:none;box-shadow:none;border-color:var(--border-dark);color:inherit;}
+.btn-outline:disabled:hover{color:var(--text-muted);}
 
 /* CARDS */
 .card{background:var(--white);border:1px solid var(--border);border-radius:14px;overflow:hidden;}

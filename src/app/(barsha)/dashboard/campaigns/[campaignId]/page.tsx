@@ -189,12 +189,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     }
   }
 
-  function openImportChooser() {
-    if (!canEdit) {
-      setMessage('Pause the campaign before changing its leads.');
-      return;
-    }
-    setShowImportChooser(true);
+  async function pauseThenImport() {
+    await toggleCampaignStatus();
+    setMessage('Campaign paused. You can now add or remove its leads.');
   }
 
   // The campaign-leads endpoint replaces the whole set, so add/remove both send the full list.
@@ -469,14 +466,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 <div className="card-title">Campaign leads</div>
                 <div className="preview-actions">
                   <span className="card-action">{campaignLeads.length} lead{campaignLeads.length === 1 ? '' : 's'}</span>
-                  <button className="btn-primary" type="button" disabled={busy === 'campaign-leads' || !canEdit} onClick={openImportChooser}>
+                  <button className="btn-primary" type="button" disabled={busy === 'campaign-leads'} onClick={() => setShowImportChooser(true)}>
                     Import more leads
                   </button>
                 </div>
               </div>
               {!canEdit ? (
-                <div className="sf-hint" style={{ padding: '0 20px 12px' }}>
-                  Pause the campaign to add or remove its leads.
+                <div className="sf-hint" style={{ padding: '12px 20px 0' }}>
+                  This campaign is {campaign.status} — pause it to add or remove leads.
                 </div>
               ) : null}
               {campaignLeads.length ? (
@@ -557,6 +554,19 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
               </div>
               <button className="btn-outline" type="button" onClick={() => setShowImportChooser(false)}>Close</button>
             </div>
+            {!canEdit ? (
+              <div>
+                <div className="sf-hint" style={{ paddingBottom: 16 }}>
+                  This campaign is {campaign?.status}. Leads can only be changed while it is draft or paused, so that sending never
+                  picks up a lead mid-flight.
+                </div>
+                <div className="set-save">
+                  <button className="btn-primary" type="button" disabled={busy === 'toggle'} onClick={pauseThenImport}>
+                    {busy === 'toggle' ? 'Pausing...' : 'Pause campaign'}
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="set-nav" style={{ marginTop: 4 }}>
               <button
                 type="button"
@@ -589,6 +599,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 </span>
               </button>
             </div>
+            )}
           </section>
         </div>
       ) : null}
