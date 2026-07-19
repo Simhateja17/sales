@@ -51,6 +51,7 @@ export interface Lead {
   workspace_id: string;
   source: 'manual' | 'csv' | 'apollo';
   external_id: string | null;
+  import_run_id: string | null;
   full_name: string;
   company_name: string | null;
   title: string | null;

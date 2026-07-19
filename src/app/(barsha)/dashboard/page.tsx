@@ -40,6 +40,7 @@ import {
 } from '@/lib/api';
 import Sidebar from './_lib/Sidebar';
 import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, navItems, statusBadge, type Page } from './_lib/ui';
+import { csvTargets, terminalImportStatuses } from './_lib/leadImport';
 
 type SettingsSection = 'mailbox' | 'workspace' | 'compliance';
 
@@ -87,8 +88,6 @@ const emptyApolloFilters: ApolloFilters = {
   limit: 25,
 };
 
-const csvTargets =['full_name', 'first_name', 'last_name', 'company_name', 'title', 'email', 'phone', 'location', 'linkedin_url', 'company_domain', 'company_industry', 'company_size', 'external_id', 'ignore'];
-const terminalImportStatuses = new Set(['completed', 'partial', 'failed']);
 
 export default function DashboardPage() {
   return (

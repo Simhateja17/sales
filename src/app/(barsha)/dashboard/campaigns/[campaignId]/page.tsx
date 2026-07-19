@@ -8,24 +8,30 @@ import {
   getCampaignLeads,
   getCampaignPreview,
   getInbox,
+  getLeadImport,
   getLeads,
   getSmtpStatus,
   getWorkspace,
   launchCampaign,
   pauseCampaign,
+  previewCsvMapping,
   replaceCampaignLeads,
   resumeCampaign,
   sendCampaignEmailNow,
   sendCampaignEmailsNow,
+  startCsvImport,
   updateCampaignEmail,
   type Campaign,
   type ConnectedAccount,
+  type CsvMapping,
   type EmailMessage,
   type Lead,
+  type LeadImportRun,
   type Workspace,
 } from '@/lib/api';
 import Sidebar from '../../_lib/Sidebar';
 import { EmptyState, Metric, initials, statusBadge, type Page } from '../../_lib/ui';
+import { csvTargets, terminalImportStatuses } from '../../_lib/leadImport';
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ campaignId: string }> }) {
   const { campaignId } = use(params);
@@ -44,17 +50,32 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
 
-  const [showLeadPicker, setShowLeadPicker] = useState(false);
-  const [leadPickerIds, setLeadPickerIds] = useState<string[]>([]);
+  const [tab, setTab] = useState<'emails' | 'leads'>('emails');
+  const [showImportChooser, setShowImportChooser] = useState(false);
+  const [showExistingPicker, setShowExistingPicker] = useState(false);
+  const [existingPickerIds, setExistingPickerIds] = useState<string[]>([]);
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [csvText, setCsvText] = useState('');
+  const [csvMappings, setCsvMappings] = useState<CsvMapping[]>([]);
+  const [csvPreview, setCsvPreview] = useState<Record<string, unknown>[]>([]);
   const [openedEmail, setOpenedEmail] = useState<EmailMessage | null>(null);
   const [emailEditSubject, setEmailEditSubject] = useState('');
   const [emailEditBody, setEmailEditBody] = useState('');
   const [sendConfirmTarget, setSendConfirmTarget] = useState<'single' | 'selected' | null>(null);
 
   const canEdit = Boolean(campaign && ['draft', 'paused'].includes(campaign.status));
-  const emailLeads = useMemo(
-    () => leads.filter(lead => Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status)),
+  const eligibleLeads = useMemo(
+    () => leads.filter(lead => Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status) && lead.dnc_status !== 'blocked'),
     [leads]
+  );
+  // Leads already in this campaign, and the eligible ones that are not yet in it.
+  const campaignLeads = useMemo(
+    () => leads.filter(lead => selectedLeadIds.includes(lead.id)),
+    [leads, selectedLeadIds]
+  );
+  const availableLeads = useMemo(
+    () => eligibleLeads.filter(lead => !selectedLeadIds.includes(lead.id)),
+    [eligibleLeads, selectedLeadIds]
   );
   const sendablePreviewIds = useMemo(
     () => preview.filter(item => ['draft', 'approved'].includes(item.status)).map(item => item.id),
@@ -168,29 +189,117 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     }
   }
 
-  function openLeadPicker() {
+  function openImportChooser() {
     if (!canEdit) {
-      setMessage('Pause the campaign before changing its selected leads.');
+      setMessage('Pause the campaign before changing its leads.');
       return;
     }
-    setLeadPickerIds(selectedLeadIds);
-    setShowLeadPicker(true);
+    setShowImportChooser(true);
   }
 
-  async function saveLeadSelection() {
+  // The campaign-leads endpoint replaces the whole set, so add/remove both send the full list.
+  async function writeCampaignLeads(leadIds: string[], describe: (count: number) => string) {
     if (!campaign) return;
     setBusy('campaign-leads');
     setMessage('');
     try {
-      const data = await replaceCampaignLeads(campaign.id, leadPickerIds);
+      const data = await replaceCampaignLeads(campaign.id, leadIds);
       setSelectedLeadIds(data.lead_ids);
-      setLeadPickerIds(data.lead_ids);
-      setShowLeadPicker(false);
       const leadData = await getLeads();
       setLeads(leadData.leads);
-      setMessage(`${data.lead_ids.length} lead${data.lead_ids.length === 1 ? '' : 's'} selected for ${campaign.name}.`);
+      setMessage(describe(data.lead_ids.length));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not update campaign leads');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function addExistingLeads() {
+    const added = existingPickerIds.length;
+    await writeCampaignLeads([...new Set([...selectedLeadIds, ...existingPickerIds])], () => `${added} lead${added === 1 ? '' : 's'} added to this campaign.`);
+    setExistingPickerIds([]);
+    setShowExistingPicker(false);
+  }
+
+  async function removeLeadFromCampaign(leadId: string) {
+    if (!canEdit) {
+      setMessage('Pause the campaign before changing its leads.');
+      return;
+    }
+    await writeCampaignLeads(selectedLeadIds.filter(id => id !== leadId), count => `Lead removed. ${count} remaining in this campaign.`);
+  }
+
+  async function handleCsvPreview() {
+    if (!csvText.trim()) {
+      setMessage('Choose a CSV file first.');
+      return;
+    }
+    setBusy('csv-preview');
+    setMessage('');
+    try {
+      const data = await previewCsvMapping(csvText);
+      setCsvMappings(data.mappings);
+      setCsvPreview(data.preview);
+      setMessage(`AI mapped ${data.row_count} rows. Review the mapping before importing.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not map CSV');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function waitForImport(runId: string) {
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      const { importRun } = await getLeadImport(runId);
+      setMessage(`Import ${importRun.status}: ${importRun.created_count} created, ${importRun.skipped_count} skipped.`);
+      if (terminalImportStatuses.has(importRun.status)) return importRun;
+      await new Promise(resolve => window.setTimeout(resolve, 2000));
+    }
+    throw new Error('Import is still running. You can safely refresh and check it later.');
+  }
+
+  async function handleCsvImportIntoCampaign() {
+    if (!campaign) return;
+    if (!csvMappings.length) {
+      setMessage('Review the AI column mapping first.');
+      return;
+    }
+    setBusy('csv-import');
+    setMessage('');
+    let run: LeadImportRun;
+    try {
+      const started = await startCsvImport(csvText, csvMappings, 'import');
+      run = await waitForImport(started.importRun.id);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not import leads');
+      setBusy('');
+      return;
+    }
+
+    // Imported leads land in the workspace leadbase first; attach the usable ones to this campaign.
+    try {
+      const leadData = await getLeads();
+      setLeads(leadData.leads);
+      const importedIds = leadData.leads
+        .filter(lead => lead.import_run_id === run.id && Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status) && lead.dnc_status !== 'blocked')
+        .map(lead => lead.id);
+
+      setCsvText('');
+      setCsvMappings([]);
+      setCsvPreview([]);
+      setShowCsvImport(false);
+
+      if (!importedIds.length) {
+        setMessage(`CSV ${run.status}: ${run.created_count} created, ${run.skipped_count} skipped. No imported rows were ready to add (each needs a valid email).`);
+        return;
+      }
+
+      const data = await replaceCampaignLeads(campaign.id, [...new Set([...selectedLeadIds, ...importedIds])]);
+      setSelectedLeadIds(data.lead_ids);
+      setMessage(`CSV ${run.status}: ${importedIds.length} lead${importedIds.length === 1 ? '' : 's'} added to this campaign, ${run.skipped_count} skipped.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Leads were imported, but could not be added to this campaign');
     } finally {
       setBusy('');
     }
@@ -307,6 +416,17 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
           <div className="card"><EmptyState text="Loading campaign..." /></div>
         ) : campaign ? (
           <div className="dash-grid">
+            <div>
+              <div className="ptabs" style={{ marginBottom: 14 }}>
+                <button type="button" className={`ptab${tab === 'emails' ? ' active' : ''}`} onClick={() => setTab('emails')}>
+                  Emails ({preview.length})
+                </button>
+                <button type="button" className={`ptab${tab === 'leads' ? ' active' : ''}`} onClick={() => setTab('leads')}>
+                  Leads ({selectedLeadIds.length})
+                </button>
+              </div>
+
+              {tab === 'emails' ? (
             <div className="card">
               <div className="card-head">
                 <div className="card-title">Email preview</div>
@@ -343,6 +463,50 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 </div>
               )) : <EmptyState text="Generate emails to see previews." />}
             </div>
+              ) : (
+            <div className="card">
+              <div className="card-head">
+                <div className="card-title">Campaign leads</div>
+                <div className="preview-actions">
+                  <span className="card-action">{campaignLeads.length} lead{campaignLeads.length === 1 ? '' : 's'}</span>
+                  <button className="btn-primary" type="button" disabled={busy === 'campaign-leads' || !canEdit} onClick={openImportChooser}>
+                    Import more leads
+                  </button>
+                </div>
+              </div>
+              {!canEdit ? (
+                <div className="sf-hint" style={{ padding: '0 20px 12px' }}>
+                  Pause the campaign to add or remove its leads.
+                </div>
+              ) : null}
+              {campaignLeads.length ? (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th><th>Company</th><th>Email</th><th>Fit</th><th>Status</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {campaignLeads.map(lead => (
+                      <tr key={lead.id}>
+                        <td>{lead.full_name}</td>
+                        <td>{lead.company_name || '-'}</td>
+                        <td>{lead.email || '-'}</td>
+                        <td>{lead.fit_score || 0}</td>
+                        <td><span className={`badge ${statusBadge(lead.lifecycle_status || lead.status)}`}><span className="bdot" />{lead.lifecycle_status || lead.status}</span></td>
+                        <td>
+                          <button className="card-action" type="button" disabled={busy === 'campaign-leads' || !canEdit} onClick={() => removeLeadFromCampaign(lead.id)}>
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : <EmptyState text="No leads in this campaign yet. Use Import more leads to add some." />}
+            </div>
+              )}
+            </div>
 
             <div className="set-panel">
               <div className="sf" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
@@ -373,7 +537,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 Select leads, generate and review the emails, then launch from a verified mailbox.
               </div>
               <div className="set-save">
-                <button className="btn-outline" type="button" disabled={busy === 'campaign-leads' || !canEdit} onClick={openLeadPicker}>
+                <button className="btn-outline" type="button" onClick={() => setTab('leads')}>
                   {selectedLeadIds.length ? `Manage ${selectedLeadIds.length} leads` : 'Select leads'}
                 </button>
                 <button className="btn-primary" type="button" disabled={busy === 'generate' || !canEdit} onClick={handleGenerate}>Generate emails</button>
@@ -383,23 +547,69 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         ) : null}
       </main>
 
-      {showLeadPicker && campaign ? (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowLeadPicker(false)}>
-          <section className="modal-card campaign-lead-picker" role="dialog" aria-modal="true" aria-label={`Select leads for ${campaign.name}`} onMouseDown={event => event.stopPropagation()}>
+      {showImportChooser ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowImportChooser(false)}>
+          <section className="modal-card" role="dialog" aria-modal="true" aria-label="Import leads" onMouseDown={event => event.stopPropagation()} style={{ maxWidth: 460 }}>
             <div className="card-head">
               <div>
-                <div className="card-title">Select campaign leads</div>
-                <div className="sf-hint" style={{ marginTop: 4 }}>{leadPickerIds.length} ready leads selected for {campaign.name}.</div>
+                <div className="card-title">Import more leads</div>
+                <div className="sf-hint" style={{ marginTop: 4 }}>Choose where these leads should come from.</div>
               </div>
-              <button className="btn-outline" type="button" onClick={() => setShowLeadPicker(false)}>Close</button>
+              <button className="btn-outline" type="button" onClick={() => setShowImportChooser(false)}>Close</button>
+            </div>
+            <div className="set-nav" style={{ marginTop: 4 }}>
+              <button
+                type="button"
+                className="sn-item"
+                onClick={() => {
+                  setExistingPickerIds([]);
+                  setShowImportChooser(false);
+                  setShowExistingPicker(true);
+                }}
+              >
+                <span>
+                  <strong>From existing leads</strong>
+                  <div className="sf-hint" style={{ marginTop: 2 }}>{availableLeads.length} lead{availableLeads.length === 1 ? '' : 's'} in your leadbase are not in this campaign yet.</div>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="sn-item"
+                onClick={() => {
+                  setCsvText('');
+                  setCsvMappings([]);
+                  setCsvPreview([]);
+                  setShowImportChooser(false);
+                  setShowCsvImport(true);
+                }}
+              >
+                <span>
+                  <strong>Upload a CSV</strong>
+                  <div className="sf-hint" style={{ marginTop: 2 }}>Map the columns with AI, then add the imported leads straight into this campaign.</div>
+                </span>
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {showExistingPicker && campaign ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowExistingPicker(false)}>
+          <section className="modal-card campaign-lead-picker" role="dialog" aria-modal="true" aria-label={`Add leads to ${campaign.name}`} onMouseDown={event => event.stopPropagation()}>
+            <div className="card-head">
+              <div>
+                <div className="card-title">Add from existing leads</div>
+                <div className="sf-hint" style={{ marginTop: 4 }}>{existingPickerIds.length} of {availableLeads.length} selected. Leads already in {campaign.name} are not listed.</div>
+              </div>
+              <button className="btn-outline" type="button" onClick={() => setShowExistingPicker(false)}>Close</button>
             </div>
             <div className="lead-picker-list">
-              {emailLeads.map(lead => (
+              {availableLeads.map(lead => (
                 <label className="lead-picker-row" key={lead.id}>
                   <input
                     type="checkbox"
-                    checked={leadPickerIds.includes(lead.id)}
-                    onChange={() => setLeadPickerIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])}
+                    checked={existingPickerIds.includes(lead.id)}
+                    onChange={() => setExistingPickerIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])}
                   />
                   <span>
                     <strong>{lead.full_name}</strong>
@@ -408,12 +618,69 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                   <span className="badge b-interested">Fit {lead.fit_score || 0}</span>
                 </label>
               ))}
-              {!emailLeads.length ? <EmptyState text="No ready leads with email addresses are available." /> : null}
+              {!availableLeads.length ? <EmptyState text="Every ready lead with an email address is already in this campaign." /> : null}
             </div>
             <div className="set-save">
-              <button className="btn-outline" type="button" onClick={() => setLeadPickerIds([])}>Clear selection</button>
-              <button className="btn-primary" type="button" disabled={busy === 'campaign-leads'} onClick={saveLeadSelection}>
-                {busy === 'campaign-leads' ? 'Saving...' : `Save ${leadPickerIds.length} leads`}
+              <button className="btn-outline" type="button" onClick={() => setExistingPickerIds(availableLeads.map(lead => lead.id))} disabled={!availableLeads.length}>
+                Select all
+              </button>
+              <button className="btn-primary" type="button" disabled={busy === 'campaign-leads' || !existingPickerIds.length} onClick={addExistingLeads}>
+                {busy === 'campaign-leads' ? 'Adding...' : `Add ${existingPickerIds.length} lead${existingPickerIds.length === 1 ? '' : 's'}`}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {showCsvImport && campaign ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => (busy.startsWith('csv') ? null : setShowCsvImport(false))}>
+          <section className="modal-card campaign-lead-picker" role="dialog" aria-modal="true" aria-label="Import leads from CSV" onMouseDown={event => event.stopPropagation()}>
+            <div className="card-head">
+              <div>
+                <div className="card-title">Import leads from CSV</div>
+                <div className="sf-hint" style={{ marginTop: 4 }}>Imported leads are added to your leadbase and to {campaign.name}.</div>
+              </div>
+              <button className="btn-outline" type="button" disabled={busy.startsWith('csv')} onClick={() => setShowCsvImport(false)}>Close</button>
+            </div>
+            <div className="lead-picker-list">
+              <div className="sf">
+                <input
+                  className="sf-inp"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={async event => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    setCsvText(await file.text());
+                    setCsvMappings([]);
+                    setCsvPreview([]);
+                  }}
+                />
+              </div>
+              <button className="btn-outline" type="button" disabled={!csvText || busy === 'csv-preview'} onClick={handleCsvPreview}>
+                {busy === 'csv-preview' ? 'Mapping...' : 'Map columns with AI'}
+              </button>
+              {csvMappings.length ? (
+                <div style={{ marginTop: 14 }}>
+                  {csvMappings.map((mapping, index) => (
+                    <div key={`${mapping.source}-${index}`} className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div className="sf-hint">{mapping.source} · {Math.round(Number(mapping.confidence || 0) * 100)}%</div>
+                      <select
+                        className="sf-inp"
+                        value={mapping.target}
+                        onChange={event => setCsvMappings(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, target: event.target.value } : item))}
+                      >
+                        {csvTargets.map(target => <option key={target} value={target}>{target}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                  {csvPreview.length ? <pre className="sf-hint" style={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto' }}>{JSON.stringify(csvPreview, null, 2)}</pre> : null}
+                </div>
+              ) : null}
+            </div>
+            <div className="set-save">
+              <button className="btn-primary" type="button" disabled={!csvMappings.length || busy === 'csv-import'} onClick={handleCsvImportIntoCampaign}>
+                {busy === 'csv-import' ? 'Importing...' : 'Import and add to campaign'}
               </button>
             </div>
           </section>
