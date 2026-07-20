@@ -121,6 +121,7 @@ export interface Campaign {
   name: string;
   status: CampaignStatus;
   target_segment: Record<string, unknown>;
+  brief?: CampaignBrief;
   daily_send_cap: number;
   timezone: string;
   sending_hours_start: string;
@@ -136,6 +137,13 @@ export interface Campaign {
   created_at: string;
   updated_at: string;
   email_sequences?: EmailSequence[];
+}
+
+export interface CampaignBrief {
+  agent_config?: Pick<AgentConfig, 'agent_name' | 'company_name' | 'product' | 'value_proposition' | 'target_titles' | 'target_regions' | 'objections' | 'tone' | 'booking_link'>;
+  campaign_angle?: string;
+  cta?: string;
+  tone?: string;
 }
 
 export interface EmailSequence {

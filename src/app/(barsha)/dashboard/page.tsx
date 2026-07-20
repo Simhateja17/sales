@@ -30,6 +30,7 @@ import {
   testSmtp,
   updateLead,
   type ApolloFilters,
+  type AgentConfig,
   type Campaign,
   type ConnectedAccount,
   type CsvMapping,
@@ -106,6 +107,7 @@ function DashboardContent() {
   const setActivePage = (page: Page) => router.push(page === 'overview' ? '/dashboard' : `/dashboard?page=${page}`);
   const [today, setToday] = useState('');
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [agentConfig, setAgentConfig] = useState<AgentConfig | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [inbox, setInbox] = useState<EmailMessage[]>([]);
@@ -130,6 +132,7 @@ function DashboardContent() {
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('mailbox');
   const [mailboxProvider, setMailboxProvider] = useState<'gmail' | 'outlook' | 'manual'>('manual');
   const [showCampaignForm, setShowCampaignForm] = useState(false);
+  const [campaignBuilderLeadIds, setCampaignBuilderLeadIds] = useState<string[]>([]);
   const [activeApolloRun, setActiveApolloRun] = useState<LeadImportRun | null>(null);
   const [apolloElapsedSeconds, setApolloElapsedSeconds] = useState(0);
   const apolloMonitorRef = useRef('');
@@ -173,6 +176,7 @@ function DashboardContent() {
     getWorkspace()
       .then(data => {
         setWorkspace(data.workspace);
+        setAgentConfig(data.agentConfig);
         if (!data.workspace.plan) {
           router.push('/plan-select');
         } else if (!data.workspace.onboarding_completed) {
@@ -466,13 +470,18 @@ function DashboardContent() {
     }
   }
 
-  async function handleCreateCampaign({ campaign, leadIds, steps }: CampaignBuilderSubmission) {
+  function openCampaignBuilder(leadIds: string[] = []) {
+    setCampaignBuilderLeadIds(leadIds);
+    setShowCampaignForm(true);
+  }
+
+  async function handleCreateCampaign({ campaign, brief, leadIds, steps }: CampaignBuilderSubmission) {
     setBusy('campaign');
     setMessage('');
     try {
       const data = await createCampaign({
         ...campaign,
-        target_segment: { source: 'campaign_builder', lead_count: leadIds.length },
+        brief,
       });
       await Promise.all([
         replaceCampaignLeads(data.campaign.id, leadIds),
@@ -480,6 +489,7 @@ function DashboardContent() {
       ]);
       setCampaigns(current => [data.campaign, ...current]);
       setSelectedCampaignId(data.campaign.id);
+      setCampaignBuilderLeadIds([]);
       setShowCampaignForm(false);
       router.push(`/dashboard/campaigns/${data.campaign.id}`);
     } catch (error) {
@@ -637,7 +647,7 @@ function DashboardContent() {
             </button>
             <button type="button" className="btn-primary" onClick={() => {
               setActivePage('campaigns');
-              setShowCampaignForm(true);
+              openCampaignBuilder();
             }}>
               New campaign
             </button>
@@ -656,7 +666,7 @@ function DashboardContent() {
             smtpAccount={smtpAccount}
             onCreateCampaign={() => {
               setActivePage('campaigns');
-              setShowCampaignForm(true);
+              openCampaignBuilder();
             }}
             onOpenCampaigns={() => setActivePage('campaigns')}
             onOpenLeads={() => setActivePage('leads')}
@@ -674,7 +684,7 @@ function DashboardContent() {
                 <p className="page-sub">Build the audience and sequence together, review every generated email, then launch only what you approve.</p>
               </div>
               <div className="page-actions">
-                <button className="btn-primary" type="button" onClick={() => setShowCampaignForm(true)}>New campaign</button>
+                <button className="btn-primary" type="button" onClick={() => openCampaignBuilder()}>New campaign</button>
               </div>
             </div>
             <div className="campaign-list-layout">
@@ -698,7 +708,7 @@ function DashboardContent() {
                   <Metric label="Verified leads" value={emailLeads.length.toString()} />
                 </div>
                 <div className="set-save">
-                  <button className="btn-primary" type="button" onClick={() => setShowCampaignForm(true)}>Open campaign builder</button>
+                  <button className="btn-primary" type="button" onClick={() => openCampaignBuilder()}>Open campaign builder</button>
                 </div>
               </aside>
             </div>
@@ -724,8 +734,8 @@ function DashboardContent() {
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <span className="card-action">{managedLeadIds.length ? `${managedLeadIds.length} selected` : `${visibleLeads.length} total`}</span>
                     {managedLeadIds.length ? (
-                    <button className="btn-primary" type="button" disabled={busy === 'campaign-leads' || !canEditSelectedCampaign} onClick={addManagedLeadsToCampaign}>
-                        Add to {selectedCampaign?.name || 'campaign'}
+                    <button className="btn-primary" type="button" onClick={() => openCampaignBuilder(managedLeadIds.filter(id => isCampaignEligibleLead(leads.find(lead => lead.id === id))))}>
+                        Create campaign with {managedLeadIds.length}
                       </button>
                     ) : null}
                     {managedLeadIds.length ? (
@@ -733,11 +743,11 @@ function DashboardContent() {
                     ) : null}
                   </div>
                 </div>
-                <table className="data-table">
+                <div className="lead-table-scroll"><table className="data-table">
                   <thead>
                     <tr>
                       <th><input aria-label="Select all leads" type="checkbox" checked={Boolean(visibleLeads.length) && managedLeadIds.length === visibleLeads.length} onChange={event => setManagedLeadIds(event.target.checked ? visibleLeads.map(lead => lead.id) : [])} /></th>
-                      <th>Name</th><th>Company</th><th>Email</th><th>Fit</th><th>Status</th><th>In campaign</th><th>Actions</th>
+                      <th>Name</th><th>Company</th><th>Email</th><th>Fit</th><th>Status</th><th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -749,7 +759,6 @@ function DashboardContent() {
                         <td>{lead.email || '-'}</td>
                         <td title={(lead.fit_reasons || []).map(reason => `+${reason.points} ${reason.reason}`).join('\n')}>{lead.fit_score || 0}</td>
                         <td><span className={`badge ${statusBadge(lead.lifecycle_status || lead.status)}`}><span className="bdot" />{lead.lifecycle_status || lead.status}</span></td>
-                        <td><input aria-label={`Use ${lead.full_name} in ${selectedCampaign?.name || 'campaign'}`} type="checkbox" checked={selectedLeadIds.includes(lead.id)} disabled={!canEditSelectedCampaign || busy === 'campaign-leads' || !lead.email || !['ready', 'selected_for_campaign'].includes(lead.lifecycle_status)} onChange={() => toggleLeadInSelectedCampaign(lead.id)} /></td>
                         <td>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button className="card-action" type="button" onClick={() => beginEditLead(lead)}>Edit</button>
@@ -759,7 +768,7 @@ function DashboardContent() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
                 {!visibleLeads.length ? <EmptyState text="No enriched leads are ready yet." /> : null}
               </div>
               <aside className="lead-research-aside">
@@ -1185,8 +1194,13 @@ function DashboardContent() {
       <CampaignBuilderModal
         open={showCampaignForm}
         leads={emailLeads}
+        agentConfig={agentConfig}
+        initialLeadIds={campaignBuilderLeadIds}
         isSubmitting={busy === 'campaign'}
-        onClose={() => setShowCampaignForm(false)}
+        onClose={() => {
+          setShowCampaignForm(false);
+          setCampaignBuilderLeadIds([]);
+        }}
         onSubmit={handleCreateCampaign}
       />
     </>
