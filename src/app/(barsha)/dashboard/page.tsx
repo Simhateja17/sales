@@ -80,6 +80,15 @@ const emptyApolloFilters: ApolloFilters = {
   limit: 25,
 };
 
+function isCampaignEligibleLead(lead: Lead | undefined) {
+  return Boolean(
+    lead?.email
+    && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status || '')
+    && lead.lifecycle_status !== 'suppressed'
+    && lead.dnc_status !== 'blocked'
+  );
+}
+
 
 export default function DashboardPage() {
   return (
@@ -134,11 +143,11 @@ function DashboardContent() {
   const selectedCampaign = campaigns.find(campaign => campaign.id === selectedCampaignId) || campaigns[0] || null;
   const canEditSelectedCampaign = Boolean(selectedCampaign && ['draft', 'paused'].includes(selectedCampaign.status));
   const emailLeads = useMemo(
-    () => leads.filter(lead => Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status)),
+    () => leads.filter(isCampaignEligibleLead),
     [leads]
   );
   const visibleLeads = useMemo(
-    () => leads.filter(lead => lead.source !== 'apollo' || ['ready', 'selected_for_campaign', 'contacted'].includes(lead.lifecycle_status)),
+    () => leads.filter(lead => lead.dnc_status !== 'blocked' && lead.lifecycle_status !== 'suppressed' && (lead.source !== 'apollo' || ['ready', 'selected_for_campaign', 'contacted'].includes(lead.lifecycle_status))),
     [leads]
   );
   const pendingReplies = useMemo(
@@ -520,7 +529,7 @@ function DashboardContent() {
     }
     const eligibleIds = managedLeadIds.filter(id => {
       const lead = leads.find(item => item.id === id);
-      return Boolean(lead?.email) && ['ready', 'selected_for_campaign'].includes(lead?.lifecycle_status || '');
+      return isCampaignEligibleLead(lead);
     });
     if (!eligibleIds.length) {
       setMessage('Select at least one ready lead with an email address.');

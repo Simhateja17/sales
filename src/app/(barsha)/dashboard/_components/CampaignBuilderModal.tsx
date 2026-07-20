@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import type { CampaignSequenceStep, Lead } from '@/lib/api';
 
 type CampaignDraft = {
@@ -54,6 +54,8 @@ export default function CampaignBuilderModal({
   const [steps, setSteps] = useState<CampaignSequenceStep[]>(initialSteps);
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [leadFilter, setLeadFilter] = useState('');
+  const [draggedStepIndex, setDraggedStepIndex] = useState<number | null>(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -61,12 +63,15 @@ export default function CampaignBuilderModal({
     setSteps(initialSteps);
     setSelectedLeadIds([]);
     setLeadFilter('');
+    setDraggedStepIndex(null);
+    setDropTargetIndex(null);
   }, [open]);
 
   const visibleLeads = useMemo(() => {
     const query = leadFilter.trim().toLowerCase();
-    if (!query) return leads;
-    return leads.filter(lead => [lead.full_name, lead.company_name, lead.title, lead.email].filter(Boolean).join(' ').toLowerCase().includes(query));
+    const eligible = leads.filter(lead => Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status) && lead.lifecycle_status !== 'suppressed' && lead.dnc_status !== 'blocked');
+    if (!query) return eligible;
+    return eligible.filter(lead => [lead.full_name, lead.company_name, lead.title, lead.email].filter(Boolean).join(' ').toLowerCase().includes(query));
   }, [leadFilter, leads]);
 
   if (!open) return null;
@@ -85,6 +90,29 @@ export default function CampaignBuilderModal({
     const next = [...steps];
     [next[index], next[target]] = [next[target], next[index]];
     setSteps(renumber(next));
+  }
+
+  function moveStepTo(sourceIndex: number, targetIndex: number) {
+    if (sourceIndex === targetIndex || sourceIndex < 0 || targetIndex < 0 || sourceIndex >= steps.length || targetIndex >= steps.length) return;
+    const next = [...steps];
+    const [moved] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, moved);
+    setSteps(renumber(next));
+  }
+
+  function handleStepDragStart(event: DragEvent<HTMLElement>, index: number) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(index));
+    setDraggedStepIndex(index);
+    setDropTargetIndex(index);
+  }
+
+  function handleStepDrop(event: DragEvent<HTMLElement>, targetIndex: number) {
+    event.preventDefault();
+    const sourceIndex = draggedStepIndex ?? Number(event.dataTransfer.getData('text/plain'));
+    if (Number.isInteger(sourceIndex)) moveStepTo(sourceIndex, targetIndex);
+    setDraggedStepIndex(null);
+    setDropTargetIndex(null);
   }
 
   function addStep() {
@@ -139,10 +167,26 @@ export default function CampaignBuilderModal({
           <section className="campaign-builder-section">
             <div className="campaign-builder-section-head"><span>03</span><div><h3>Email sequence</h3><p>Tell the AI what each touch should achieve. You can edit every draft later.</p></div></div>
             <div className="campaign-steps">
-              {steps.map((step, index) => <article className="campaign-step" key={step.step_number}>
+              {steps.map((step, index) => <article
+                className={`campaign-step${draggedStepIndex === index ? ' is-dragging' : ''}${dropTargetIndex === index && draggedStepIndex !== index ? ' is-drop-target' : ''}`}
+                key={step.step_number}
+                draggable
+                onDragStart={event => handleStepDragStart(event, index)}
+                onDragOver={event => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                  if (draggedStepIndex !== index) setDropTargetIndex(index);
+                }}
+                onDrop={event => handleStepDrop(event, index)}
+                onDragEnd={() => {
+                  setDraggedStepIndex(null);
+                  setDropTargetIndex(null);
+                }}
+              >
                 <div className="campaign-step-number">{String(index + 1).padStart(2, '0')}</div>
                 <div className="campaign-step-fields">
                   <div className="campaign-step-topline">
+                    <button className="campaign-step-drag-handle" type="button" aria-label={`Drag ${step.name || `step ${index + 1}`} to reorder`} title="Drag to reorder">⠿</button>
                     <label><span>Step name</span><input value={step.name} onChange={event => updateStep(index, { name: event.target.value })} /></label>
                     <label><span>{index === 0 ? 'Send' : 'Delay'}</span><div className="campaign-delay-input"><input type="number" min="0" value={step.delay_days} onChange={event => updateStep(index, { delay_days: Number(event.target.value) })} /><i>{index === 0 ? 'days' : 'days after'}</i></div></label>
                   </div>
