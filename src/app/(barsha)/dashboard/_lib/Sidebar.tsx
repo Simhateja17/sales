@@ -11,6 +11,8 @@ export default function Sidebar({
   workspace,
   smtpAccount,
   pendingReplies,
+  collapsed,
+  onToggleCollapsed,
   onError,
 }: {
   activePage: Page;
@@ -18,6 +20,8 @@ export default function Sidebar({
   workspace: Workspace | null;
   smtpAccount: ConnectedAccount | null;
   pendingReplies: number;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
   onError?: (message: string) => void;
 }) {
   const router = useRouter();
@@ -35,7 +39,7 @@ export default function Sidebar({
   }
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed ? ' is-collapsed' : ''}`}>
       <div className="sb-brand">
         <div className="sb-logo">
           <div className="sb-mark">B</div>
@@ -44,6 +48,9 @@ export default function Sidebar({
             <div className="sb-sub">Email sales agent</div>
           </div>
         </div>
+        <button className="sb-collapse-toggle" type="button" onClick={onToggleCollapsed} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} title={collapsed ? 'Expand navigation' : 'Collapse navigation'}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+        </button>
       </div>
       <nav className="sb-nav">
         {navItems.map(item => (
@@ -55,7 +62,7 @@ export default function Sidebar({
             style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left' }}
           >
             <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>{item.marker}</span>
-            {item.label}
+            <span className="nav-label">{item.label}</span>
             {item.id === 'inbox' && pendingReplies > 0 ? <span className="nav-badge">{pendingReplies}</span> : null}
           </button>
         ))}
@@ -78,7 +85,7 @@ export default function Sidebar({
         style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left' }}
       >
         <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>Lo</span>
-        {loggingOut ? 'Logging out...' : 'Log out'}
+        <span className="nav-label">{loggingOut ? 'Logging out...' : 'Log out'}</span>
       </button>
     </aside>
   );

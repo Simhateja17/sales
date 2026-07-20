@@ -54,6 +54,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   const [notFound, setNotFound] = useState(false);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [tab, setTab] = useState<'emails' | 'leads'>('leads');
   const [showImportChooser, setShowImportChooser] = useState(false);
@@ -448,10 +449,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         workspace={workspace}
         smtpAccount={smtpAccount}
         pendingReplies={pendingReplies}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed(current => !current)}
         onError={setMessage}
       />
 
-      <main className="main-content">
+      <main className={`main-content${sidebarCollapsed ? ' sidebar-is-collapsed' : ''}`}>
         <div className="dash-topbar">
           <div>
             <button className="card-action" type="button" onClick={() => navigate('campaigns')} style={{ border: 0, background: 'transparent', padding: 0, marginBottom: 6 }}>

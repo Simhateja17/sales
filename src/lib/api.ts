@@ -89,8 +89,55 @@ export interface Lead {
   callable_block_reason: string | null;
   last_contacted_at: string | null;
   notes_summary: string | null;
+  company_data?: CompanyData;
+  personalization_profile?: PersonalizationProfile;
+  raw_data?: Record<string, unknown>;
+  last_enriched_at?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface CompanyData {
+  id?: string;
+  name?: string;
+  domain?: string;
+  website_url?: string;
+  linkedin_url?: string;
+  industry?: string;
+  estimated_num_employees?: number | null;
+  annual_revenue?: number | null;
+  total_funding?: number | null;
+  latest_funding_round_date?: string;
+  latest_funding_stage?: string;
+  short_description?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  technologies?: string[];
+  raw?: Record<string, unknown>;
+}
+
+export interface PersonalizationProfile {
+  enriched_at?: string;
+  person?: {
+    headline?: string;
+    seniority?: string;
+    departments?: string[];
+    location?: string;
+    relevant_experience?: Array<{ organization?: string; title?: string; current?: boolean }>;
+  };
+  company?: {
+    industry?: string;
+    employee_count?: number | null;
+    location?: string;
+    description?: string;
+    founded_year?: number | null;
+    funding_stage?: string;
+    funding_date?: string;
+    technologies?: string[];
+    keywords?: string[];
+  };
+  email_context?: Array<{ fact?: string; source?: string }>;
 }
 
 export interface ConnectedAccount {

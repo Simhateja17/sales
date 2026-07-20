@@ -111,6 +111,89 @@ function leadEnrichment(lead: Lead) {
   return lead.enrichment_status === 'completed' ? 'Company and role verified' : 'Work email verified';
 }
 
+function formatCompanyNumber(value?: number | null, prefix = '') {
+  if (!value) return '—';
+  return `${prefix}${new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value)}`;
+}
+
+function LeadResearchProfile({
+  lead,
+  onAddToCampaign,
+  onEdit,
+}: {
+  lead: Lead;
+  onAddToCampaign: () => void;
+  onEdit: () => void;
+}) {
+  const company = lead.company_data || {};
+  const profile = lead.personalization_profile || {};
+  const person = profile.person || {};
+  const companyProfile = profile.company || {};
+  const companyName = lead.company_name || company.name || 'This company';
+  const industry = company.industry || companyProfile.industry;
+  const location = companyProfile.location || [company.city, company.state, company.country].filter(Boolean).join(', ') || lead.location;
+  const technologies = company.technologies?.length ? company.technologies : (companyProfile.technologies || []);
+  const researchFacts = profile.email_context?.map(item => item.fact).filter(Boolean) || [];
+  const experience = person.relevant_experience || [];
+
+  return (
+    <div className="lead-drawer-scroll lead-profile-panel">
+      <div className="lead-profile-top">
+        <span className="lead-avatar lead-avatar-large">{initials(lead.full_name)}</span>
+        <div>
+          <h4>{lead.full_name}</h4>
+          <p>{lead.title || 'Contact'} <span>·</span> {companyName}</p>
+          <div className="lead-profile-status"><span className="lead-status lead-status-ready">Verified work email</span>{person.seniority ? <span>{person.seniority}</span> : null}</div>
+        </div>
+      </div>
+
+      <section>
+        <h5>Contact intelligence</h5>
+        <div className="lead-detail-grid">
+          <span><b>Role</b>{lead.title || '—'}</span>
+          <span><b>Location</b>{person.location || lead.location || '—'}</span>
+          <span><b>Department</b>{person.departments?.join(', ') || '—'}</span>
+          <span><b>Email</b>{lead.email || '—'}</span>
+        </div>
+        {person.headline ? <p className="lead-detail-copy">{person.headline}</p> : null}
+        {experience.length ? <div className="lead-experience"><b>Relevant experience</b>{experience.map((item, index) => <span key={`${item.organization}-${index}`}>{item.title || 'Role'} at {item.organization || 'company'}{item.current ? ' · current' : ''}</span>)}</div> : null}
+      </section>
+
+      <section>
+        <h5>Company intelligence</h5>
+        <div className="lead-company-stats lead-company-stats-rich">
+          <span><strong>{company.estimated_num_employees || companyProfile.employee_count || '—'}</strong>Employees</span>
+          <span><strong>{companyProfile.founded_year || (company.raw?.founded_year as string | number | undefined) || '—'}</strong>Founded</span>
+          <span><strong>{company.latest_funding_stage || companyProfile.funding_stage || '—'}</strong>Latest funding</span>
+          <span><strong>{formatCompanyNumber(company.total_funding, '$')}</strong>Total funding</span>
+        </div>
+        <div className="lead-detail-grid lead-company-facts">
+          <span><b>Industry</b>{industry || '—'}</span>
+          <span><b>Location</b>{location || '—'}</span>
+          <span><b>Domain</b>{lead.company_domain || company.domain || '—'}</span>
+          <span><b>Revenue</b>{formatCompanyNumber(company.annual_revenue, '$')}</span>
+        </div>
+        {company.short_description || companyProfile.description || lead.notes_summary ? <p className="lead-detail-copy">{company.short_description || companyProfile.description || lead.notes_summary}</p> : null}
+        {technologies.length ? <div className="lead-tags"><b>Technology signals</b><div>{technologies.slice(0, 8).map(technology => <span key={technology}>{technology}</span>)}</div></div> : null}
+      </section>
+
+      <section>
+        <h5>Why this lead is a fit</h5>
+        <div className="lead-fit-list">
+          {(lead.fit_reasons || []).length ? lead.fit_reasons.slice(0, 4).map((reason, index) => <span key={`${reason.reason}-${index}`}>+{reason.points} {reason.reason}</span>) : <span>{leadEnrichment(lead)}</span>}
+        </div>
+        {researchFacts.length ? <div className="lead-research-facts">{researchFacts.slice(0, 2).map((fact, index) => <p key={`${fact}-${index}`}>{fact}</p>)}</div> : null}
+      </section>
+
+      <section className="lead-email-use">
+        <h5>What Barsha can use in email</h5>
+        <p>{researchFacts[0] || `The verified role, ${industry || 'company'} context, and available technology signals can anchor a specific first message.`}</p>
+      </section>
+      <div className="lead-profile-actions"><button className="btn-primary" type="button" disabled={!isCampaignEligibleLead(lead)} onClick={onAddToCampaign}>Add to campaign</button><button className="btn-outline" type="button" onClick={onEdit}>Edit lead</button></div>
+    </div>
+  );
+}
+
 
 export default function DashboardPage() {
   return (
@@ -159,6 +242,8 @@ function DashboardContent() {
   const [leadView, setLeadView] = useState<LeadView>('all');
   const [selectedLeadId, setSelectedLeadId] = useState('');
   const [leadDrawerMode, setLeadDrawerMode] = useState<LeadDrawerMode>('profile');
+  const [leadDrawerOpen, setLeadDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const apolloMonitorRef = useRef('');
   const apolloRecoveryStartedRef = useRef(false);
 
@@ -188,7 +273,7 @@ function DashboardContent() {
     return visibleLeads;
   }, [leadView, visibleLeads]);
   const selectedLead = useMemo(
-    () => filteredLeads.find(lead => lead.id === selectedLeadId) || filteredLeads[0] || null,
+    () => filteredLeads.find(lead => lead.id === selectedLeadId) || null,
     [filteredLeads, selectedLeadId]
   );
   const pendingReplies = useMemo(
@@ -661,6 +746,23 @@ function DashboardContent() {
     }
   }
 
+  function openLeadResearch(lead: Lead) {
+    setSelectedLeadId(lead.id);
+    setLeadDrawerMode('profile');
+    setLeadDrawerOpen(true);
+    setSidebarCollapsed(true);
+  }
+
+  function openLeadSourcing() {
+    setLeadDrawerMode('source');
+    setLeadDrawerOpen(true);
+  }
+
+  function closeLeadDrawer() {
+    setLeadDrawerOpen(false);
+    setLeadDrawerMode('profile');
+  }
+
   return (
     <>
       <Sidebar
@@ -669,11 +771,13 @@ function DashboardContent() {
         workspace={workspace}
         smtpAccount={smtpAccount}
         pendingReplies={pendingReplies.length}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed(current => !current)}
         onError={setMessage}
       />
 
 
-      <main className="main-content">
+      <main className={`main-content${sidebarCollapsed ? ' sidebar-is-collapsed' : ''}`}>
         {activePage !== 'overview' ? <div className="dash-topbar">
           <div>
             <h1 className="dash-greeting">Email command center</h1>
@@ -760,7 +864,7 @@ function DashboardContent() {
                 <h2 className="leads-title">Leads</h2>
                 <p className="leads-subtitle">Your verified audience</p>
               </div>
-              <button className="btn-primary" type="button" onClick={() => setLeadDrawerMode('source')}>Find leads</button>
+              <button className="btn-primary" type="button" onClick={openLeadSourcing}>Find leads</button>
             </div>
 
             <div className="lead-metrics" aria-label="Lead library summary">
@@ -792,9 +896,9 @@ function DashboardContent() {
                     </thead>
                     <tbody>
                       {filteredLeads.map(lead => (
-                        <tr key={lead.id} className={selectedLead?.id === lead.id ? 'selected' : ''} onClick={() => { setSelectedLeadId(lead.id); setLeadDrawerMode('profile'); }}>
+                        <tr key={lead.id} className={selectedLead?.id === lead.id ? 'selected' : ''}>
                           <td onClick={event => event.stopPropagation()}><input className="cb" aria-label={`Select ${lead.full_name}`} type="checkbox" checked={managedLeadIds.includes(lead.id)} onChange={() => setManagedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} /></td>
-                          <td><div className="lead-person"><span className="lead-avatar">{initials(lead.full_name)}</span><span><strong>{lead.full_name}</strong><small>{lead.title || 'Contact'}</small></span></div></td>
+                          <td><button className="lead-person-button" type="button" onClick={() => openLeadResearch(lead)}><span className="lead-avatar">{initials(lead.full_name)}</span><span><strong>{lead.full_name}</strong><small>{lead.title || 'Contact'}</small></span></button></td>
                           <td><div className="lead-company"><span>{initials(lead.company_name)}</span>{lead.company_name || 'Independent'}</div></td>
                           <td><span className={`lead-status ${leadViewClass(lead)}`}>{leadViewStatus(lead)}</span></td>
                           <td><span className="lead-enrichment">{leadEnrichment(lead)}</span></td>
@@ -811,8 +915,9 @@ function DashboardContent() {
                 </div>
               </main>
 
-              <aside className="lead-drawer">
-                <div className="lead-drawer-head"><h3>{leadDrawerMode === 'source' ? 'Lead sourcing' : 'Lead research'}</h3><button type="button" aria-label="Close lead panel" onClick={() => setLeadDrawerMode(leadDrawerMode === 'source' ? 'profile' : 'source')}>×</button></div>
+              {leadDrawerOpen ? <div className="lead-drawer-overlay" role="presentation" onMouseDown={closeLeadDrawer}>
+              <aside className="lead-drawer" role="dialog" aria-modal="true" aria-label={leadDrawerMode === 'source' ? 'Lead sourcing' : 'Lead research'} onMouseDown={event => event.stopPropagation()}>
+                <div className="lead-drawer-head"><h3>{leadDrawerMode === 'source' ? 'Lead sourcing' : 'Lead research'}</h3><button type="button" aria-label="Close lead panel" onClick={closeLeadDrawer}>×</button></div>
                 {leadDrawerMode === 'source' ? (
                   <div className="lead-drawer-scroll lead-source-panel">
                     <p>Find candidates, enrich them, and retain returned work emails. These filters use your onboarding preferences.</p>
@@ -827,16 +932,14 @@ function DashboardContent() {
                     <details className="lead-source-details"><summary>Import a CSV</summary><input className="sf-inp" type="file" accept=".csv,text/csv" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; setCsvText(await file.text()); setCsvMappings([]); setCsvPreview([]); }} /><select className="sf-inp" value={csvMode} onChange={event => setCsvMode(event.target.value as 'import' | 'suppress')}><option value="import">Import leads</option><option value="suppress">Exclude from future searches</option></select><button className="btn-outline" type="button" disabled={!csvText || busy === 'csv-preview'} onClick={handleCsvPreview}>{busy === 'csv-preview' ? 'Mapping...' : 'Map columns with AI'}</button>{csvMappings.length ? <div className="lead-csv-mapping">{csvMappings.map((mapping, index) => <label key={`${mapping.source}-${index}`}>{mapping.source}<select className="sf-inp" value={mapping.target} onChange={event => setCsvMappings(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, target: event.target.value } : item))}>{csvTargets.map(target => <option key={target} value={target}>{target}</option>)}</select></label>)}<button className="btn-primary" type="button" disabled={busy === 'csv'} onClick={handleCsvImport}>{busy === 'csv' ? 'Importing...' : `Confirm and ${csvMode === 'suppress' ? 'exclude' : 'import'}`}</button>{lastCsvRun && lastCsvRun.skipped_count > 0 ? <button className="btn-outline" type="button" onClick={handleDownloadCsvErrors}>Download skipped-row report</button> : null}</div> : null}</details>
                   </div>
                 ) : selectedLead ? (
-                  <div className="lead-drawer-scroll lead-profile-panel">
-                    <div className="lead-profile-top"><span className="lead-avatar lead-avatar-large">{initials(selectedLead.full_name)}</span><div><h4>{selectedLead.full_name}</h4><p>{selectedLead.title || 'Contact'} <span>·</span> {selectedLead.company_name || 'Independent'}</p>{selectedLead.linkedin_url ? <a href={selectedLead.linkedin_url} target="_blank" rel="noreferrer">LinkedIn ↗</a> : null}</div></div>
-                    <section><h5>Contact role</h5><p>{selectedLead.title ? `${selectedLead.title} at ${selectedLead.company_name || 'their company'}.` : 'A verified contact ready for thoughtful outreach.'}</p></section>
-                    <section><h5>Company snapshot</h5><div className="lead-company-stats"><span><strong>{selectedLead.fit_score || '—'}</strong>Fit score</span><span><strong>{selectedLead.location || '—'}</strong>Location</span><span><strong>{selectedLead.company_domain || '—'}</strong>Domain</span></div><p>{selectedLead.notes_summary || `${selectedLead.company_name || 'This company'} has a verified work contact ready for a relevant conversation.`}</p></section>
-                    <section><h5>Research insight</h5><p>{leadEnrichment(selectedLead)}{selectedLead.email_source ? ` · ${selectedLead.email_source}` : ''}</p></section>
-                    <section className="lead-email-use"><h5>What Barsha will use in email</h5><p>Barsha will use the verified role and company context to make the first message specific and useful.</p></section>
-                    <div className="lead-profile-actions"><button className="btn-primary" type="button" disabled={!isCampaignEligibleLead(selectedLead)} onClick={() => openCampaignBuilder([selectedLead.id])}>Add to campaign</button><button className="btn-outline" type="button" onClick={() => { beginEditLead(selectedLead); setLeadDrawerMode('source'); }}>Edit lead</button></div>
-                  </div>
-                ) : <div className="lead-empty-profile"><p>Select a lead to review its context, or start a new Apollo search.</p><button className="btn-primary" type="button" onClick={() => setLeadDrawerMode('source')}>Find leads</button></div>}
+                  <LeadResearchProfile
+                    lead={selectedLead}
+                    onAddToCampaign={() => { closeLeadDrawer(); openCampaignBuilder([selectedLead.id]); }}
+                    onEdit={() => { beginEditLead(selectedLead); setLeadDrawerMode('source'); }}
+                  />
+                ) : <div className="lead-empty-profile"><p>Select a lead to review its context, or start a new Apollo search.</p><button className="btn-primary" type="button" onClick={openLeadSourcing}>Find leads</button></div>}
               </aside>
+              </div> : null}
             </div>
           </section>
         ) : null}
