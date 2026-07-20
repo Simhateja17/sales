@@ -4,6 +4,7 @@ import { use, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   generateCampaignEmails,
+  approveCampaignEmails,
   getCampaign,
   getCampaignLeads,
   getCampaignPreview,
@@ -17,6 +18,7 @@ import {
   previewCsvMapping,
   replaceCampaignLeads,
   resumeCampaign,
+  regenerateCampaignEmail,
   sendCampaignEmailNow,
   sendCampaignEmailsNow,
   startCsvImport,
@@ -50,7 +52,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
 
-  const [tab, setTab] = useState<'emails' | 'leads'>('emails');
+  const [tab, setTab] = useState<'emails' | 'leads'>('leads');
   const [showImportChooser, setShowImportChooser] = useState(false);
   const [showExistingPicker, setShowExistingPicker] = useState(false);
   const [existingPickerIds, setExistingPickerIds] = useState<string[]>([]);
@@ -77,8 +79,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     () => eligibleLeads.filter(lead => !selectedLeadIds.includes(lead.id)),
     [eligibleLeads, selectedLeadIds]
   );
-  const sendablePreviewIds = useMemo(
-    () => preview.filter(item => ['draft', 'approved'].includes(item.status)).map(item => item.id),
+  const approvablePreviewIds = useMemo(
+    () => preview.filter(item => item.status === 'draft').map(item => item.id),
     [preview]
   );
   const sentCount = preview.filter(item => item.status === 'sent' || item.status === 'auto_sent').length;
@@ -131,7 +133,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     const [previewData, leadIdData] = await Promise.all([getCampaignPreview(campaignId), getCampaignLeads(campaignId)]);
     setPreview(previewData.messages);
     setSelectedLeadIds(leadIdData.lead_ids);
-    setSelectedPreviewIds(current => current.filter(id => previewData.messages.some(item => item.id === id && ['draft', 'approved'].includes(item.status))));
+    setSelectedPreviewIds(current => current.filter(id => previewData.messages.some(item => item.id === id && item.status === 'draft')));
   }
 
   async function handleGenerate() {
@@ -307,7 +309,40 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   }
 
   function toggleAllPreviewSelection() {
-    setSelectedPreviewIds(current => current.length === sendablePreviewIds.length ? [] : sendablePreviewIds);
+    setSelectedPreviewIds(current => current.length === approvablePreviewIds.length ? [] : approvablePreviewIds);
+  }
+
+  async function handleApproveDrafts(messageIds: string[]) {
+    if (!campaign || !messageIds.length) return;
+    setBusy('approve-drafts');
+    setMessage('');
+    try {
+      const data = await approveCampaignEmails(campaign.id, messageIds);
+      const approved = new Map(data.messages.map(item => [item.id, item]));
+      setPreview(current => current.map(item => approved.get(item.id) || item));
+      setSelectedPreviewIds([]);
+      setMessage(`${data.approved} email${data.approved === 1 ? '' : 's'} approved and ready for launch.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not approve the selected emails');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleRegenerateEmail() {
+    if (!campaign || !openedEmail) return;
+    setBusy('regenerate-email');
+    setMessage('');
+    try {
+      const data = await regenerateCampaignEmail(campaign.id, openedEmail.id);
+      setOpenedEmail(data.message);
+      setPreview(current => current.map(item => item.id === data.message.id ? data.message : item));
+      setMessage('A fresh draft is ready for your review.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not regenerate the email');
+    } finally {
+      setBusy('');
+    }
   }
 
   async function handleSaveEmailEdit() {
@@ -412,28 +447,31 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         ) : loading ? (
           <div className="card"><EmptyState text="Loading campaign..." /></div>
         ) : campaign ? (
-          <div className="dash-grid">
+          <div className="campaign-review-layout">
             <div>
-              <div className="ptabs" style={{ marginBottom: 14 }}>
+              <div className="ptabs campaign-review-tabs">
                 <button type="button" className={`ptab${tab === 'emails' ? ' active' : ''}`} onClick={() => setTab('emails')}>
-                  Emails ({preview.length})
+                  2. Review emails ({preview.length})
                 </button>
                 <button type="button" className={`ptab${tab === 'leads' ? ' active' : ''}`} onClick={() => setTab('leads')}>
-                  Leads ({selectedLeadIds.length})
+                  1. Verified leads ({selectedLeadIds.length})
                 </button>
               </div>
 
               {tab === 'emails' ? (
-            <div className="card">
+            <div className="card campaign-review-panel">
               <div className="card-head">
-                <div className="card-title">Email preview</div>
+                <div>
+                  <div className="card-title">Review generated emails</div>
+                  <div className="sf-hint">Edit anything you need, then explicitly approve the drafts that can launch.</div>
+                </div>
                 <div className="preview-actions">
-                  <button className="card-action preview-select-all" type="button" disabled={!sendablePreviewIds.length || campaign.status !== 'active'} onClick={toggleAllPreviewSelection}>
-                    {selectedPreviewIds.length === sendablePreviewIds.length && sendablePreviewIds.length ? 'Clear selection' : `Select all eligible (${sendablePreviewIds.length})`}
+                  <button className="card-action preview-select-all" type="button" disabled={!approvablePreviewIds.length} onClick={toggleAllPreviewSelection}>
+                    {selectedPreviewIds.length === approvablePreviewIds.length && approvablePreviewIds.length ? 'Clear selection' : `Select all drafts (${approvablePreviewIds.length})`}
                   </button>
                   {selectedPreviewIds.length ? (
-                    <button className="btn-primary preview-send-selected" type="button" disabled={busy === 'send-selected-now' || campaign.status !== 'active'} onClick={() => setSendConfirmTarget('selected')}>
-                      {busy === 'send-selected-now' ? 'Queueing...' : `Send selected (${selectedPreviewIds.length})`}
+                    <button className="btn-primary preview-send-selected" type="button" disabled={busy === 'approve-drafts'} onClick={() => handleApproveDrafts(selectedPreviewIds)}>
+                      {busy === 'approve-drafts' ? 'Approving...' : `Approve selected (${selectedPreviewIds.length})`}
                     </button>
                   ) : null}
                   <span className="card-action">{preview.length} email{preview.length === 1 ? '' : 's'}</span>
@@ -445,7 +483,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                     aria-label={`Select ${item.subject || 'email'}`}
                     type="checkbox"
                     checked={selectedPreviewIds.includes(item.id)}
-                    disabled={!['draft', 'approved'].includes(item.status) || campaign.status !== 'active'}
+                    disabled={item.status !== 'draft'}
                     onChange={() => togglePreviewSelection(item.id)}
                   />
                   <button className="mtr-button" type="button" onClick={() => setOpenedEmail(item)}>
@@ -461,13 +499,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
               )) : <EmptyState text="Generate emails to see previews." />}
             </div>
               ) : (
-            <div className="card">
+            <div className="card campaign-review-panel">
               <div className="card-head">
                 <div className="card-title">Campaign leads</div>
                 <div className="preview-actions">
                   <span className="card-action">{campaignLeads.length} lead{campaignLeads.length === 1 ? '' : 's'}</span>
-                  <button className="btn-primary" type="button" disabled={busy === 'campaign-leads'} onClick={() => setShowImportChooser(true)}>
-                    Import more leads
+                  <button className="btn-primary" type="button" disabled={busy === 'campaign-leads' || !canEdit} onClick={() => setShowExistingPicker(true)}>
+                    Add verified leads
                   </button>
                 </div>
               </div>
@@ -500,12 +538,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                     ))}
                   </tbody>
                 </table>
-              ) : <EmptyState text="No leads in this campaign yet. Use Import more leads to add some." />}
+              ) : <EmptyState text="No verified leads have been added yet. Add them here, then generate the drafts." />}
             </div>
               )}
             </div>
 
-            <div className="set-panel">
+            <div className="set-panel campaign-review-aside">
               <div className="sf" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
                 <div>
                   <div className="sf-lbl">Campaign details</div>
@@ -531,11 +569,11 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 ))}
               </div>
               <div className="sf-hint" style={{ marginTop: 16 }}>
-                Select leads, generate and review the emails, then launch from a verified mailbox.
+                Your launch safeguard: only approved emails can be queued. Editing a draft always returns it to review.
               </div>
               <div className="set-save">
-                <button className="btn-outline" type="button" onClick={() => setTab('leads')}>
-                  {selectedLeadIds.length ? `Manage ${selectedLeadIds.length} leads` : 'Select leads'}
+                <button className="btn-outline" type="button" onClick={() => selectedLeadIds.length ? setTab('leads') : setShowExistingPicker(true)}>
+                  {selectedLeadIds.length ? `Manage ${selectedLeadIds.length} leads` : 'Add verified leads'}
                 </button>
                 <button className="btn-primary" type="button" disabled={busy === 'generate' || !canEdit} onClick={handleGenerate}>Generate emails</button>
               </div>
@@ -744,12 +782,26 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                   {busy === 'save-email' ? 'Saving...' : 'Save changes'}
                 </button>
               ) : null}
-              {campaign?.status === 'active' && ['draft', 'approved'].includes(openedEmail.status) ? (
+              {openedEmail.status === 'draft' ? (
+                <button className="btn-outline" type="button" disabled={busy === 'regenerate-email'} onClick={handleRegenerateEmail}>
+                  {busy === 'regenerate-email' ? 'Regenerating...' : 'Regenerate'}
+                </button>
+              ) : null}
+              {openedEmail.status === 'draft' ? (
+                <button className="btn-primary" type="button" disabled={busy === 'approve-drafts'} onClick={() => handleApproveDrafts([openedEmail.id])}>
+                  {busy === 'approve-drafts' ? 'Approving...' : 'Approve email'}
+                </button>
+              ) : null}
+              {campaign?.status === 'active' && openedEmail.status === 'approved' ? (
                 <button className="btn-primary" type="button" disabled={busy === 'send-now'} onClick={() => setSendConfirmTarget('single')}>
                   {busy === 'send-now' ? 'Queueing...' : 'Send immediately'}
                 </button>
               ) : (
-                <div className="sf-hint">Send immediately is available after this campaign is launched.</div>
+                <div className="sf-hint">
+                  {openedEmail.status === 'draft'
+                    ? 'Approve this draft before it can be sent.'
+                    : 'Send immediately is available after this campaign is launched.'}
+                </div>
               )}
             </div>
           </section>

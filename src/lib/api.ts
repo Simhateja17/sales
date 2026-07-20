@@ -143,9 +143,11 @@ export interface EmailSequence {
   workspace_id: string;
   campaign_id: string;
   step_number: number;
+  name?: string;
   subject_template: string;
   body_template: string;
   delay_days: number;
+  ai_instruction?: string;
   is_active: boolean;
   created_at: string;
 }
@@ -631,6 +633,19 @@ export function generateCampaignEmails(campaignId: string) {
   });
 }
 
+export function approveCampaignEmails(campaignId: string, messageIds: string[]) {
+  return apiFetch<{ approved: number; messages: EmailMessage[] }>(`/api/campaigns/${campaignId}/messages/approve-batch`, {
+    method: 'POST',
+    body: JSON.stringify({ message_ids: messageIds }),
+  });
+}
+
+export function regenerateCampaignEmail(campaignId: string, messageId: string) {
+  return apiFetch<{ message: EmailMessage }>(`/api/campaigns/${campaignId}/messages/${messageId}/regenerate`, {
+    method: 'POST',
+  });
+}
+
 export function getCampaignLeads(campaignId: string) {
   return apiFetch<{ lead_ids: string[] }>(`/api/campaigns/${campaignId}/leads`);
 }
@@ -639,6 +654,20 @@ export function replaceCampaignLeads(campaignId: string, leadIds: string[]) {
   return apiFetch<{ lead_ids: string[] }>(`/api/campaigns/${campaignId}/leads`, {
     method: 'PUT',
     body: JSON.stringify({ lead_ids: leadIds }),
+  });
+}
+
+export type CampaignSequenceStep = {
+  step_number: number;
+  name: string;
+  delay_days: number;
+  ai_instruction: string;
+};
+
+export function replaceCampaignSequence(campaignId: string, steps: CampaignSequenceStep[]) {
+  return apiFetch<{ campaign: Campaign; removed_steps: number[] }>(`/api/campaigns/${campaignId}/sequences`, {
+    method: 'PUT',
+    body: JSON.stringify({ steps }),
   });
 }
 

@@ -24,6 +24,7 @@ import {
   importApolloLeads,
   previewCsvMapping,
   replaceCampaignLeads,
+  replaceCampaignSequence,
   startCsvImport,
   syncApolloEmails,
   testSmtp,
@@ -39,6 +40,7 @@ import {
   type Workspace,
 } from '@/lib/api';
 import Sidebar from './_lib/Sidebar';
+import CampaignBuilderModal, { type CampaignBuilderSubmission } from './_components/CampaignBuilderModal';
 import HomeOverview from './_components/HomeOverview';
 import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, navItems, statusBadge, type Page } from './_lib/ui';
 import { csvTargets, terminalImportStatuses } from './_lib/leadImport';
@@ -54,17 +56,6 @@ const emptyLeadForm = {
   email: '',
   phone: '',
   notes_summary: '',
-};
-
-const emptyCampaignForm = {
-  name: '',
-  daily_send_cap: 40,
-  sending_hours_start: '09:00',
-  sending_hours_end: '17:30',
-  timezone: 'Asia/Singapore',
-  active_days: [1, 2, 3, 4, 5],
-  cadence_per_hour: 25,
-  lead_source: 'manual' as const,
 };
 
 const emptySmtpForm = {
@@ -116,7 +107,6 @@ function DashboardContent() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
   const [leadForm, setLeadForm] = useState(emptyLeadForm);
-  const [campaignForm, setCampaignForm] = useState(emptyCampaignForm);
   const [smtpForm, setSmtpForm] = useState(emptySmtpForm);
   const [apolloFilters, setApolloFilters] = useState<ApolloFilters>(emptyApolloFilters);
   const [apolloIndustryOptions, setApolloIndustryOptions] = useState<string[]>([]);
@@ -467,20 +457,22 @@ function DashboardContent() {
     }
   }
 
-  async function handleCreateCampaign(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleCreateCampaign({ campaign, leadIds, steps }: CampaignBuilderSubmission) {
     setBusy('campaign');
     setMessage('');
     try {
       const data = await createCampaign({
-        ...campaignForm,
-        target_segment: { source: 'dashboard', lead_count: emailLeads.length },
+        ...campaign,
+        target_segment: { source: 'campaign_builder', lead_count: leadIds.length },
       });
-      setCampaigns([data.campaign, ...campaigns]);
+      await Promise.all([
+        replaceCampaignLeads(data.campaign.id, leadIds),
+        replaceCampaignSequence(data.campaign.id, steps),
+      ]);
+      setCampaigns(current => [data.campaign, ...current]);
       setSelectedCampaignId(data.campaign.id);
-      setCampaignForm(emptyCampaignForm);
       setShowCampaignForm(false);
-      setMessage('Campaign created.');
+      router.push(`/dashboard/campaigns/${data.campaign.id}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not create campaign');
     } finally {
@@ -668,17 +660,16 @@ function DashboardContent() {
           <section>
             <div className="page-header">
               <div>
-                <h2 className="page-title">Campaigns</h2>
-                <p className="page-sub">Open a campaign to review its emails, select leads, and launch.</p>
+                <div className="page-kicker">Outbound workspace</div>
+                <h2 className="page-title">Campaigns with a review gate</h2>
+                <p className="page-sub">Build the audience and sequence together, review every generated email, then launch only what you approve.</p>
               </div>
-              {!showCampaignForm ? (
-                <div className="page-actions">
-                  <button className="btn-primary" type="button" onClick={() => setShowCampaignForm(true)}>New campaign</button>
-                </div>
-              ) : null}
+              <div className="page-actions">
+                <button className="btn-primary" type="button" onClick={() => setShowCampaignForm(true)}>New campaign</button>
+              </div>
             </div>
-            <div className="dash-grid">
-              <div className="card">
+            <div className="campaign-list-layout">
+              <div className="card campaign-list-panel">
                 <div className="card-head">
                   <div className="card-title">Campaign list</div>
                   <span className="card-action">{campaigns.length} campaign{campaigns.length === 1 ? '' : 's'}</span>
@@ -687,51 +678,20 @@ function DashboardContent() {
                   <CampaignRow key={campaign.id} campaign={campaign} onClick={() => router.push(`/dashboard/campaigns/${campaign.id}`)} />
                 )) : <EmptyState text="Create your first campaign." />}
               </div>
-              {showCampaignForm || !campaigns.length ? <form className="set-panel" onSubmit={handleCreateCampaign}>
-                <div className="sf">
-                  <div className="sf-lbl">New campaign</div>
-                  <input className="sf-inp" value={campaignForm.name} onChange={event => setCampaignForm({ ...campaignForm, name: event.target.value })} placeholder="Q3 founder outreach" required />
+              <aside className="set-panel campaign-list-summary">
+                <div className="sf-lbl">Campaign workflow</div>
+                <div className="sf-hint" style={{ marginTop: 10 }}>
+                  Create a campaign with verified leads and its email steps in one place. Every draft still needs your approval before it sends.
                 </div>
-                <div className="sf">
-                  <div className="sf-lbl">Daily send cap</div>
-                  <input className="sf-inp" type="number" min={1} max={300} value={campaignForm.daily_send_cap} onChange={event => setCampaignForm({ ...campaignForm, daily_send_cap: Number(event.target.value) })} />
-                </div>
-                <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div>
-                    <div className="sf-lbl">Start</div>
-                    <input className="sf-inp" type="time" value={campaignForm.sending_hours_start} onChange={event => setCampaignForm({ ...campaignForm, sending_hours_start: event.target.value })} />
-                  </div>
-                  <div>
-                    <div className="sf-lbl">End</div>
-                    <input className="sf-inp" type="time" value={campaignForm.sending_hours_end} onChange={event => setCampaignForm({ ...campaignForm, sending_hours_end: event.target.value })} />
-                  </div>
-                </div>
-                <div className="sf">
-                  <div className="sf-lbl">Emails per hour</div>
-                  <input className="sf-inp" type="number" min={1} max={100} value={campaignForm.cadence_per_hour} onChange={event => setCampaignForm({ ...campaignForm, cadence_per_hour: Number(event.target.value) })} />
-                  <div className="sf-hint">Barsha spaces sends across the selected daily window.</div>
+                <div className="msl-list" style={{ marginTop: 18 }}>
+                  <Metric label="Active" value={campaigns.filter(c => c.status === 'active').length.toString()} />
+                  <Metric label="Draft" value={campaigns.filter(c => c.status === 'draft').length.toString()} />
+                  <Metric label="Verified leads" value={emailLeads.length.toString()} />
                 </div>
                 <div className="set-save">
-                  {campaigns.length ? <button className="btn-outline" type="button" onClick={() => setShowCampaignForm(false)}>Cancel</button> : null}
-                  <button className="btn-primary" type="submit" disabled={busy === 'campaign'}>{busy === 'campaign' ? 'Creating...' : 'Create campaign'}</button>
+                  <button className="btn-primary" type="button" onClick={() => setShowCampaignForm(true)}>Open campaign builder</button>
                 </div>
-              </form> : (
-                <div className="set-panel">
-                  <div className="sf-lbl">Campaigns</div>
-                  <div className="sf-hint" style={{ marginTop: 10 }}>
-                    Select a campaign from the list to review its generated emails, manage leads, and launch or pause sending.
-                  </div>
-                  <div className="msl-list" style={{ marginTop: 18 }}>
-                    <Metric label="Active" value={campaigns.filter(c => c.status === 'active').length.toString()} />
-                    <Metric label="Draft" value={campaigns.filter(c => c.status === 'draft').length.toString()} />
-                    <Metric label="Paused" value={campaigns.filter(c => c.status === 'paused').length.toString()} />
-                    <Metric label="Leads with email" value={emailLeads.length.toString()} />
-                  </div>
-                  <div className="set-save">
-                    <button className="btn-primary" type="button" onClick={() => setShowCampaignForm(true)}>Create another</button>
-                  </div>
-                </div>
-              )}
+              </aside>
             </div>
           </section>
         ) : null}
@@ -740,14 +700,18 @@ function DashboardContent() {
           <section>
             <div className="page-header">
               <div>
-                <h2 className="page-title">Leads</h2>
-                <p className="page-sub">{emailLeads.length} enriched leads are ready for campaigns.</p>
+                <div className="page-kicker">Lead research</div>
+                <h2 className="page-title">Build a verified audience</h2>
+                <p className="page-sub">Only leads with a verified work email become available for outreach. Their company context stays with the record for better personalization.</p>
               </div>
             </div>
-            <div className="dash-grid">
-              <div className="card">
+            <div className="lead-research-layout">
+              <div className="card lead-library-panel">
                 <div className="card-head">
-                  <div className="card-title">Lead list</div>
+                  <div>
+                    <div className="card-title">Verified lead library</div>
+                    <div className="sf-hint">{emailLeads.length} people are ready to use in a campaign.</div>
+                  </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <span className="card-action">{managedLeadIds.length ? `${managedLeadIds.length} selected` : `${visibleLeads.length} total`}</span>
                     {managedLeadIds.length ? (
@@ -789,11 +753,11 @@ function DashboardContent() {
                 </table>
                 {!visibleLeads.length ? <EmptyState text="No enriched leads are ready yet." /> : null}
               </div>
-              <div>
-                <div className="set-panel" style={{ marginBottom: 18 }}>
+              <aside className="lead-research-aside">
+                <div className="set-panel apollo-import-panel">
                   <div className="sf">
                     <div className="sf-lbl">Apollo import</div>
-                    <div className="sf-hint">Filters are prefilled from onboarding and can be adjusted per import.</div>
+                    <div className="sf-hint">Find candidates, enrich them, and only retain returned work emails. Your filters are prefilled from onboarding.</div>
                   </div>
                   <div className="sf">
                     <input
@@ -851,10 +815,10 @@ function DashboardContent() {
                   {activeApolloRun ? (
                     <ApolloImportProgress run={activeApolloRun} elapsedSeconds={apolloElapsedSeconds} />
                   ) : (
-                    <div className="sf-hint" style={{ marginTop: 14 }}>Most 25-lead imports take roughly 2–5 minutes. Apollo response time can vary.</div>
+                    <div className="sf-hint apollo-import-note">Most 25-lead imports take roughly 2–5 minutes. Apollo response time can vary.</div>
                   )}
                 </div>
-                <form className="set-panel" onSubmit={handleCreateLead}>
+                <form className="set-panel lead-utility-panel" onSubmit={handleCreateLead}>
                   <div className="sf" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div className="sf-lbl">{editingLeadId ? 'Edit lead' : 'Add lead'}</div>
                     {editingLeadId ? <button className="card-action" type="button" onClick={cancelEditLead}>Cancel edit</button> : null}
@@ -872,7 +836,7 @@ function DashboardContent() {
                   ))}
                   <button className="btn-primary" type="submit" disabled={busy === 'lead'}>{busy === 'lead' ? 'Saving...' : editingLeadId ? 'Update lead' : 'Save lead'}</button>
                 </form>
-                <div className="set-panel" style={{ marginTop: 18 }}>
+                <div className="set-panel lead-utility-panel">
                   <div className="sf">
                     <div className="sf-lbl">CSV import</div>
                     <div className="sf-hint">Upload a CSV, let AI map the columns, then confirm the preview before anything is written.</div>
@@ -920,7 +884,7 @@ function DashboardContent() {
                     </button>
                   ) : null}
                 </div>
-              </div>
+              </aside>
             </div>
           </section>
         ) : null}
@@ -929,29 +893,48 @@ function DashboardContent() {
           <section>
             <div className="page-header">
               <div>
-                <h2 className="page-title">Inbox</h2>
-                <p className="page-sub">Inbound replies and AI drafted responses.</p>
+                <div className="page-kicker">Conversations</div>
+                <h2 className="page-title">Reply with context</h2>
+                <p className="page-sub">Every reply keeps the lead and company context alongside an AI draft for your approval.</p>
               </div>
             </div>
-            <div className="card">
-              {inbox.length ? inbox.map(item => (
-                <div key={item.id} className="call-card">
-                  <div className="call-av">{initials(item.leads?.full_name)}</div>
-                  <div className="call-meta">
-                    <div className="call-name">{item.leads?.full_name || item.subject || 'Inbound email'}</div>
-                    <div className="call-detail">{item.leads?.company_name || item.leads?.email || 'Unknown lead'} · {fmtDate(item.received_at || item.created_at)}</div>
-                    <div className="call-detail" style={{ marginTop: 7 }}>{(item.draft_body || item.body || '').slice(0, 220)}</div>
+            <div className="inbox-workspace">
+              <div className="card inbox-thread-panel">
+                <div className="card-head">
+                  <div>
+                    <div className="card-title">Reply queue</div>
+                    <div className="sf-hint">Approve a draft when it is ready to send.</div>
                   </div>
-                  <div className="call-right">
-                    <span className={`badge ${statusBadge(item.intent_classification || item.status)}`}><span className="bdot" />{item.intent_classification || item.status}</span>
-                    <div style={{ marginTop: 10 }}>
-                      <button className="btn-outline" type="button" disabled={busy === item.id} onClick={() => handleApproveReply(item.id)}>
-                        Approve
-                      </button>
+                  <span className="card-action">{inbox.length} conversation{inbox.length === 1 ? '' : 's'}</span>
+                </div>
+                {inbox.length ? inbox.map(item => (
+                  <div key={item.id} className="call-card">
+                    <div className="call-av">{initials(item.leads?.full_name)}</div>
+                    <div className="call-meta">
+                      <div className="call-name">{item.leads?.full_name || item.subject || 'Inbound email'}</div>
+                      <div className="call-detail">{item.leads?.company_name || item.leads?.email || 'Unknown lead'} · {fmtDate(item.received_at || item.created_at)}</div>
+                      <div className="call-detail" style={{ marginTop: 7 }}>{(item.draft_body || item.body || '').slice(0, 220)}</div>
+                    </div>
+                    <div className="call-right">
+                      <span className={`badge ${statusBadge(item.intent_classification || item.status)}`}><span className="bdot" />{item.intent_classification || item.status}</span>
+                      <div style={{ marginTop: 10 }}>
+                        <button className="btn-outline" type="button" disabled={busy === item.id} onClick={() => handleApproveReply(item.id)}>
+                          {busy === item.id ? 'Sending...' : 'Approve reply'}
+                        </button>
+                      </div>
                     </div>
                   </div>
+                )) : <EmptyState text="No inbound replies yet. Replies from launched campaigns appear here for review." />}
+              </div>
+              <aside className="set-panel inbox-summary-panel">
+                <div className="sf-lbl">Conversation health</div>
+                <div className="msl-list" style={{ marginTop: 18 }}>
+                  <Metric label="Needs review" value={pendingReplies.length.toString()} />
+                  <Metric label="Positive intent" value={inbox.filter(item => item.intent_classification === 'positive').length.toString()} />
+                  <Metric label="Meetings booked" value={meetings.length.toString()} />
                 </div>
-              )) : <EmptyState text="No inbound replies yet." />}
+                <div className="sf-hint" style={{ marginTop: 18 }}>Your reply is never sent just because it was drafted. Check the tone and approve it deliberately.</div>
+              </aside>
             </div>
           </section>
         ) : null}
@@ -960,8 +943,9 @@ function DashboardContent() {
           <section>
             <div className="page-header">
               <div>
-                <h2 className="page-title">Meetings</h2>
-                <p className="page-sub">Booked meetings from positive replies.</p>
+                <div className="page-kicker">Pipeline</div>
+                <h2 className="page-title">Meetings that move forward</h2>
+                <p className="page-sub">Positive replies become a clear, quiet meeting queue.</p>
               </div>
             </div>
             <div className="card">
@@ -981,8 +965,9 @@ function DashboardContent() {
           <section>
             <div className="page-header">
               <div>
-                <h2 className="page-title">Analytics</h2>
-                <p className="page-sub">Live counts from campaigns, messages, and inbox.</p>
+                <div className="page-kicker">Performance</div>
+                <h2 className="page-title">See what earns a reply</h2>
+                <p className="page-sub">Live campaign, delivery, and conversation signals in one place.</p>
               </div>
             </div>
             <KpiRow
@@ -1018,8 +1003,9 @@ function DashboardContent() {
           <section>
             <div className="page-header">
               <div>
-                <h2 className="page-title">Settings</h2>
-                <p className="page-sub">Connect the sender mailbox used by campaigns and inbox polling.</p>
+                <div className="page-kicker">Workspace controls</div>
+                <h2 className="page-title">Set the right sending foundation</h2>
+                <p className="page-sub">Connect the sender mailbox used by campaigns and inbox polling, then keep targeting and safeguards current.</p>
               </div>
             </div>
             <div className="set-grid">
@@ -1132,8 +1118,9 @@ function DashboardContent() {
           <section>
             <div className="page-header">
               <div>
-                <h2 className="page-title">Billing</h2>
-                <p className="page-sub">Current plan and usage controls.</p>
+                <div className="page-kicker">Plan and usage</div>
+                <h2 className="page-title">Keep the sending plan in view</h2>
+                <p className="page-sub">Current plan, mailbox connection, and daily sending allowance.</p>
               </div>
             </div>
             <div className="bill-grid">
@@ -1158,8 +1145,9 @@ function DashboardContent() {
           <section>
             <div className="page-header">
               <div>
-                <h2 className="page-title">Support</h2>
-                <p className="page-sub">Operational checks for the email workflow.</p>
+                <div className="page-kicker">System health</div>
+                <h2 className="page-title">Keep the workflow reliable</h2>
+                <p className="page-sub">A practical checklist for the services that make campaign sending work.</p>
               </div>
             </div>
             <div className="an-grid">
@@ -1185,6 +1173,13 @@ function DashboardContent() {
           </section>
         ) : null}
       </main>
+      <CampaignBuilderModal
+        open={showCampaignForm}
+        leads={emailLeads}
+        isSubmitting={busy === 'campaign'}
+        onClose={() => setShowCampaignForm(false)}
+        onSubmit={handleCreateCampaign}
+      />
     </>
   );
 }
