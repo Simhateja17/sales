@@ -148,7 +148,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 : `Draft generation finished: ${data.generation.generated_messages || progress?.generated || 0} emails are ready for review.`);
           }
         } else {
-          setMessage(`Generating drafts: ${progress?.processed || 0}/${progress?.total || selectedLeadIds.length} leads, ${progress?.generated || 0} emails ready.`);
+          setMessage(`Generating drafts: ${progress?.processed || 0}/${progress?.total || selectedLeadIds.length} leads, ${data.generation.generated_messages || progress?.generated || 0} emails ready.`);
         }
       } catch (error) {
         if (!cancelled) setMessage(error instanceof Error ? error.message : 'Could not check draft generation');
