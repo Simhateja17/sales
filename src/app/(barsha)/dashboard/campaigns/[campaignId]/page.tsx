@@ -6,6 +6,7 @@ import {
   generateCampaignEmails,
   approveCampaignEmails,
   getCampaign,
+  getCampaignGeneration,
   getCampaignLeads,
   getCampaignPreview,
   getInbox,
@@ -24,6 +25,7 @@ import {
   startCsvImport,
   updateCampaignEmail,
   type Campaign,
+  type CampaignGeneration,
   type ConnectedAccount,
   type CsvMapping,
   type EmailMessage,
@@ -45,6 +47,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   const [pendingReplies, setPendingReplies] = useState(0);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [preview, setPreview] = useState<EmailMessage[]>([]);
+  const [generation, setGeneration] = useState<CampaignGeneration | null>(null);
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [selectedPreviewIds, setSelectedPreviewIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,10 +118,45 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    getCampaignGeneration(campaignId)
+      .then(data => {
+        if (!cancelled) setGeneration(data.generation);
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
   }, [campaignId]);
+
+  useEffect(() => {
+    if (!generation || !['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status)) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const data = await getCampaignGeneration(campaignId);
+        if (cancelled) return;
+        setGeneration(data.generation);
+        const progress = data.generation.progress;
+        if (['completed', 'failed'].includes(data.generation.status)) {
+          await reloadPreview();
+          if (!cancelled) {
+            const failed = Number(progress?.failed || 0);
+            setMessage(data.generation.status === 'failed'
+              ? `Draft generation stopped: ${data.generation.failed_reason || 'please retry.'}`
+              : failed ? `Draft generation finished with ${failed} lead failure${failed === 1 ? '' : 's'}. Retry Generate to resume them.`
+                : `Draft generation finished: ${data.generation.generated_messages || progress?.generated || 0} emails are ready for review.`);
+          }
+        } else {
+          setMessage(`Generating drafts: ${progress?.processed || 0}/${progress?.total || selectedLeadIds.length} leads, ${progress?.generated || 0} emails ready.`);
+        }
+      } catch (error) {
+        if (!cancelled) setMessage(error instanceof Error ? error.message : 'Could not check draft generation');
+      }
+    };
+    poll();
+    const timer = window.setInterval(poll, 2500);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [campaignId, generation?.status]);
 
   useEffect(() => {
     setEmailEditSubject(openedEmail?.subject || '');
@@ -150,9 +188,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     setMessage('');
     try {
       const data = await generateCampaignEmails(campaign.id);
-      setPreview(data.messages);
       setCampaign(data.campaign);
-      setMessage(`${data.messages.length} emails generated for review.`);
+      setGeneration(data.generation);
+      setTab('emails');
+      setMessage(`Draft generation queued for ${data.generation.progress?.total || selectedLeadIds.length} leads. You can leave this page while it runs.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not generate emails');
     } finally {
@@ -425,8 +464,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
           </div>
           {campaign ? (
             <div className="page-actions">
-              <button className="btn-outline" type="button" disabled={busy === 'generate' || !canEdit} onClick={handleGenerate}>
-                {busy === 'generate' ? 'Generating...' : 'Generate emails'}
+              <button className="btn-outline" type="button" disabled={busy === 'generate' || Boolean(generation && ['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status)) || !canEdit} onClick={handleGenerate}>
+                {busy === 'generate' || (generation && ['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status)) ? 'Generating...' : 'Generate emails'}
               </button>
               <button className="btn-primary" type="button" disabled={busy === 'launch'} onClick={handleLaunch}>
                 {busy === 'launch' ? 'Launching...' : 'Launch'}
@@ -575,7 +614,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 <button className="btn-outline" type="button" onClick={() => selectedLeadIds.length ? setTab('leads') : setShowExistingPicker(true)}>
                   {selectedLeadIds.length ? `Manage ${selectedLeadIds.length} leads` : 'Add verified leads'}
                 </button>
-                <button className="btn-primary" type="button" disabled={busy === 'generate' || !canEdit} onClick={handleGenerate}>Generate emails</button>
+                <button className="btn-primary" type="button" disabled={busy === 'generate' || Boolean(generation && ['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status)) || !canEdit} onClick={handleGenerate}>
+                  {busy === 'generate' || (generation && ['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status)) ? 'Generating...' : 'Generate emails'}
+                </button>
               </div>
             </div>
           </div>

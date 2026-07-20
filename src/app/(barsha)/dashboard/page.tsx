@@ -47,6 +47,8 @@ import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, navItems, s
 import { csvTargets, terminalImportStatuses } from './_lib/leadImport';
 
 type SettingsSection = 'mailbox' | 'workspace' | 'compliance';
+type LeadView = 'all' | 'ready' | 'campaign' | 'attention';
+type LeadDrawerMode = 'profile' | 'source';
 
 const pageIds = new Set<string>(navItems.map(item => item.id));
 
@@ -88,6 +90,25 @@ function isCampaignEligibleLead(lead: Lead | undefined) {
     && lead.lifecycle_status !== 'suppressed'
     && lead.dnc_status !== 'blocked'
   );
+}
+
+function leadViewStatus(lead: Lead) {
+  if (lead.lifecycle_status === 'selected_for_campaign' || lead.lifecycle_status === 'contacted') return 'In campaign';
+  if (lead.enrichment_status === 'failed' || lead.enrichment_status === 'cooldown' || lead.dnc_status === 'pending') return 'Needs attention';
+  return 'Ready to contact';
+}
+
+function leadViewClass(lead: Lead) {
+  const status = leadViewStatus(lead);
+  if (status === 'In campaign') return 'lead-status-campaign';
+  if (status === 'Needs attention') return 'lead-status-attention';
+  return 'lead-status-ready';
+}
+
+function leadEnrichment(lead: Lead) {
+  const reasons = (lead.fit_reasons || []).map(reason => reason.reason).filter(Boolean);
+  if (reasons.length) return reasons.slice(0, 2).join(', ');
+  return lead.enrichment_status === 'completed' ? 'Company and role verified' : 'Work email verified';
 }
 
 
@@ -135,6 +156,9 @@ function DashboardContent() {
   const [campaignBuilderLeadIds, setCampaignBuilderLeadIds] = useState<string[]>([]);
   const [activeApolloRun, setActiveApolloRun] = useState<LeadImportRun | null>(null);
   const [apolloElapsedSeconds, setApolloElapsedSeconds] = useState(0);
+  const [leadView, setLeadView] = useState<LeadView>('all');
+  const [selectedLeadId, setSelectedLeadId] = useState('');
+  const [leadDrawerMode, setLeadDrawerMode] = useState<LeadDrawerMode>('profile');
   const apolloMonitorRef = useRef('');
   const apolloRecoveryStartedRef = useRef(false);
 
@@ -152,6 +176,20 @@ function DashboardContent() {
   const visibleLeads = useMemo(
     () => leads.filter(lead => lead.dnc_status !== 'blocked' && lead.lifecycle_status !== 'suppressed' && (lead.source !== 'apollo' || ['ready', 'selected_for_campaign', 'contacted'].includes(lead.lifecycle_status))),
     [leads]
+  );
+  const attentionLeadCount = useMemo(
+    () => leads.filter(lead => lead.enrichment_status === 'failed' || lead.enrichment_status === 'cooldown' || lead.dnc_status === 'pending').length,
+    [leads]
+  );
+  const filteredLeads = useMemo(() => {
+    if (leadView === 'ready') return visibleLeads.filter(lead => leadViewStatus(lead) === 'Ready to contact');
+    if (leadView === 'campaign') return visibleLeads.filter(lead => leadViewStatus(lead) === 'In campaign');
+    if (leadView === 'attention') return visibleLeads.filter(lead => leadViewStatus(lead) === 'Needs attention');
+    return visibleLeads;
+  }, [leadView, visibleLeads]);
+  const selectedLead = useMemo(
+    () => filteredLeads.find(lead => lead.id === selectedLeadId) || filteredLeads[0] || null,
+    [filteredLeads, selectedLeadId]
   );
   const pendingReplies = useMemo(
     () => inbox.filter(item => item.direction === 'inbound' || item.status === 'pending_approval'),
@@ -716,192 +754,88 @@ function DashboardContent() {
         ) : null}
 
         {activePage === 'leads' ? (
-          <section>
-            <div className="page-header">
+          <section className="leads-page">
+            <div className="leads-page-head">
               <div>
-                <div className="page-kicker">Lead research</div>
-                <h2 className="page-title">Build a verified audience</h2>
-                <p className="page-sub">Only leads with a verified work email become available for outreach. Their company context stays with the record for better personalization.</p>
+                <h2 className="leads-title">Leads</h2>
+                <p className="leads-subtitle">Your verified audience</p>
               </div>
+              <button className="btn-primary" type="button" onClick={() => setLeadDrawerMode('source')}>Find leads</button>
             </div>
-            <div className="lead-research-layout">
-              <div className="card lead-library-panel">
-                <div className="card-head">
-                  <div>
-                    <div className="card-title">Verified lead library</div>
-                    <div className="sf-hint">{emailLeads.length} people are ready to use in a campaign.</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span className="card-action">{managedLeadIds.length ? `${managedLeadIds.length} selected` : `${visibleLeads.length} total`}</span>
-                    {managedLeadIds.length ? (
-                    <button className="btn-primary" type="button" onClick={() => openCampaignBuilder(managedLeadIds.filter(id => isCampaignEligibleLead(leads.find(lead => lead.id === id))))}>
-                        Create campaign with {managedLeadIds.length}
-                      </button>
-                    ) : null}
-                    {managedLeadIds.length ? (
-                      <button className="btn-outline" type="button" disabled={busy === 'lead-delete'} onClick={() => handleDeleteLeads(managedLeadIds)}>Delete selected</button>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="lead-table-scroll"><table className="data-table">
-                  <thead>
-                    <tr>
-                      <th><input aria-label="Select all leads" type="checkbox" checked={Boolean(visibleLeads.length) && managedLeadIds.length === visibleLeads.length} onChange={event => setManagedLeadIds(event.target.checked ? visibleLeads.map(lead => lead.id) : [])} /></th>
-                      <th>Name</th><th>Company</th><th>Email</th><th>Fit</th><th>Status</th><th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleLeads.map(lead => (
-                      <tr key={lead.id}>
-                        <td><input aria-label={`Select ${lead.full_name}`} type="checkbox" checked={managedLeadIds.includes(lead.id)} onChange={() => setManagedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} /></td>
-                        <td>{lead.full_name}</td>
-                        <td>{lead.company_name || '-'}</td>
-                        <td>{lead.email || '-'}</td>
-                        <td title={(lead.fit_reasons || []).map(reason => `+${reason.points} ${reason.reason}`).join('\n')}>{lead.fit_score || 0}</td>
-                        <td><span className={`badge ${statusBadge(lead.lifecycle_status || lead.status)}`}><span className="bdot" />{lead.lifecycle_status || lead.status}</span></td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button className="card-action" type="button" onClick={() => beginEditLead(lead)}>Edit</button>
-                            <button className="card-action" type="button" disabled={busy === 'lead-delete'} onClick={() => handleDeleteLeads([lead.id])}>Delete</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table></div>
-                {!visibleLeads.length ? <EmptyState text="No enriched leads are ready yet." /> : null}
-              </div>
-              <aside className="lead-research-aside">
-                <div className="set-panel apollo-import-panel">
-                  <div className="sf">
-                    <div className="sf-lbl">Apollo import</div>
-                    <div className="sf-hint">Find candidates, enrich them, and only retain returned work emails. Your filters are prefilled from onboarding.</div>
-                  </div>
-                  <div className="sf">
-                    <input
-                      className="sf-inp"
-                      value={apolloFilters.titles.join(', ')}
-                      onChange={event => setApolloFilters({
-                        ...apolloFilters,
-                        titles: event.target.value.split(',').map(item => item.trim()).filter(Boolean),
-                      })}
-                      placeholder="Founder, CEO, Head of Sales"
-                    />
-                  </div>
-                  <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <input
-                      className="sf-inp"
-                      value={apolloFilters.region}
-                      onChange={event => setApolloFilters({ ...apolloFilters, region: event.target.value })}
-                      placeholder="Singapore"
-                    />
-                    <input
-                      className="sf-inp"
-                      value={apolloFilters.industry}
-                      onChange={event => setApolloFilters({ ...apolloFilters, industry: event.target.value })}
-                      placeholder="Industry"
-                      list="apollo-industry-options"
-                    />
-                    <datalist id="apollo-industry-options">
-                      {apolloIndustryOptions.map(industry => <option key={industry} value={industry} />)}
-                    </datalist>
-                  </div>
-                  <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 10 }}>
-                    <input
-                      className="sf-inp"
-                      value={apolloFilters.companySize}
-                      onChange={event => setApolloFilters({ ...apolloFilters, companySize: event.target.value })}
-                      placeholder="11-50"
-                    />
-                    <input
-                      className="sf-inp"
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={apolloFilters.limit}
-                      onChange={event => setApolloFilters({ ...apolloFilters, limit: Number(event.target.value) })}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <button className="btn-primary" type="button" disabled={busy === 'apollo'} onClick={handleApolloImport}>
-                      {busy === 'apollo' ? 'Importing...' : 'Import from Apollo'}
-                    </button>
-                    <button className="btn-outline" type="button" disabled={busy === 'apollo-sync'} onClick={handleApolloSync}>
-                      {busy === 'apollo-sync' ? 'Syncing...' : 'Sync Apollo emails'}
-                    </button>
-                  </div>
-                  {activeApolloRun ? (
-                    <ApolloImportProgress run={activeApolloRun} elapsedSeconds={apolloElapsedSeconds} />
-                  ) : (
-                    <div className="sf-hint apollo-import-note">Most 25-lead imports take roughly 2–5 minutes. Apollo response time can vary.</div>
-                  )}
-                </div>
-                <form className="set-panel lead-utility-panel" onSubmit={handleCreateLead}>
-                  <div className="sf" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div className="sf-lbl">{editingLeadId ? 'Edit lead' : 'Add lead'}</div>
-                    {editingLeadId ? <button className="card-action" type="button" onClick={cancelEditLead}>Cancel edit</button> : null}
-                  </div>
-                  {Object.keys(emptyLeadForm).map(key => (
-                    <div className="sf" key={key}>
-                      <input
-                        className="sf-inp"
-                        value={leadForm[key as keyof typeof leadForm]}
-                        onChange={event => setLeadForm({ ...leadForm, [key]: event.target.value })}
-                        placeholder={key.replaceAll('_', ' ')}
-                        required={key === 'full_name' || key === 'email'}
-                      />
-                    </div>
+
+            <div className="lead-metrics" aria-label="Lead library summary">
+              <div><strong>{visibleLeads.length}</strong><span>Verified work emails</span></div>
+              <div><strong>{visibleLeads.filter(lead => leadViewStatus(lead) === 'Ready to contact').length}</strong><span>Ready for review</span></div>
+              <div><strong>{attentionLeadCount}</strong><span>Need attention</span></div>
+            </div>
+
+            <div className="leads-workspace">
+              <main className="leads-library">
+                <div className="lead-tabs" role="tablist" aria-label="Lead status">
+                  {([
+                    ['all', 'All leads'],
+                    ['ready', 'Ready'],
+                    ['campaign', 'In campaign'],
+                    ['attention', 'Needs attention'],
+                  ] as Array<[LeadView, string]>).map(([view, label]) => (
+                    <button key={view} type="button" role="tab" aria-selected={leadView === view} className={leadView === view ? 'active' : ''} onClick={() => setLeadView(view)}>{label}</button>
                   ))}
-                  <button className="btn-primary" type="submit" disabled={busy === 'lead'}>{busy === 'lead' ? 'Saving...' : editingLeadId ? 'Update lead' : 'Save lead'}</button>
-                </form>
-                <div className="set-panel lead-utility-panel">
-                  <div className="sf">
-                    <div className="sf-lbl">CSV import</div>
-                    <div className="sf-hint">Upload a CSV, let AI map the columns, then confirm the preview before anything is written.</div>
-                    <input
-                      className="sf-inp"
-                      type="file"
-                      accept=".csv,text/csv"
-                      onChange={async event => {
-                        const file = event.target.files?.[0];
-                        if (!file) return;
-                        setCsvText(await file.text());
-                        setCsvMappings([]);
-                        setCsvPreview([]);
-                      }}
-                    />
-                  </div>
-                  <div className="sf">
-                    <select className="sf-inp" value={csvMode} onChange={event => setCsvMode(event.target.value as 'import' | 'suppress')}>
-                      <option value="import">Import leads</option>
-                      <option value="suppress">Exclude from future searches</option>
-                    </select>
-                  </div>
-                  <button className="btn-outline" type="button" disabled={!csvText || busy === 'csv-preview'} onClick={handleCsvPreview}>{busy === 'csv-preview' ? 'Mapping...' : 'Map columns with AI'}</button>
-                  {csvMappings.length ? (
-                    <div style={{ marginTop: 14 }}>
-                      {csvMappings.map((mapping, index) => (
-                        <div key={`${mapping.source}-${index}`} className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                          <div className="sf-hint">{mapping.source} · {Math.round(Number(mapping.confidence || 0) * 100)}%</div>
-                          <select
-                            className="sf-inp"
-                            value={mapping.target}
-                            onChange={event => setCsvMappings(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, target: event.target.value } : item))}
-                          >
-                            {csvTargets.map(target => <option key={target} value={target}>{target}</option>)}
-                          </select>
-                        </div>
-                      ))}
-                      {csvPreview.length ? <pre className="sf-hint" style={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto' }}>{JSON.stringify(csvPreview, null, 2)}</pre> : null}
-                      <button className="btn-primary" type="button" disabled={busy === 'csv'} onClick={handleCsvImport}>{busy === 'csv' ? 'Importing...' : `Confirm and ${csvMode === 'suppress' ? 'exclude' : 'import'}`}</button>
-                    </div>
-                  ) : null}
-                  {lastCsvRun && lastCsvRun.skipped_count > 0 ? (
-                    <button className="btn-outline" type="button" style={{ marginTop: 10 }} onClick={handleDownloadCsvErrors}>
-                      Download skipped-row report
-                    </button>
-                  ) : null}
                 </div>
+                <p className="lead-verification-note"><span aria-hidden="true">◇</span> Only leads with a verified work email appear here.</p>
+                <div className="lead-table-card">
+                  <div className="lead-table-scroll"><table className="lead-table">
+                    <thead>
+                      <tr>
+                        <th><input className="cb" aria-label="Select all visible leads" type="checkbox" checked={Boolean(filteredLeads.length) && filteredLeads.every(lead => managedLeadIds.includes(lead.id))} onChange={event => setManagedLeadIds(event.target.checked ? Array.from(new Set([...managedLeadIds, ...filteredLeads.map(lead => lead.id)])) : managedLeadIds.filter(id => !filteredLeads.some(lead => lead.id === id)))} /></th>
+                        <th>Lead</th><th>Company</th><th>Status</th><th>Enrichment</th><th>Last updated</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredLeads.map(lead => (
+                        <tr key={lead.id} className={selectedLead?.id === lead.id ? 'selected' : ''} onClick={() => { setSelectedLeadId(lead.id); setLeadDrawerMode('profile'); }}>
+                          <td onClick={event => event.stopPropagation()}><input className="cb" aria-label={`Select ${lead.full_name}`} type="checkbox" checked={managedLeadIds.includes(lead.id)} onChange={() => setManagedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} /></td>
+                          <td><div className="lead-person"><span className="lead-avatar">{initials(lead.full_name)}</span><span><strong>{lead.full_name}</strong><small>{lead.title || 'Contact'}</small></span></div></td>
+                          <td><div className="lead-company"><span>{initials(lead.company_name)}</span>{lead.company_name || 'Independent'}</div></td>
+                          <td><span className={`lead-status ${leadViewClass(lead)}`}>{leadViewStatus(lead)}</span></td>
+                          <td><span className="lead-enrichment">{leadEnrichment(lead)}</span></td>
+                          <td className="lead-updated">{fmtDate(lead.updated_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table></div>
+                  {!filteredLeads.length ? <EmptyState text="No leads match this view yet." /> : null}
+                  <div className="lead-table-footer">
+                    <span>Showing {filteredLeads.length ? `1–${filteredLeads.length}` : '0'} of {filteredLeads.length} leads</span>
+                    {managedLeadIds.length ? <div><button className="btn-outline" type="button" disabled={busy === 'lead-delete'} onClick={() => handleDeleteLeads(managedLeadIds)}>Delete selected</button><button className="btn-primary" type="button" onClick={() => openCampaignBuilder(managedLeadIds.filter(id => isCampaignEligibleLead(leads.find(lead => lead.id === id))))}>Add to campaign</button></div> : null}
+                  </div>
+                </div>
+              </main>
+
+              <aside className="lead-drawer">
+                <div className="lead-drawer-head"><h3>{leadDrawerMode === 'source' ? 'Lead sourcing' : 'Lead research'}</h3><button type="button" aria-label="Close lead panel" onClick={() => setLeadDrawerMode(leadDrawerMode === 'source' ? 'profile' : 'source')}>×</button></div>
+                {leadDrawerMode === 'source' ? (
+                  <div className="lead-drawer-scroll lead-source-panel">
+                    <p>Find candidates, enrich them, and retain returned work emails. These filters use your onboarding preferences.</p>
+                    <label>Contact roles<input className="sf-inp" value={apolloFilters.titles.join(', ')} onChange={event => setApolloFilters({ ...apolloFilters, titles: event.target.value.split(',').map(item => item.trim()).filter(Boolean) })} placeholder="Founder, CEO, Head of Sales" /></label>
+                    <div className="lead-source-grid"><label>Region<input className="sf-inp" value={apolloFilters.region} onChange={event => setApolloFilters({ ...apolloFilters, region: event.target.value })} placeholder="Singapore" /></label><label>Industry<input className="sf-inp" value={apolloFilters.industry} onChange={event => setApolloFilters({ ...apolloFilters, industry: event.target.value })} placeholder="Industry" list="apollo-industry-options" /></label></div>
+                    <datalist id="apollo-industry-options">{apolloIndustryOptions.map(industry => <option key={industry} value={industry} />)}</datalist>
+                    <div className="lead-source-grid"><label>Company size<input className="sf-inp" value={apolloFilters.companySize} onChange={event => setApolloFilters({ ...apolloFilters, companySize: event.target.value })} placeholder="11-50" /></label><label>Lead limit<input className="sf-inp" type="number" min={1} max={100} value={apolloFilters.limit} onChange={event => setApolloFilters({ ...apolloFilters, limit: Number(event.target.value) })} /></label></div>
+                    <button className="btn-primary lead-full-button" type="button" disabled={busy === 'apollo'} onClick={handleApolloImport}>{busy === 'apollo' ? 'Importing...' : 'Import from Apollo'}</button>
+                    <button className="btn-outline lead-full-button" type="button" disabled={busy === 'apollo-sync'} onClick={handleApolloSync}>{busy === 'apollo-sync' ? 'Syncing...' : 'Sync Apollo emails'}</button>
+                    {activeApolloRun ? <ApolloImportProgress run={activeApolloRun} elapsedSeconds={apolloElapsedSeconds} /> : <p className="lead-source-note">Most 25-lead imports take roughly 2–5 minutes. Apollo response time can vary.</p>}
+                    <details className="lead-source-details"><summary>{editingLeadId ? 'Editing lead' : 'Add a lead manually'}</summary><form onSubmit={handleCreateLead}>{Object.keys(emptyLeadForm).map(key => <input key={key} className="sf-inp" value={leadForm[key as keyof typeof leadForm]} onChange={event => setLeadForm({ ...leadForm, [key]: event.target.value })} placeholder={key.replaceAll('_', ' ')} required={key === 'full_name' || key === 'email'} />)}<button className="btn-outline" type="submit" disabled={busy === 'lead'}>{busy === 'lead' ? 'Saving...' : editingLeadId ? 'Update lead' : 'Save lead'}</button>{editingLeadId ? <button className="card-action" type="button" onClick={cancelEditLead}>Cancel edit</button> : null}</form></details>
+                    <details className="lead-source-details"><summary>Import a CSV</summary><input className="sf-inp" type="file" accept=".csv,text/csv" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; setCsvText(await file.text()); setCsvMappings([]); setCsvPreview([]); }} /><select className="sf-inp" value={csvMode} onChange={event => setCsvMode(event.target.value as 'import' | 'suppress')}><option value="import">Import leads</option><option value="suppress">Exclude from future searches</option></select><button className="btn-outline" type="button" disabled={!csvText || busy === 'csv-preview'} onClick={handleCsvPreview}>{busy === 'csv-preview' ? 'Mapping...' : 'Map columns with AI'}</button>{csvMappings.length ? <div className="lead-csv-mapping">{csvMappings.map((mapping, index) => <label key={`${mapping.source}-${index}`}>{mapping.source}<select className="sf-inp" value={mapping.target} onChange={event => setCsvMappings(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, target: event.target.value } : item))}>{csvTargets.map(target => <option key={target} value={target}>{target}</option>)}</select></label>)}<button className="btn-primary" type="button" disabled={busy === 'csv'} onClick={handleCsvImport}>{busy === 'csv' ? 'Importing...' : `Confirm and ${csvMode === 'suppress' ? 'exclude' : 'import'}`}</button>{lastCsvRun && lastCsvRun.skipped_count > 0 ? <button className="btn-outline" type="button" onClick={handleDownloadCsvErrors}>Download skipped-row report</button> : null}</div> : null}</details>
+                  </div>
+                ) : selectedLead ? (
+                  <div className="lead-drawer-scroll lead-profile-panel">
+                    <div className="lead-profile-top"><span className="lead-avatar lead-avatar-large">{initials(selectedLead.full_name)}</span><div><h4>{selectedLead.full_name}</h4><p>{selectedLead.title || 'Contact'} <span>·</span> {selectedLead.company_name || 'Independent'}</p>{selectedLead.linkedin_url ? <a href={selectedLead.linkedin_url} target="_blank" rel="noreferrer">LinkedIn ↗</a> : null}</div></div>
+                    <section><h5>Contact role</h5><p>{selectedLead.title ? `${selectedLead.title} at ${selectedLead.company_name || 'their company'}.` : 'A verified contact ready for thoughtful outreach.'}</p></section>
+                    <section><h5>Company snapshot</h5><div className="lead-company-stats"><span><strong>{selectedLead.fit_score || '—'}</strong>Fit score</span><span><strong>{selectedLead.location || '—'}</strong>Location</span><span><strong>{selectedLead.company_domain || '—'}</strong>Domain</span></div><p>{selectedLead.notes_summary || `${selectedLead.company_name || 'This company'} has a verified work contact ready for a relevant conversation.`}</p></section>
+                    <section><h5>Research insight</h5><p>{leadEnrichment(selectedLead)}{selectedLead.email_source ? ` · ${selectedLead.email_source}` : ''}</p></section>
+                    <section className="lead-email-use"><h5>What Barsha will use in email</h5><p>Barsha will use the verified role and company context to make the first message specific and useful.</p></section>
+                    <div className="lead-profile-actions"><button className="btn-primary" type="button" disabled={!isCampaignEligibleLead(selectedLead)} onClick={() => openCampaignBuilder([selectedLead.id])}>Add to campaign</button><button className="btn-outline" type="button" onClick={() => { beginEditLead(selectedLead); setLeadDrawerMode('source'); }}>Edit lead</button></div>
+                  </div>
+                ) : <div className="lead-empty-profile"><p>Select a lead to review its context, or start a new Apollo search.</p><button className="btn-primary" type="button" onClick={() => setLeadDrawerMode('source')}>Find leads</button></div>}
               </aside>
             </div>
           </section>

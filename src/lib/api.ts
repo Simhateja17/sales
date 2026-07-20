@@ -146,6 +146,20 @@ export interface CampaignBrief {
   tone?: string;
 }
 
+export interface CampaignGeneration {
+  job_id: string | null;
+  status: 'idle' | 'waiting' | 'active' | 'delayed' | 'prioritized' | 'completed' | 'failed' | 'unknown';
+  generated_messages?: number;
+  failed_reason?: string | null;
+  progress: {
+    total?: number;
+    processed?: number;
+    generated?: number;
+    skipped?: number;
+    failed?: number;
+  } | null;
+}
+
 export interface EmailSequence {
   id: string;
   workspace_id: string;
@@ -635,10 +649,14 @@ export function getCampaign(campaignId: string) {
 }
 
 export function generateCampaignEmails(campaignId: string) {
-  return apiFetch<{ campaign: Campaign; messages: EmailMessage[] }>(`/api/campaigns/${campaignId}/generate`, {
+  return apiFetch<{ campaign: Campaign; generation: CampaignGeneration }>(`/api/campaigns/${campaignId}/generate`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
+}
+
+export function getCampaignGeneration(campaignId: string) {
+  return apiFetch<{ generation: CampaignGeneration }>(`/api/campaigns/${campaignId}/generation`);
 }
 
 export function approveCampaignEmails(campaignId: string, messageIds: string[]) {
