@@ -4,6 +4,20 @@ type ApiOptions = RequestInit & {
   auth?: boolean;
 };
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+export function isAuthenticationError(error: unknown) {
+  return error instanceof ApiError && error.status === 401;
+}
+
 export type Answers = Record<string, string | string[] | number>;
 
 export interface Workspace {
@@ -322,7 +336,10 @@ export interface LeadImportRun {
   error_message?: string | null;
   raw_meta?: Record<string, unknown>;
   created_at: string;
+  started_at?: string | null;
   completed_at?: string | null;
+  timeout_at?: string | null;
+  progress?: Record<string, unknown>;
 }
 
 export interface CsvMapping {
@@ -370,7 +387,11 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(data.error || 'Request failed');
+    const error = new ApiError(data.error || 'Request failed', res.status);
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('barsha:authentication-required'));
+    }
+    throw error;
   }
 
   return data as T;

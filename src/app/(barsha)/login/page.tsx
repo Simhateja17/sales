@@ -1,17 +1,26 @@
 'use client';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import { getWorkspace } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpRequested, setOtpRequested] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(searchParams.get('reason') === 'session' ? 'Your session ended. Please sign in again.' : '');
   const [loading, setLoading] = useState(false);
 
   const requestOtp = async () => {
@@ -83,7 +92,8 @@ export default function LoginPage() {
         } else if (!state.workspace.onboarding_completed) {
           router.push('/onboarding');
         } else {
-          router.push('/dashboard');
+          const returnTo = searchParams.get('returnTo');
+          router.push(returnTo && returnTo.startsWith('/') ? returnTo : '/dashboard');
         }
       }
     } catch {

@@ -3,7 +3,7 @@ import type { Campaign } from '@/lib/api';
 export type Page = 'overview' | 'campaigns' | 'leads' | 'inbox' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
 
 export const navItems: Array<{ id: Page; label: string; marker: string }> = [
-  { id: 'overview', label: 'Overview', marker: 'Ov' },
+  { id: 'overview', label: 'Home', marker: 'Ho' },
   { id: 'campaigns', label: 'Campaigns', marker: 'Ca' },
   { id: 'leads', label: 'Leads', marker: 'Le' },
   { id: 'inbox', label: 'Inbox', marker: 'In' },

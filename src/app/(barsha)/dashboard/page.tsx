@@ -39,6 +39,7 @@ import {
   type Workspace,
 } from '@/lib/api';
 import Sidebar from './_lib/Sidebar';
+import HomeOverview from './_components/HomeOverview';
 import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, navItems, statusBadge, type Page } from './_lib/ui';
 import { csvTargets, terminalImportStatuses } from './_lib/leadImport';
 
@@ -135,6 +136,11 @@ function DashboardContent() {
   const apolloMonitorRef = useRef('');
   const apolloRecoveryStartedRef = useRef(false);
 
+  function redirectForAuthentication() {
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    router.replace(`/login?reason=session&returnTo=${encodeURIComponent(returnTo)}`);
+  }
+
   const selectedCampaign = campaigns.find(campaign => campaign.id === selectedCampaignId) || campaigns[0] || null;
   const canEditSelectedCampaign = Boolean(selectedCampaign && ['draft', 'paused'].includes(selectedCampaign.status));
   const emailLeads = useMemo(
@@ -174,7 +180,13 @@ function DashboardContent() {
           router.push('/onboarding');
         }
       })
-      .catch(() => router.push('/login'));
+      .catch(() => redirectForAuthentication());
+  }, [router]);
+
+  useEffect(() => {
+    const handleAuthenticationRequired = () => redirectForAuthentication();
+    window.addEventListener('barsha:authentication-required', handleAuthenticationRequired);
+    return () => window.removeEventListener('barsha:authentication-required', handleAuthenticationRequired);
   }, [router]);
 
   useEffect(() => {
@@ -201,9 +213,13 @@ function DashboardContent() {
 
   useEffect(() => {
     if (!activeApolloRun?.created_at) return;
-    const updateElapsed = () => setApolloElapsedSeconds(Math.max(0, Math.floor((Date.now() - new Date(activeApolloRun.created_at).getTime()) / 1000)));
+    const rawStartedAt = typeof activeApolloRun.raw_meta?.started_at === 'string' ? activeApolloRun.raw_meta.started_at : null;
+    const startedAt = new Date(activeApolloRun.started_at || rawStartedAt || activeApolloRun.created_at).getTime();
+    const isTerminal = terminalImportStatuses.has(activeApolloRun.status);
+    const terminalAt = activeApolloRun.completed_at ? new Date(activeApolloRun.completed_at).getTime() : Date.now();
+    const updateElapsed = () => setApolloElapsedSeconds(Math.max(0, Math.floor(((isTerminal ? terminalAt : Date.now()) - startedAt) / 1000)));
     updateElapsed();
-    if (terminalImportStatuses.has(activeApolloRun.status)) return;
+    if (isTerminal) return;
     const timer = window.setInterval(updateElapsed, 1000);
     return () => window.clearInterval(timer);
   }, [activeApolloRun?.id, activeApolloRun?.status, activeApolloRun?.created_at]);
@@ -331,6 +347,12 @@ function DashboardContent() {
           ? `Apollo import failed: ${importRun.error_message || 'Unknown provider error'}`
           : `Apollo ${importRun.status}: ${String(meta.ready_count ?? 0)} ready leads from ${importRun.created_count} candidates.`);
         return importRun;
+      }
+      const startedAt = new Date(importRun.started_at || (typeof importRun.raw_meta?.started_at === 'string' ? importRun.raw_meta.started_at : importRun.created_at)).getTime();
+      if (Date.now() - startedAt >= 10 * 60 * 1000) {
+        setBusy('');
+        setMessage('Apollo did not finish in time. Start a fresh import.');
+        return null;
       }
       await new Promise(resolve => window.setTimeout(resolve, 2000));
     }
@@ -603,7 +625,7 @@ function DashboardContent() {
 
 
       <main className="main-content">
-        <div className="dash-topbar">
+        {activePage !== 'overview' ? <div className="dash-topbar">
           <div>
             <h1 className="dash-greeting">Email command center</h1>
             <p className="dash-date">{today}</p>
@@ -619,47 +641,27 @@ function DashboardContent() {
               New campaign
             </button>
           </div>
-        </div>
+        </div> : null}
 
         {message ? <div className="pdpa-banner">{message}</div> : null}
 
         {activePage === 'overview' ? (
-          <section>
-            <KpiRow
-              items={[
-                ['Campaigns', campaigns.length, 'Ca'],
-                ['Email leads', emailLeads.length, 'Le'],
-                ['Inbox review', pendingReplies.length, 'In'],
-                ['Meetings', meetings.length, 'Me'],
-              ]}
-            />
-            <div className="dash-grid">
-              <div className="card">
-                <div className="card-head">
-                  <div className="card-title">Active campaigns</div>
-                  <button className="card-action" type="button" onClick={() => setActivePage('campaigns')}>Manage</button>
-                </div>
-                {campaigns.length ? campaigns.slice(0, 6).map(campaign => (
-                  <CampaignRow key={campaign.id} campaign={campaign} onClick={() => {
-                    setSelectedCampaignId(campaign.id);
-                    setShowCampaignForm(false);
-                    setActivePage('campaigns');
-                  }} />
-                )) : <EmptyState text="No campaigns yet." />}
-              </div>
-              <div className="card">
-                <div className="card-head">
-                  <div className="card-title">Readiness</div>
-                </div>
-                <div className="msl-list">
-                  <Metric label="Mailbox" value={smtpAccount ? smtpAccount.status : 'missing'} />
-                  <Metric label="Leads with email" value={emailLeads.length.toString()} />
-                  <Metric label="Campaign drafts" value={campaigns.filter(c => c.status === 'draft' || c.status === 'ready').length.toString()} />
-                  <Metric label="Human approvals" value={pendingReplies.length.toString()} />
-                </div>
-              </div>
-            </div>
-          </section>
+          <HomeOverview
+            workspace={workspace}
+            campaigns={campaigns}
+            emailLeads={emailLeads}
+            inbox={inbox}
+            meetings={meetings}
+            smtpAccount={smtpAccount}
+            onCreateCampaign={() => {
+              setActivePage('campaigns');
+              setShowCampaignForm(true);
+            }}
+            onOpenCampaigns={() => setActivePage('campaigns')}
+            onOpenLeads={() => setActivePage('leads')}
+            onOpenInbox={() => setActivePage('inbox')}
+            onOpenSettings={() => setActivePage('settings')}
+          />
         ) : null}
 
         {activePage === 'campaigns' ? (
