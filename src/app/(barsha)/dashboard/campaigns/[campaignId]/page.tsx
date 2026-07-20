@@ -87,6 +87,26 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     () => preview.filter(item => item.status === 'draft').map(item => item.id),
     [preview]
   );
+  const previewSequenceGroups = useMemo(() => {
+    const sequenceByStep = new Map((campaign?.email_sequences || []).map(sequence => [sequence.step_number, sequence]));
+    const groups = new Map<number, { stepNumber: number; name: string; delayDays: number; instruction: string; messages: EmailMessage[] }>();
+
+    for (const item of preview) {
+      const stepNumber = Number(item.sequence_step || 0);
+      const sequence = sequenceByStep.get(stepNumber);
+      const group = groups.get(stepNumber) || {
+        stepNumber,
+        name: sequence?.name || (stepNumber === 1 ? 'First touch' : stepNumber ? `Follow-up ${stepNumber - 1}` : 'Unassigned step'),
+        delayDays: sequence?.delay_days || 0,
+        instruction: sequence?.ai_instruction || '',
+        messages: [],
+      };
+      group.messages.push(item);
+      groups.set(stepNumber, group);
+    }
+
+    return Array.from(groups.values()).sort((a, b) => a.stepNumber - b.stepNumber);
+  }, [campaign?.email_sequences, preview]);
   const sentCount = preview.filter(item => item.status === 'sent' || item.status === 'auto_sent').length;
 
   useEffect(() => {
@@ -352,6 +372,20 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     setSelectedPreviewIds(current => current.length === approvablePreviewIds.length ? [] : approvablePreviewIds);
   }
 
+  function toggleSequencePreviewSelection(messageIds: string[]) {
+    const selectableIds = messageIds.filter(id => approvablePreviewIds.includes(id));
+    if (!selectableIds.length) return;
+    setSelectedPreviewIds(current => {
+      const selected = new Set(current);
+      const allSelected = selectableIds.every(id => selected.has(id));
+      for (const id of selectableIds) {
+        if (allSelected) selected.delete(id);
+        else selected.add(id);
+      }
+      return Array.from(selected);
+    });
+  }
+
   async function handleApproveDrafts(messageIds: string[]) {
     if (!campaign || !messageIds.length) return;
     setBusy('approve-drafts');
@@ -519,26 +553,52 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                   <span className="card-action">{preview.length} email{preview.length === 1 ? '' : 's'}</span>
                 </div>
               </div>
-              {preview.length ? preview.map(item => (
-                <div key={item.id} className="mtr">
-                  <input
-                    aria-label={`Select ${item.subject || 'email'}`}
-                    type="checkbox"
-                    checked={selectedPreviewIds.includes(item.id)}
-                    disabled={item.status !== 'draft'}
-                    onChange={() => togglePreviewSelection(item.id)}
-                  />
-                  <button className="mtr-button" type="button" onClick={() => setOpenedEmail(item)}>
-                    <div className="mtr-av">{initials(item.leads?.full_name)}</div>
-                    <div className="mtr-info">
-                      <div className="mtr-name">{item.subject || 'Untitled email'}</div>
-                      <div className="mtr-detail">{item.leads?.full_name || 'Lead'} at {item.leads?.company_name || 'Unknown company'}</div>
-                      <div className="mtr-detail" style={{ marginTop: 6 }}>{(item.body || item.draft_body || '').slice(0, 180)}</div>
+              {preview.length ? previewSequenceGroups.map(group => {
+                const draftIds = group.messages.filter(item => item.status === 'draft').map(item => item.id);
+                const allGroupDraftsSelected = draftIds.length > 0 && draftIds.every(id => selectedPreviewIds.includes(id));
+                const timing = group.stepNumber === 1 || !group.delayDays ? 'Send immediately' : `Send on Day ${group.delayDays}`;
+                return (
+                  <section key={group.stepNumber} className="campaign-sequence-group" aria-label={`Step ${group.stepNumber}: ${group.name}`}>
+                    <header className="campaign-sequence-group-head">
+                      <div className="campaign-sequence-group-title">
+                        <span className="campaign-sequence-step">{String(group.stepNumber || 0).padStart(2, '0')}</span>
+                        <div>
+                          <h2>Step {group.stepNumber || '—'} · {group.name}</h2>
+                          <p>{timing} · {group.messages.length} email{group.messages.length === 1 ? '' : 's'} ready</p>
+                        </div>
+                      </div>
+                      {draftIds.length ? (
+                        <button className="card-action campaign-sequence-select" type="button" onClick={() => toggleSequencePreviewSelection(draftIds)}>
+                          {allGroupDraftsSelected ? 'Clear step' : `Select ${draftIds.length} draft${draftIds.length === 1 ? '' : 's'}`}
+                        </button>
+                      ) : null}
+                    </header>
+                    {group.instruction ? <p className="campaign-sequence-instruction">{group.instruction}</p> : null}
+                    <div className="campaign-sequence-message-list">
+                      {group.messages.map(item => (
+                        <div key={item.id} className="mtr">
+                          <input
+                            aria-label={`Select ${item.subject || 'email'}`}
+                            type="checkbox"
+                            checked={selectedPreviewIds.includes(item.id)}
+                            disabled={item.status !== 'draft'}
+                            onChange={() => togglePreviewSelection(item.id)}
+                          />
+                          <button className="mtr-button" type="button" onClick={() => setOpenedEmail(item)}>
+                            <div className="mtr-av">{initials(item.leads?.full_name)}</div>
+                            <div className="mtr-info">
+                              <div className="mtr-name">{item.subject || 'Untitled email'}</div>
+                              <div className="mtr-detail">{item.leads?.full_name || 'Lead'} at {item.leads?.company_name || 'Unknown company'}</div>
+                              <div className="mtr-detail" style={{ marginTop: 6 }}>{(item.body || item.draft_body || '').slice(0, 180)}</div>
+                            </div>
+                            <span className={`badge ${statusBadge(item.status)}`}><span className="bdot" />{item.status}</span>
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                    <span className={`badge ${statusBadge(item.status)}`}><span className="bdot" />{item.status}</span>
-                  </button>
-                </div>
-              )) : <EmptyState text="Generate emails to see previews." />}
+                  </section>
+                );
+              }) : <EmptyState text="Generate emails to see previews." />}
             </div>
               ) : (
             <div className="card campaign-review-panel">
