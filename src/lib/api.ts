@@ -228,7 +228,15 @@ export interface EmailSequence {
   delay_days: number;
   ai_instruction?: string;
   is_active: boolean;
+  attachments?: CampaignAttachment[];
   created_at: string;
+}
+
+export interface CampaignAttachment {
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  storage_path: string;
 }
 
 export interface EmailMessage {
@@ -246,8 +254,11 @@ export interface EmailMessage {
   provider_message_id: string | null;
   message_id_header: string | null;
   in_reply_to: string | null;
+  in_reply_to_header?: string | null;
   sent_at: string | null;
   received_at: string | null;
+  responded_at?: string | null;
+  response_message_id?: string | null;
   opened_at: string | null;
   open_count: number;
   clicked_at: string | null;
@@ -257,6 +268,7 @@ export interface EmailMessage {
   created_at: string;
   updated_at: string;
   leads?: Pick<Lead, 'full_name' | 'company_name' | 'title' | 'email' | 'status'>;
+  campaigns?: Pick<Campaign, 'name'>;
 }
 
 export interface FollowUp {
@@ -771,6 +783,31 @@ export function replaceCampaignSequence(campaignId: string, steps: CampaignSeque
   });
 }
 
+export function uploadCampaignSequenceAttachment(campaignId: string, stepNumber: number, file: File) {
+  return new Promise<{ attachment: CampaignAttachment }>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read attachment'));
+    reader.onload = async () => {
+      try {
+        const result = String(reader.result || '');
+        const contentBase64 = result.includes(',') ? result.slice(result.indexOf(',') + 1) : result;
+        resolve(await apiFetch<{ attachment: CampaignAttachment }>(`/api/campaigns/${campaignId}/sequences/${stepNumber}/attachment`, {
+          method: 'POST',
+          body: JSON.stringify({
+            filename: file.name,
+            mime_type: file.type,
+            size_bytes: file.size,
+            content_base64: contentBase64,
+          }),
+        }));
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function getCampaignPreview(campaignId: string) {
   return apiFetch<{ messages: EmailMessage[] }>(`/api/campaigns/${campaignId}/preview`);
 }
@@ -819,6 +856,10 @@ export function sendCampaignEmailsNow(campaignId: string, messageIds: string[]) 
 
 export function getInbox() {
   return apiFetch<{ conversations: EmailMessage[] }>('/api/inbox');
+}
+
+export function getSentMail() {
+  return apiFetch<{ messages: EmailMessage[] }>('/api/inbox/sent');
 }
 
 export function getConversation(leadId: string) {

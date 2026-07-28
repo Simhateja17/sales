@@ -496,7 +496,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
             </button>
             <h1 className="dash-greeting">{campaign?.name || (loading ? 'Loading campaign...' : 'Campaign')}</h1>
             <p className="dash-date">
-              {campaign ? `${campaign.daily_send_cap}/day · ${campaign.sending_hours_start || '09:00'}–${campaign.sending_hours_end || '18:00'}` : ''}
+              {campaign ? `${campaign.daily_send_cap}/day · ${campaign.sending_hours_start || '09:00'}–${campaign.sending_hours_end || '18:00'} · ${campaign.timezone || 'Asia/Singapore'}` : ''}
             </p>
           </div>
           {campaign ? (
@@ -658,7 +658,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 <Metric label="Generated emails" value={preview.length.toString()} />
                 <Metric label="Sent" value={sentCount.toString()} />
                 <Metric label="Daily cap" value={campaign.daily_send_cap.toString()} />
-                <Metric label="Send window" value={`${campaign.sending_hours_start || '09:00'}–${campaign.sending_hours_end || '18:00'}`} />
+                <Metric label="Send window" value={`${campaign.sending_hours_start || '09:00'}–${campaign.sending_hours_end || '18:00'} ${campaign.timezone || 'Asia/Singapore'}`} />
                 <Metric label="Cadence" value={`${campaign.cadence_per_hour || 25}/hour`} />
               </div>
               <div className="sf" style={{ marginTop: 18 }}>

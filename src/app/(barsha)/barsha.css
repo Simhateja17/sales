@@ -440,6 +440,8 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;b
 .campaign-builder-field input,.campaign-lead-controls input,.campaign-step input,.campaign-step textarea{width:100%;border:1.5px solid var(--border);border-radius:9px;background:var(--cream);outline:none;color:var(--text);font:13px 'DM Sans',sans-serif;padding:10px 11px;transition:border-color .15s,background .15s;}
 .campaign-builder-field input:focus,.campaign-lead-controls input:focus,.campaign-step input:focus,.campaign-step textarea:focus{border-color:var(--purple);background:var(--white);}
 .campaign-builder-field-wide{margin-bottom:15px;}
+.campaign-timezone-field{margin-top:14px;}
+.campaign-builder-timezone-hint{display:block;color:var(--text-muted);font-size:10px;line-height:1.4;margin-top:6px;}
 .campaign-builder-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 11px;}
 .campaign-lead-controls{display:flex;gap:8px;margin:-2px 0 11px;}
 .campaign-lead-controls input{flex:1;padding:9px 11px;}
@@ -469,6 +471,10 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;b
 .campaign-delay-input i{font-size:9px;font-style:normal;color:var(--text-muted);white-space:nowrap;}
 .campaign-step textarea{height:62px;resize:vertical;line-height:1.45;}
 .campaign-step-actions{display:flex;gap:13px;margin-top:8px;}
+.campaign-step-attachment{display:block;margin-top:12px;padding-top:11px;border-top:1px solid var(--cream-dark);}
+.campaign-step-attachment span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:1.25px;font-weight:700;color:var(--purple);margin-bottom:6px;}
+.campaign-step-attachment input{font-size:12px;padding:7px;background:var(--white);}
+.campaign-step-attachment small{display:block;margin-top:5px;color:var(--text-muted);font-size:10px;}
 .campaign-step-actions button:disabled{cursor:not-allowed;opacity:.35;}
 .campaign-step-actions .campaign-step-remove{color:#B44C4C;margin-left:auto;}
 .campaign-brief-panel{margin-top:19px;padding-top:17px;border-top:1px solid var(--cream-dark);display:grid;gap:10px;}

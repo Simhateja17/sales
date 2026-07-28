@@ -6,6 +6,7 @@ import {
   approveInboxMessage,
   connectSmtp,
   createCampaign,
+  uploadCampaignSequenceAttachment,
   createLead,
   deleteLead,
   downloadCsvImportErrors,
@@ -19,6 +20,8 @@ import {
   getInbox,
   getLeads,
   getMeetings,
+  regenerateInboxMessage,
+  getSentMail,
   getSmtpStatus,
   getWorkspace,
   openBillingPortal,
@@ -219,6 +222,7 @@ function DashboardContent() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [inbox, setInbox] = useState<EmailMessage[]>([]);
+  const [sentMail, setSentMail] = useState<EmailMessage[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [smtpAccount, setSmtpAccount] = useState<ConnectedAccount | null>(null);
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
@@ -284,7 +288,7 @@ function DashboardContent() {
     () => inbox.filter(item => item.direction === 'inbound' || item.status === 'pending_approval'),
     [inbox]
   );
-  const sentMessages = preview.filter(item => item.status === 'sent' || item.status === 'auto_sent').length;
+  const sentMessages = sentMail.length;
   const openedMessages = preview.filter(item => item.open_count > 0).length;
 
   useEffect(() => {
@@ -384,10 +388,11 @@ function DashboardContent() {
   }, [selectedCampaign?.id]);
 
   async function refreshAll() {
-    const [leadData, campaignData, inboxData, meetingData, smtpData] = await Promise.all([
+    const [leadData, campaignData, inboxData, sentMailData, meetingData, smtpData] = await Promise.all([
       getLeads(),
       getCampaigns(),
       getInbox(),
+      getSentMail(),
       getMeetings(),
       getSmtpStatus(),
     ]);
@@ -400,6 +405,7 @@ function DashboardContent() {
     setLeads(leadData.leads);
     setCampaigns(campaignData.campaigns);
     setInbox(inboxData.conversations || []);
+    setSentMail(sentMailData.messages || []);
     setMeetings(meetingData.meetings);
     setSmtpAccount(smtpData.account);
     if (!selectedCampaignId && campaignData.campaigns[0]) {
@@ -614,7 +620,7 @@ function DashboardContent() {
     setShowCampaignForm(true);
   }
 
-  async function handleCreateCampaign({ campaign, brief, leadIds, steps }: CampaignBuilderSubmission) {
+  async function handleCreateCampaign({ campaign, brief, leadIds, steps, attachments }: CampaignBuilderSubmission) {
     setBusy('campaign');
     setMessage('');
     try {
@@ -626,6 +632,9 @@ function DashboardContent() {
         replaceCampaignLeads(data.campaign.id, leadIds),
         replaceCampaignSequence(data.campaign.id, steps),
       ]);
+      for (const item of attachments) {
+        await uploadCampaignSequenceAttachment(data.campaign.id, item.stepNumber, item.file);
+      }
       setCampaigns(current => [data.campaign, ...current]);
       setSelectedCampaignId(data.campaign.id);
       setCampaignBuilderLeadIds([]);
@@ -757,6 +766,21 @@ function DashboardContent() {
       setMessage('Reply approved.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not approve reply');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleRegenerateReply(messageId: string) {
+    setBusy(messageId);
+    setMessage('');
+    try {
+      await regenerateInboxMessage(messageId);
+      const data = await getInbox();
+      setInbox(data.conversations || []);
+      setMessage('Draft generated. Review it before sending.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not generate a reply draft');
     } finally {
       setBusy('');
     }
@@ -989,9 +1013,15 @@ function DashboardContent() {
                     <div className="call-right">
                       <span className={`badge ${statusBadge(item.intent_classification || item.status)}`}><span className="bdot" />{item.intent_classification || item.status}</span>
                       <div style={{ marginTop: 10 }}>
+                        {item.responded_at ? <span className="card-action">Reply queued</span> : item.status === 'pending_approval' ? (
                         <button className="btn-outline" type="button" disabled={busy === item.id} onClick={() => handleApproveReply(item.id)}>
                           {busy === item.id ? 'Sending...' : 'Approve reply'}
                         </button>
+                        ) : (
+                          <button className="btn-outline" type="button" disabled={busy === item.id} onClick={() => handleRegenerateReply(item.id)}>
+                            {busy === item.id ? 'Drafting...' : 'Generate draft'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1005,6 +1035,52 @@ function DashboardContent() {
                   <Metric label="Meetings booked" value={meetings.length.toString()} />
                 </div>
                 <div className="sf-hint" style={{ marginTop: 18 }}>Your reply is never sent just because it was drafted. Check the tone and approve it deliberately.</div>
+              </aside>
+            </div>
+          </section>
+        ) : null}
+
+        {activePage === 'sent' ? (
+          <section>
+            <div className="page-header">
+              <div>
+                <div className="page-kicker">Outbound history</div>
+                <h2 className="page-title">Sent mails</h2>
+                <p className="page-sub">Every email Barsha has successfully sent from this workspace, including approved replies.</p>
+              </div>
+            </div>
+            <div className="inbox-workspace">
+              <div className="card inbox-thread-panel">
+                <div className="card-head">
+                  <div>
+                    <div className="card-title">Delivery history</div>
+                    <div className="sf-hint">Sent messages are retained here as your campaign audit trail.</div>
+                  </div>
+                  <span className="card-action">{sentMail.length} sent</span>
+                </div>
+                {sentMail.length ? sentMail.map(item => (
+                  <div key={item.id} className="call-card">
+                    <div className="call-av">{initials(item.leads?.full_name)}</div>
+                    <div className="call-meta">
+                      <div className="call-name">{item.leads?.full_name || item.leads?.email || 'Recipient'}</div>
+                      <div className="call-detail">{item.leads?.company_name || item.leads?.email || 'Unknown recipient'} · {fmtDate(item.sent_at || item.created_at)}</div>
+                      <div className="call-detail" style={{ marginTop: 7 }}>{item.subject || 'No subject'} · {(item.body || '').slice(0, 160)}</div>
+                    </div>
+                    <div className="call-right">
+                      <span className="badge b-booked"><span className="bdot" />sent</span>
+                      <div className="call-detail" style={{ marginTop: 10 }}>{item.campaigns?.name || 'Approved reply'}</div>
+                      <div className="call-detail" style={{ marginTop: 6 }}>{item.open_count > 0 ? `${item.open_count} open${item.open_count === 1 ? '' : 's'}` : 'Not opened yet'}</div>
+                    </div>
+                  </div>
+                )) : <EmptyState text="No sent mail yet. Emails appear here as soon as Barsha sends them." />}
+              </div>
+              <aside className="set-panel inbox-summary-panel">
+                <div className="sf-lbl">Delivery summary</div>
+                <div className="msl-list" style={{ marginTop: 18 }}>
+                  <Metric label="Sent" value={sentMail.length.toString()} />
+                  <Metric label="Opened" value={sentMail.filter(item => item.open_count > 0).length.toString()} />
+                  <Metric label="Campaign replies" value={sentMail.filter(item => item.in_reply_to_header).length.toString()} />
+                </div>
               </aside>
             </div>
           </section>

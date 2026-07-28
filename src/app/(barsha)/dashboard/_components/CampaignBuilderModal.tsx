@@ -21,12 +21,22 @@ type DesignerStep = {
   delay_days: number;
   purpose: StepPurpose;
   focus: string;
+  attachment: File | null;
 };
 
 const initialCampaign: CampaignDraft = {
   name: '', daily_send_cap: 40, sending_hours_start: '09:00', sending_hours_end: '17:30',
   timezone: 'Asia/Singapore', cadence_per_hour: 25, active_days: [1, 2, 3, 4, 5], lead_source: 'apollo',
 };
+
+const FALLBACK_TIMEZONES = ['Asia/Singapore', 'Asia/Kolkata', 'Australia/Sydney', 'Europe/London', 'Europe/Paris', 'America/Los_Angeles', 'America/Chicago', 'America/New_York', 'Pacific/Auckland'];
+const TIMEZONES = typeof Intl !== 'undefined' && typeof (Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf === 'function'
+  ? (Intl as typeof Intl & { supportedValuesOf: (key: string) => string[] }).supportedValuesOf('timeZone')
+  : FALLBACK_TIMEZONES;
+
+function timezoneLabel(timezone: string) {
+  return timezone.replace(/_/g, ' ').replace(/\//g, ' / ');
+}
 
 const purposeCopy: Record<StepPurpose, { label: string; name: string; instruction: string }> = {
   personalized_intro: {
@@ -63,6 +73,7 @@ function defaultSteps(count: number): DesignerStep[] {
     delay_days,
     purpose,
     focus: '',
+    attachment: null,
   }));
 }
 
@@ -80,6 +91,7 @@ export type CampaignBuilderSubmission = {
   brief: Pick<CampaignBrief, 'campaign_angle' | 'cta' | 'tone'>;
   leadIds: string[];
   steps: CampaignSequenceStep[];
+  attachments: Array<{ stepNumber: number; file: File }>;
 };
 
 export default function CampaignBuilderModal({
@@ -168,6 +180,7 @@ export default function CampaignBuilderModal({
         delay_days: Math.max(1, (prior?.delay_days || 0) + 4),
         purpose: 'new_angle',
         focus: '',
+        attachment: null,
       });
       return next;
     });
@@ -196,6 +209,7 @@ export default function CampaignBuilderModal({
               <label className="campaign-builder-field"><span>Start</span><input type="time" value={campaign.sending_hours_start} onChange={event => setCampaign(current => ({ ...current, sending_hours_start: event.target.value }))} /></label>
               <label className="campaign-builder-field"><span>End</span><input type="time" value={campaign.sending_hours_end} onChange={event => setCampaign(current => ({ ...current, sending_hours_end: event.target.value }))} /></label>
             </div>
+            <label className="campaign-builder-field campaign-builder-field-wide campaign-timezone-field"><span>Campaign timezone</span><input list="campaign-timezones" value={campaign.timezone} onChange={event => setCampaign(current => ({ ...current, timezone: event.target.value }))} placeholder="Asia/Singapore" /><datalist id="campaign-timezones">{TIMEZONES.map(timezone => <option key={timezone} value={timezone} label={timezoneLabel(timezone)} />)}</datalist><small className="campaign-builder-timezone-hint">The sending window follows this timezone, including daylight-saving changes where applicable.</small></label>
             <div className="campaign-brief-panel">
               <strong>Campaign brief</strong>
               <p>Barsha starts with your onboarding context{agentConfig?.company_name ? ` for ${agentConfig.company_name}` : ''} and saves these campaign choices as a snapshot.</p>
@@ -228,6 +242,7 @@ export default function CampaignBuilderModal({
                   <div className="campaign-step-topline"><button className="campaign-step-drag-handle" type="button" aria-label={`Drag ${step.name || `step ${index + 1}`} to reorder`} title="Drag to reorder">⠿</button><label><span>Step name</span><input value={step.name} onChange={event => updateStep(index, { name: event.target.value })} /></label><label><span>{index === 0 ? 'Send' : 'Delay'}</span><div className="campaign-delay-input"><input type="number" min="0" value={step.delay_days} onChange={event => updateStep(index, { delay_days: Number(event.target.value) })} /><i>{index === 0 ? 'days' : 'days after'}</i></div></label></div>
                   <div className="campaign-step-plan"><label><span>Barsha will do</span><select value={step.purpose} onChange={event => { const purpose = event.target.value as StepPurpose; updateStep(index, { purpose, name: step.name === purposeCopy[step.purpose].name ? purposeCopy[purpose].name : step.name }); }} >{Object.entries(purposeCopy).map(([value, item]) => <option value={value} key={value}>{item.label}</option>)}</select></label><label><span>Optional focus</span><input value={step.focus} onChange={event => updateStep(index, { focus: event.target.value })} placeholder="e.g. highlight fast onboarding" /></label></div>
                   <p className="campaign-step-preview">{purposeCopy[step.purpose].instruction}</p>
+                  <label className="campaign-step-attachment"><span>Attachment (optional)</span><input type="file" accept="application/pdf,image/png,image/jpeg,image/webp,video/mp4,video/quicktime" onChange={event => updateStep(index, { attachment: event.target.files?.[0] || null })} /><small>{step.attachment ? `${step.attachment.name} · ${(step.attachment.size / 1024 / 1024).toFixed(1)} MB` : 'PDF, image, or video · up to 10 MB'}</small></label>
                   <div className="campaign-step-actions"><button type="button" disabled={index === 0} onClick={() => moveStepTo(index, index - 1)}>Move up</button><button type="button" disabled={index === steps.length - 1} onClick={() => moveStepTo(index, index + 1)}>Move down</button><button type="button" className="campaign-step-remove" disabled={steps.length === 1} onClick={() => setSteps(current => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button></div>
                 </div>
               </article>)}
@@ -236,7 +251,7 @@ export default function CampaignBuilderModal({
           </section>
         </div>
 
-        <footer className="campaign-builder-footer"><p>Drafts are never sent automatically. You’ll review, edit, and approve them before launch.</p><div><button className="btn-outline" type="button" onClick={onClose} disabled={isSubmitting}>Cancel</button><button className="btn-primary" type="button" disabled={isSubmitting || !campaign.name.trim() || !selectedLeadIds.length || !steps.every(step => step.name.trim())} onClick={() => onSubmit({ campaign, brief, leadIds: selectedLeadIds, steps: toSequenceSteps(steps) })}>{isSubmitting ? 'Creating…' : `Create campaign with ${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'}`}</button></div></footer>
+        <footer className="campaign-builder-footer"><p>Attachments are sent to every lead in their sequence step. Drafts are never sent automatically.</p><div><button className="btn-outline" type="button" onClick={onClose} disabled={isSubmitting}>Cancel</button><button className="btn-primary" type="button" disabled={isSubmitting || !campaign.name.trim() || !selectedLeadIds.length || !steps.every(step => step.name.trim()) || steps.some(step => step.attachment && step.attachment.size > 10 * 1024 * 1024)} onClick={() => onSubmit({ campaign, brief, leadIds: selectedLeadIds, steps: toSequenceSteps(steps), attachments: steps.flatMap((step, index) => step.attachment ? [{ stepNumber: index + 1, file: step.attachment }] : []) })}>{isSubmitting ? 'Creating…' : `Create campaign with ${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'}`}</button></div></footer>
       </section>
     </div>
   );

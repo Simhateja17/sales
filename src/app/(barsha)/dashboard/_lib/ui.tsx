@@ -1,11 +1,12 @@
 import type { Campaign } from '@/lib/api';
 
-export type Page = 'overview' | 'campaigns' | 'leads' | 'inbox' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
+export type Page = 'overview' | 'campaigns' | 'leads' | 'sent' | 'inbox' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
 
 export const navItems: Array<{ id: Page; label: string; marker: string }> = [
   { id: 'overview', label: 'Home', marker: 'Ho' },
   { id: 'campaigns', label: 'Campaigns', marker: 'Ca' },
   { id: 'leads', label: 'Leads', marker: 'Le' },
+  { id: 'sent', label: 'Sent Mails', marker: 'Se' },
   { id: 'inbox', label: 'Inbox', marker: 'In' },
   { id: 'meetings', label: 'Meetings', marker: 'Me' },
   { id: 'analytics', label: 'Analytics', marker: 'An' },
@@ -69,7 +70,7 @@ export function CampaignRow({ campaign, active, onClick }: { campaign: Campaign;
       <div className="mtr-av">{initials(campaign.name)}</div>
       <div className="mtr-info">
         <div className="mtr-name">{campaign.name}</div>
-        <div className="mtr-detail">{campaign.daily_send_cap}/day · {campaign.sending_hours_start || '09:00'}–{campaign.sending_hours_end || '18:00'}</div>
+        <div className="mtr-detail">{campaign.daily_send_cap}/day · {campaign.sending_hours_start || '09:00'}–{campaign.sending_hours_end || '18:00'} · {campaign.timezone || 'Asia/Singapore'}</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <span className={`badge ${statusBadge(campaign.status)}`}><span className="bdot" />{campaign.status}</span>
