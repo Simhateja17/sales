@@ -10,7 +10,7 @@ export default function AuthCompletePage() {
   useEffect(() => {
     getWorkspace()
       .then(state => {
-        if (!state.workspace.plan) {
+        if (!state.workspace.plan || !state.subscriptionActive) {
           router.replace('/plan-select');
         } else if (!state.workspace.onboarding_completed) {
           router.replace('/onboarding');

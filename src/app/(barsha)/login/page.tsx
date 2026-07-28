@@ -87,7 +87,7 @@ function LoginContent() {
           return;
         }
 
-        if (!state.workspace.plan) {
+        if (!state.workspace.plan || !state.subscriptionActive) {
           router.push('/plan-select');
         } else if (!state.workspace.onboarding_completed) {
           router.push('/onboarding');

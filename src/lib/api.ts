@@ -29,6 +29,16 @@ export interface Workspace {
   onboarding_completed: boolean;
 }
 
+export interface WorkspaceBilling {
+  workspace_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  plan: 'atelier' | 'maison' | null;
+  subscription_status: string;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+}
+
 export interface AgentConfig {
   id: string;
   workspace_id: string;
@@ -440,6 +450,8 @@ export interface WorkspaceResponse {
   };
   workspace: Workspace;
   agentConfig: AgentConfig | null;
+  billing: WorkspaceBilling | null;
+  subscriptionActive: boolean;
 }
 
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
@@ -483,6 +495,21 @@ export function savePlan(plan: Workspace['plan']) {
     method: 'POST',
     body: JSON.stringify({ plan }),
   });
+}
+
+export function startCheckout(plan: 'atelier' | 'maison') {
+  return apiFetch<{ url: string }>('/api/billing/checkout', {
+    method: 'POST',
+    body: JSON.stringify({ plan }),
+  });
+}
+
+export function getBillingStatus() {
+  return apiFetch<{ billing: WorkspaceBilling | null; active: boolean }>('/api/billing/status');
+}
+
+export function openBillingPortal() {
+  return apiFetch<{ url: string }>('/api/billing/portal', { method: 'POST' });
 }
 
 export function saveOnboarding(answers: Answers) {

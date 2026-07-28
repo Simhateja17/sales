@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { savePlan, type Workspace } from '@/lib/api';
+import { getWorkspace, startCheckout, type Workspace } from '@/lib/api';
 
 const PLANS: NonNullable<Workspace['plan']>[] = ['atelier', 'maison', 'sovereign'];
 
@@ -11,13 +11,43 @@ export default function PlanSelectPage() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  async function continueToOnboarding() {
+  useEffect(() => {
+    const checkout = new URLSearchParams(window.location.search).get('checkout');
+    if (checkout === 'cancelled') setError('Checkout was cancelled. Select a plan when you are ready to continue.');
+    if (checkout !== 'success') return;
+
+    let attempts = 0;
+    const checkPayment = async () => {
+      try {
+        const state = await getWorkspace();
+        if (state.subscriptionActive) {
+          router.replace('/onboarding');
+          return;
+        }
+      } catch {
+        // The normal page-level error below is clearer than a transient polling failure.
+      }
+      attempts += 1;
+      if (attempts >= 15) {
+        setError('Payment was received, but we are still confirming it. Refresh this page in a moment.');
+        return;
+      }
+      window.setTimeout(checkPayment, 2000);
+    };
+    checkPayment();
+  }, [router]);
+
+  async function beginCheckout(plan: NonNullable<Workspace['plan']>) {
     setError('');
 
     setSaving(true);
     try {
-      await savePlan(PLANS[selected]);
-      router.push('/onboarding');
+      if (plan === 'sovereign') {
+        setError('Sovereign is an annual enterprise contract. Please contact sales to continue.');
+        return;
+      }
+      const { url } = await startCheckout(plan);
+      window.location.assign(url);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save plan.';
       if (message.toLowerCase().includes('authentication')) {
@@ -28,6 +58,10 @@ export default function PlanSelectPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function continueToOnboarding() {
+    return beginCheckout(PLANS[selected]);
   }
 
   return (
@@ -59,7 +93,7 @@ export default function PlanSelectPage() {
                 <li>Email + Slack support</li>
                 <li>$0.42 / min overage</li>
               </ul>
-              <button className="btn btn-ghost">Start with Atelier</button>
+              <button className="btn btn-ghost" onClick={event => { event.stopPropagation(); beginCheckout('atelier'); }}>Start with Atelier</button>
             </div>
 
             <div className={`price feature${selected === 1 ? ' selected' : ''}`} onClick={() => setSelected(1)}>
@@ -77,7 +111,7 @@ export default function PlanSelectPage() {
                 <li>Shared Slack channel</li>
                 <li>$0.32 / min overage</li>
               </ul>
-              <button className="btn btn-primary">
+              <button className="btn btn-primary" onClick={event => { event.stopPropagation(); beginCheckout('maison'); }}>
                 Book a Maison demo
                 <span className="btn-pill-arrow">
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 5h8M5 1l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -100,14 +134,14 @@ export default function PlanSelectPage() {
                 <li>99.99% uptime SLA</li>
                 <li>Custom data residency</li>
               </ul>
-              <button className="btn btn-ghost">Talk to enterprise</button>
+              <button className="btn btn-ghost" onClick={event => { event.stopPropagation(); beginCheckout('sovereign'); }}>Talk to enterprise</button>
             </div>
           </div>
         </div>
         <div className="start-nav">
           <button className="btn-back" onClick={() => router.push('/signup')}>← Back</button>
           <button className="btn-gold" onClick={continueToOnboarding} disabled={saving}>
-            {saving ? 'Saving plan...' : 'Start Building Agent'}{' '}
+            {saving ? 'Opening secure checkout...' : PLANS[selected] === 'sovereign' ? 'Talk to enterprise' : 'Continue to secure checkout'}{' '}
             {!saving && (
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />

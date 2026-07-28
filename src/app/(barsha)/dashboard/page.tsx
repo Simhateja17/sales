@@ -21,6 +21,7 @@ import {
   getMeetings,
   getSmtpStatus,
   getWorkspace,
+  openBillingPortal,
   importApolloLeads,
   previewCsvMapping,
   replaceCampaignLeads,
@@ -39,6 +40,7 @@ import {
   type LeadImportRun,
   type Meeting,
   type Workspace,
+  type WorkspaceBilling,
 } from '@/lib/api';
 import Sidebar from './_lib/Sidebar';
 import CampaignBuilderModal, { type CampaignBuilderSubmission } from './_components/CampaignBuilderModal';
@@ -211,6 +213,8 @@ function DashboardContent() {
   const setActivePage = (page: Page) => router.push(page === 'overview' ? '/dashboard' : `/dashboard?page=${page}`);
   const [today, setToday] = useState('');
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [billing, setBilling] = useState<WorkspaceBilling | null>(null);
+  const [billingBusy, setBillingBusy] = useState(false);
   const [agentConfig, setAgentConfig] = useState<AgentConfig | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -299,8 +303,9 @@ function DashboardContent() {
     getWorkspace()
       .then(data => {
         setWorkspace(data.workspace);
+        setBilling(data.billing);
         setAgentConfig(data.agentConfig);
-        if (!data.workspace.plan) {
+        if (!data.workspace.plan || !data.subscriptionActive) {
           router.push('/plan-select');
         } else if (!data.workspace.onboarding_completed) {
           router.push('/onboarding');
@@ -308,6 +313,17 @@ function DashboardContent() {
       })
       .catch(() => redirectForAuthentication());
   }, [router]);
+
+  async function manageBilling() {
+    setBillingBusy(true);
+    try {
+      const { url } = await openBillingPortal();
+      window.location.assign(url);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not open billing management.');
+      setBillingBusy(false);
+    }
+  }
 
   useEffect(() => {
     const handleAuthenticationRequired = () => redirectForAuthentication();
@@ -1182,7 +1198,7 @@ function DashboardContent() {
               <div className="plan-card">
                 <div className="plan-tag">{workspace?.plan || 'No plan'}</div>
                 <div className="plan-name">Email automation</div>
-                <div className="plan-price">V1 <small>configured locally</small></div>
+                <div className="plan-price">{billing?.subscription_status === 'active' ? 'Active' : 'Payment required'} <small>{billing?.current_period_end ? `renews ${fmtDate(billing.current_period_end)}` : 'annual subscription'}</small></div>
                 <div style={{ marginTop: 18 }}>
                   <Metric label="Daily cap across active campaign" value={selectedCampaign?.daily_send_cap?.toString() || '0'} />
                   <Metric label="Mailbox" value={smtpAccount?.from_email || 'missing'} />
@@ -1190,7 +1206,8 @@ function DashboardContent() {
               </div>
               <div className="up-card">
                 <div className="up-title">Stripe</div>
-                <div className="up-sub">Checkout and subscription management are not connected in this build yet.</div>
+                <div className="up-sub">Manage your plan, payment method, invoices, upgrades, or cancellation securely through Stripe.</div>
+                <div className="set-save"><button className="btn-primary" type="button" disabled={!billing?.stripe_customer_id || billingBusy} onClick={manageBilling}>{billingBusy ? 'Opening Stripe...' : 'Manage billing'}</button></div>
               </div>
             </div>
           </section>
