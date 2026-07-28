@@ -88,6 +88,47 @@ const emptyApolloFilters: ApolloFilters = {
   limit: 25,
 };
 
+function messagePreview(value?: string | null) {
+  const replyOnly = String(value || '')
+    .split(/\n(?:On .+ wrote:|From:|>)/i)[0]
+    .replace(/\s+/g, ' ')
+    .trim();
+  return replyOnly || 'No message content';
+}
+
+function MessageDetailModal({ message, onClose }: { message: EmailMessage; onClose: () => void }) {
+  const inbound = message.direction === 'inbound';
+  const person = message.leads?.full_name || message.leads?.email || (inbound ? 'Unknown sender' : 'Recipient');
+  const email = message.leads?.email || 'Not available';
+  const timestamp = fmtDate(inbound ? (message.received_at || message.created_at) : (message.sent_at || message.created_at));
+  const body = message.body || message.draft_body || 'No message content is available.';
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className="modal-card message-detail-modal" role="dialog" aria-modal="true" aria-label={inbound ? 'Received email details' : 'Sent email details'} onMouseDown={event => event.stopPropagation()}>
+        <div className="card-head">
+          <div>
+            <div className="card-title">{inbound ? 'Received email' : 'Sent email'}</div>
+            <div className="sf-hint">{timestamp}</div>
+          </div>
+          <button type="button" className="modal-close" aria-label="Close email details" onClick={onClose}>×</button>
+        </div>
+        <div className="email-detail-body">
+          <div className="message-detail-meta">
+            <span><b>{inbound ? 'From' : 'To'}</b>{person}</span>
+            <span><b>Email</b>{email}</span>
+            {message.campaigns?.name ? <span><b>Campaign</b>{message.campaigns.name}</span> : null}
+          </div>
+          <div className="email-detail-label">Subject</div>
+          <div className="email-detail-subject">{message.subject || 'No subject'}</div>
+          <div className="email-detail-label">Message</div>
+          <div className="email-detail-copy">{body}</div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function isCampaignEligibleLead(lead: Lead | undefined) {
   return Boolean(
     lead?.email
@@ -223,6 +264,7 @@ function DashboardContent() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [inbox, setInbox] = useState<EmailMessage[]>([]);
   const [sentMail, setSentMail] = useState<EmailMessage[]>([]);
+  const [openedMessage, setOpenedMessage] = useState<EmailMessage | null>(null);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [smtpAccount, setSmtpAccount] = useState<ConnectedAccount | null>(null);
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
@@ -1003,22 +1045,22 @@ function DashboardContent() {
                   <span className="card-action">{inbox.length} conversation{inbox.length === 1 ? '' : 's'}</span>
                 </div>
                 {inbox.length ? inbox.map(item => (
-                  <div key={item.id} className="call-card">
+                  <div key={item.id} className="call-card message-row" role="button" tabIndex={0} aria-label={`Open email from ${item.leads?.full_name || item.leads?.email || 'sender'}`} onClick={() => setOpenedMessage(item)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpenedMessage(item); } }}>
                     <div className="call-av">{initials(item.leads?.full_name)}</div>
                     <div className="call-meta">
-                      <div className="call-name">{item.leads?.full_name || item.subject || 'Inbound email'}</div>
-                      <div className="call-detail">{item.leads?.company_name || item.leads?.email || 'Unknown lead'} · {fmtDate(item.received_at || item.created_at)}</div>
-                      <div className="call-detail" style={{ marginTop: 7 }}>{(item.draft_body || item.body || '').slice(0, 220)}</div>
+                      <div className="call-name">{item.leads?.full_name || item.leads?.email || 'Inbound email'}</div>
+                      <div className="call-detail">{fmtDate(item.received_at || item.created_at)}</div>
+                      <div className="message-row-preview">“{messagePreview(item.body)}”</div>
                     </div>
                     <div className="call-right">
                       <span className={`badge ${statusBadge(item.intent_classification || item.status)}`}><span className="bdot" />{item.intent_classification || item.status}</span>
                       <div style={{ marginTop: 10 }}>
                         {item.responded_at ? <span className="card-action">Reply queued</span> : item.status === 'pending_approval' ? (
-                        <button className="btn-outline" type="button" disabled={busy === item.id} onClick={() => handleApproveReply(item.id)}>
+                        <button className="btn-outline" type="button" disabled={busy === item.id} onClick={event => { event.stopPropagation(); handleApproveReply(item.id); }}>
                           {busy === item.id ? 'Sending...' : 'Approve reply'}
                         </button>
                         ) : (
-                          <button className="btn-outline" type="button" disabled={busy === item.id} onClick={() => handleRegenerateReply(item.id)}>
+                          <button className="btn-outline" type="button" disabled={busy === item.id} onClick={event => { event.stopPropagation(); handleRegenerateReply(item.id); }}>
                             {busy === item.id ? 'Drafting...' : 'Generate draft'}
                           </button>
                         )}
@@ -1059,12 +1101,12 @@ function DashboardContent() {
                   <span className="card-action">{sentMail.length} sent</span>
                 </div>
                 {sentMail.length ? sentMail.map(item => (
-                  <div key={item.id} className="call-card">
+                  <div key={item.id} className="call-card message-row" role="button" tabIndex={0} aria-label={`Open sent email to ${item.leads?.full_name || item.leads?.email || 'recipient'}`} onClick={() => setOpenedMessage(item)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpenedMessage(item); } }}>
                     <div className="call-av">{initials(item.leads?.full_name)}</div>
                     <div className="call-meta">
                       <div className="call-name">{item.leads?.full_name || item.leads?.email || 'Recipient'}</div>
-                      <div className="call-detail">{item.leads?.company_name || item.leads?.email || 'Unknown recipient'} · {fmtDate(item.sent_at || item.created_at)}</div>
-                      <div className="call-detail" style={{ marginTop: 7 }}>{item.subject || 'No subject'} · {(item.body || '').slice(0, 160)}</div>
+                      <div className="call-detail">{fmtDate(item.sent_at || item.created_at)}</div>
+                      <div className="message-row-preview">{item.subject || 'No subject'}</div>
                     </div>
                     <div className="call-right">
                       <span className="badge b-booked"><span className="bdot" />sent</span>
@@ -1333,6 +1375,7 @@ function DashboardContent() {
         }}
         onSubmit={handleCreateCampaign}
       />
+      {openedMessage ? <MessageDetailModal message={openedMessage} onClose={() => setOpenedMessage(null)} /> : null}
     </>
   );
 }

@@ -112,6 +112,8 @@ export default function CampaignBuilderModal({
   const [leadFilter, setLeadFilter] = useState('');
   const [draggedStepIndex, setDraggedStepIndex] = useState<number | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const [timezoneOpen, setTimezoneOpen] = useState(false);
+  const [timezoneSearch, setTimezoneSearch] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -123,6 +125,8 @@ export default function CampaignBuilderModal({
     setLeadFilter('');
     setDraggedStepIndex(null);
     setDropTargetIndex(null);
+    setTimezoneOpen(false);
+    setTimezoneSearch('');
   }, [agentConfig?.booking_link, agentConfig?.tone, initialLeadIds, leads, open]);
 
   const visibleLeads = useMemo(() => {
@@ -132,6 +136,11 @@ export default function CampaignBuilderModal({
     return eligible.filter(lead => [lead.full_name, lead.company_name, lead.title, lead.email].filter(Boolean).join(' ').toLowerCase().includes(query));
   }, [leadFilter, leads]);
   const allVisibleSelected = Boolean(visibleLeads.length) && visibleLeads.every(lead => selectedLeadIds.includes(lead.id));
+  const visibleTimezones = useMemo(() => {
+    const query = timezoneSearch.trim().toLowerCase();
+    if (!query) return TIMEZONES.slice(0, 80);
+    return TIMEZONES.filter(timezone => `${timezone} ${timezoneLabel(timezone)}`.toLowerCase().includes(query)).slice(0, 80);
+  }, [timezoneSearch]);
 
   if (!open) return null;
 
@@ -209,7 +218,7 @@ export default function CampaignBuilderModal({
               <label className="campaign-builder-field"><span>Start</span><input type="time" value={campaign.sending_hours_start} onChange={event => setCampaign(current => ({ ...current, sending_hours_start: event.target.value }))} /></label>
               <label className="campaign-builder-field"><span>End</span><input type="time" value={campaign.sending_hours_end} onChange={event => setCampaign(current => ({ ...current, sending_hours_end: event.target.value }))} /></label>
             </div>
-            <label className="campaign-builder-field campaign-builder-field-wide campaign-timezone-field"><span>Campaign timezone</span><input list="campaign-timezones" value={campaign.timezone} onChange={event => setCampaign(current => ({ ...current, timezone: event.target.value }))} placeholder="Asia/Singapore" /><datalist id="campaign-timezones">{TIMEZONES.map(timezone => <option key={timezone} value={timezone} label={timezoneLabel(timezone)} />)}</datalist><small className="campaign-builder-timezone-hint">The sending window follows this timezone, including daylight-saving changes where applicable.</small></label>
+            <div className="campaign-builder-field campaign-builder-field-wide campaign-timezone-field"><span>Campaign timezone</span><div className="campaign-timezone-picker"><button className="campaign-timezone-trigger" type="button" aria-haspopup="listbox" aria-expanded={timezoneOpen} onClick={() => setTimezoneOpen(current => !current)}><span>{campaign.timezone}</span><b>▾</b></button>{timezoneOpen ? <div className="campaign-timezone-menu" role="listbox"><input autoFocus aria-label="Search timezones" value={timezoneSearch} onChange={event => setTimezoneSearch(event.target.value)} placeholder="Search city or timezone…" />{visibleTimezones.map(timezone => <button key={timezone} type="button" role="option" aria-selected={campaign.timezone === timezone} className={campaign.timezone === timezone ? 'is-selected' : ''} onClick={() => { setCampaign(current => ({ ...current, timezone })); setTimezoneOpen(false); setTimezoneSearch(''); }}><strong>{timezoneLabel(timezone)}</strong><small>{timezone}</small></button>)}{!visibleTimezones.length ? <p className="campaign-timezone-empty">No matching timezones.</p> : null}</div> : null}</div><small className="campaign-builder-timezone-hint">The sending window follows this timezone, including daylight-saving changes where applicable.</small></div>
             <div className="campaign-brief-panel">
               <strong>Campaign brief</strong>
               <p>Barsha starts with your onboarding context{agentConfig?.company_name ? ` for ${agentConfig.company_name}` : ''} and saves these campaign choices as a snapshot.</p>
