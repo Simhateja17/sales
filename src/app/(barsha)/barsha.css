@@ -340,6 +340,24 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;b
 .cal-day.has-mtg{color:var(--text);font-weight:600;}
 .cal-day.has-mtg::after{content:'';position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--gold);}
 .cal-day.dim{opacity:.3;}
+.calendar-card{min-width:0;}
+.cal-today-btn{width:auto;padding:0 9px;font-family:'DM Sans',sans-serif;font-size:10px;}
+.calendar-booking-grid{gap:4px;}
+.calendar-booking-day{appearance:none;border:1px solid transparent;background:transparent;font-family:'DM Sans',sans-serif;display:block;text-align:left;overflow:hidden;padding:9px 7px;min-height:106px;aspect-ratio:auto;align-items:initial;justify-content:initial;}
+.calendar-booking-day:hover{border-color:var(--border);background:var(--purple-pale);}
+.calendar-booking-day.selected{border-color:var(--purple);box-shadow:inset 0 0 0 1px rgba(107,79,160,.14);}
+.calendar-booking-day.today{background:var(--purple);border-color:var(--purple);color:white;}
+.calendar-booking-day.today:hover,.calendar-booking-day.today.selected{background:var(--purple);border-color:var(--purple);}
+.calendar-booking-day.today .cal-booking-pill{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.22);color:white;}
+.cal-date-number{display:block;font-size:12px;font-weight:600;line-height:1;margin-bottom:8px;}
+.cal-booking-stack{display:grid;gap:4px;position:relative;z-index:1;}
+.cal-booking-pill{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 5px;border-radius:5px;border:1px solid #ddd1ef;background:var(--purple-pale);color:var(--purple);font-size:9px;font-weight:600;line-height:1.15;}
+.cal-booking-pill.is-canceled,.mi-type.is-canceled{background:var(--cream-dark);border-color:var(--cream-mid);color:var(--text-muted);text-decoration:line-through;}
+.cal-booking-more{font-size:9px;color:var(--text-muted);padding-left:2px;}
+.calendar-booking-day.today .cal-booking-more{color:rgba(255,255,255,.8);}
+.calendar-selected-list{min-width:0;align-self:start;}
+.calendar-selected-list .card-head{padding:16px 18px;}
+.calendar-selected-list .mtg-item{padding:16px 18px;}
 .mtg-list{background:var(--white);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
 .mtg-item{padding:14px 18px;border-bottom:1px solid var(--cream-dark);cursor:pointer;transition:background .15s;}
 .mtg-item:hover{background:var(--cream);}

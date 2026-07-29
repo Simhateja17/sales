@@ -325,6 +325,122 @@ function LeadResearchProfile({
   );
 }
 
+function calendarDateKey(date: Date, timeZone = 'Asia/Singapore') {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function meetingDateKey(meeting: Meeting) {
+  return meeting.starts_at ? calendarDateKey(new Date(meeting.starts_at), meeting.timezone || 'Asia/Singapore') : '';
+}
+
+function meetingTime(meeting: Meeting) {
+  if (!meeting.starts_at) return 'Time to be confirmed';
+  return new Intl.DateTimeFormat('en-SG', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: meeting.timezone || 'Asia/Singapore',
+  }).format(new Date(meeting.starts_at));
+}
+
+function MeetingsCalendar({ meetings }: { meetings: Meeting[] }) {
+  const todayKey = calendarDateKey(new Date());
+  const [month, setMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedDate, setSelectedDate] = useState(todayKey);
+
+  const days = useMemo(() => {
+    const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+    const start = new Date(firstDay);
+    start.setDate(firstDay.getDate() - firstDay.getDay());
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      return date;
+    });
+  }, [month]);
+
+  const meetingsByDate = useMemo(() => {
+    const grouped = new Map<string, Meeting[]>();
+    meetings.filter(meeting => meeting.starts_at).forEach(meeting => {
+      const key = meetingDateKey(meeting);
+      grouped.set(key, [...(grouped.get(key) || []), meeting]);
+    });
+    return grouped;
+  }, [meetings]);
+
+  const selectedMeetings = meetingsByDate.get(selectedDate) || [];
+  const monthLabel = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(month);
+
+  function moveMonth(offset: number) {
+    setMonth(current => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  }
+
+  return (
+    <div className="mtg-grid">
+      <div className="card calendar-card">
+        <div className="cal-hdr">
+          <div>
+            <div className="cal-month">{monthLabel}</div>
+            <div className="sf-hint">{meetings.length ? `${meetings.length} booking${meetings.length === 1 ? '' : 's'} across your pipeline` : 'Your booked meetings will appear here'}</div>
+          </div>
+          <div className="cal-nav">
+            <button className="cal-nbtn" type="button" aria-label="Previous month" onClick={() => moveMonth(-1)}>‹</button>
+            <button className="cal-nbtn cal-today-btn" type="button" onClick={() => { const now = new Date(); setMonth(new Date(now.getFullYear(), now.getMonth(), 1)); setSelectedDate(todayKey); }}>Today</button>
+            <button className="cal-nbtn" type="button" aria-label="Next month" onClick={() => moveMonth(1)}>›</button>
+          </div>
+        </div>
+        <div className="cal-grid-wrap">
+          <div className="cal-daynames">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div className="cdn" key={day}>{day}</div>)}</div>
+          <div className="cal-days calendar-booking-grid">
+            {days.map(date => {
+              const key = calendarDateKey(date);
+              const dayMeetings = meetingsByDate.get(key) || [];
+              const isCurrentMonth = date.getMonth() === month.getMonth();
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  className={`cal-day calendar-booking-day${isCurrentMonth ? '' : ' dim'}${key === todayKey ? ' today' : ''}${dayMeetings.length ? ' has-mtg' : ''}${key === selectedDate ? ' selected' : ''}`}
+                  onClick={() => setSelectedDate(key)}
+                  aria-label={`${date.toLocaleDateString('en', { month: 'long', day: 'numeric', year: 'numeric' })}${dayMeetings.length ? `, ${dayMeetings.length} booking${dayMeetings.length === 1 ? '' : 's'}` : ''}`}
+                >
+                  <span className="cal-date-number">{date.getDate()}</span>
+                  {dayMeetings.length ? <span className="cal-booking-stack">{dayMeetings.slice(0, 2).map(meeting => <span className={`cal-booking-pill ${meeting.status === 'canceled' ? 'is-canceled' : ''}`} key={meeting.id}>{meetingTime(meeting)} · {meeting.invitee_name || meeting.title}</span>)}{dayMeetings.length > 2 ? <span className="cal-booking-more">+{dayMeetings.length - 2} more</span> : null}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <aside className="mtg-list calendar-selected-list">
+        <div className="card-head">
+          <div>
+            <div className="card-title">{selectedDate === todayKey ? 'Today' : new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(`${selectedDate}T12:00:00`))}</div>
+            <div className="sf-hint">Bookings on this day</div>
+          </div>
+        </div>
+        {selectedMeetings.length ? selectedMeetings.map(meeting => (
+          <div key={meeting.id} className="mtg-item">
+            <div className="mi-time">{meetingTime(meeting)}</div>
+            <div className="mi-name">{meeting.title}</div>
+            <div className="mi-detail">{meeting.invitee_name || meeting.invitee_email || meeting.leads?.full_name || 'Invitee pending'}</div>
+            <span className={`mi-type ${meeting.status === 'canceled' ? 'is-canceled' : ''}`}>{meeting.status.replace('_', ' ')}</span>
+          </div>
+        )) : <EmptyState text="No bookings on this day." />}
+      </aside>
+    </div>
+  );
+}
+
 
 export default function DashboardPage() {
   return (
@@ -1245,16 +1361,7 @@ function DashboardContent() {
                 <p className="page-sub">Positive replies become a clear, quiet meeting queue.</p>
               </div>
             </div>
-            <div className="card">
-              {meetings.length ? meetings.map(meeting => (
-                <div key={meeting.id} className="mtg-item">
-                  <div className="mi-time">{fmtDate(meeting.starts_at)}</div>
-                  <div className="mi-name">{meeting.title}</div>
-                  <div className="mi-detail">{meeting.invitee_name || meeting.invitee_email || meeting.leads?.full_name || 'Invitee pending'}</div>
-                  <span className="mi-type">{meeting.status}</span>
-                </div>
-              )) : <EmptyState text="No meetings booked yet." />}
-            </div>
+            <MeetingsCalendar meetings={meetings} />
           </section>
         ) : null}
 
