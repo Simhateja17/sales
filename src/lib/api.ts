@@ -180,6 +180,11 @@ export interface Campaign {
   target_segment: Record<string, unknown>;
   brief?: CampaignBrief;
   daily_send_cap: number;
+  daily_lead_target: number;
+  autopilot_filters: Record<string, unknown>;
+  attention_required: boolean;
+  attention_reason: string | null;
+  autopilot_confirmed_at: string | null;
   timezone: string;
   sending_hours_start: string;
   sending_hours_end: string;
@@ -194,6 +199,40 @@ export interface Campaign {
   created_at: string;
   updated_at: string;
   email_sequences?: EmailSequence[];
+}
+
+export interface AutopilotSettings {
+  workspace_id: string;
+  enabled: boolean;
+  include_all_launched_campaigns: boolean;
+  campaign_ids: string[];
+  timezone: string;
+  daily_run_time: string;
+  workspace_daily_send_cap: number;
+  paused_at: string | null;
+}
+
+export interface AutopilotReadiness {
+  mailbox_ready: boolean;
+  launched_campaigns: number;
+  included_campaigns: number;
+  can_enable: boolean;
+}
+
+export interface AutopilotRun {
+  id: string;
+  campaign_id: string;
+  local_run_date: string;
+  status: 'queued' | 'running' | 'partial' | 'completed' | 'failed' | 'paused' | 'skipped';
+  requested_leads: number;
+  discovered_leads: number;
+  assigned_leads: number;
+  generated_messages: number;
+  scheduled_messages: number;
+  skipped_duplicates: number;
+  error_message: string | null;
+  created_at: string;
+  campaigns?: { name: string } | null;
 }
 
 export interface CampaignBrief {
@@ -256,6 +295,8 @@ export interface EmailMessage {
   in_reply_to: string | null;
   in_reply_to_header?: string | null;
   sent_at: string | null;
+  scheduled_at?: string | null;
+  schedule_reason?: string | null;
   received_at: string | null;
   responded_at?: string | null;
   response_message_id?: string | null;
@@ -591,10 +632,10 @@ export function previewCsvMapping(csvText: string) {
   });
 }
 
-export function startCsvImport(csvText: string, mappings: CsvMapping[], mode: 'import' | 'suppress') {
+export function startCsvImport(csvText: string, mappings: CsvMapping[], mode: 'import' | 'suppress', campaignId?: string) {
   return apiFetch<{ importRun: LeadImportRun }>('/api/leads/csv/import', {
     method: 'POST',
-    body: JSON.stringify({ csv_text: csvText, mappings, mode }),
+    body: JSON.stringify({ csv_text: csvText, mappings, mode, campaign_id: campaignId || null }),
   });
 }
 
@@ -740,6 +781,24 @@ export function getCampaigns() {
   return apiFetch<{ campaigns: Campaign[] }>('/api/campaigns');
 }
 
+export function getAutopilotSettings() {
+  return apiFetch<{ settings: AutopilotSettings; readiness: AutopilotReadiness }>('/api/autopilot/settings');
+}
+
+export function saveAutopilotSettings(settings: AutopilotSettings) {
+  return apiFetch<{ settings: AutopilotSettings; readiness: AutopilotReadiness }>('/api/autopilot/settings', {
+    method: 'PUT', body: JSON.stringify(settings),
+  });
+}
+
+export function getAutopilotRuns() {
+  return apiFetch<{ runs: AutopilotRun[] }>('/api/autopilot/runs');
+}
+
+export function runAutopilotNow() {
+  return apiFetch<{ queued: number; runs: AutopilotRun[] }>('/api/autopilot/run-now', { method: 'POST' });
+}
+
 export function createCampaign(campaign: Partial<Campaign> & { name: string }) {
   return apiFetch<{ campaign: Campaign }>('/api/campaigns', {
     method: 'POST',
@@ -855,6 +914,12 @@ export function updateCampaignEmail(campaignId: string, messageId: string, updat
   return apiFetch<{ message: EmailMessage }>(`/api/campaigns/${campaignId}/messages/${messageId}`, {
     method: 'PATCH',
     body: JSON.stringify(updates),
+  });
+}
+
+export function rescheduleCampaignEmail(campaignId: string, messageId: string, scheduledAt: string) {
+  return apiFetch<{ message: EmailMessage }>(`/api/campaigns/${campaignId}/messages/${messageId}/schedule`, {
+    method: 'PATCH', body: JSON.stringify({ scheduled_at: scheduledAt }),
   });
 }
 

@@ -70,6 +70,7 @@ export function CampaignRow({ campaign, active, onClick }: { campaign: Campaign;
       <div className="mtr-info">
         <div className="mtr-name">{campaign.name}</div>
         <div className="mtr-detail">{campaign.daily_send_cap}/day · {campaign.sending_hours_start || '09:00'}–{campaign.sending_hours_end || '18:00'} · {campaign.timezone || 'Asia/Singapore'}</div>
+        {campaign.attention_required ? <div className="mtr-detail" style={{ marginTop: 4, color: 'var(--purple)' }}>Requires your attention before Autopilot can use it</div> : null}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <span className={`badge ${statusBadge(campaign.status)}`}><span className="bdot" />{campaign.status}</span>

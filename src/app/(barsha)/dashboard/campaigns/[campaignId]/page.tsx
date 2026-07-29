@@ -20,6 +20,7 @@ import {
   replaceCampaignLeads,
   resumeCampaign,
   regenerateCampaignEmail,
+  rescheduleCampaignEmail,
   sendCampaignEmailNow,
   sendCampaignEmailsNow,
   startCsvImport,
@@ -222,15 +223,38 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
 
   async function handleLaunch() {
     if (!campaign) return;
+    if (campaign.attention_required && !window.confirm('Are you happy with this campaign’s targeting, limits, and sequence? Launching confirms these settings and makes it eligible for Autopilot.')) return;
     setBusy('launch');
     setMessage('');
     try {
       const data = await launchCampaign(campaign.id);
       setCampaign(data.campaign);
       await reloadPreview();
-      setMessage(`${data.queued} emails queued.`);
+      setMessage(data.queued ? `${data.queued} emails queued.` : 'Campaign launched. It is now eligible for Autopilot.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not launch campaign');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleReschedule(messageItem: EmailMessage) {
+    if (!campaign) return;
+    const suggested = messageItem.scheduled_at ? new Date(messageItem.scheduled_at).toISOString().slice(0, 16) : '';
+    const value = window.prompt('Schedule date and time (local):', suggested);
+    if (!value) return;
+    const scheduledAt = new Date(value);
+    if (Number.isNaN(scheduledAt.getTime())) {
+      setMessage('Enter a valid date and time.');
+      return;
+    }
+    setBusy(`reschedule-${messageItem.id}`);
+    try {
+      const result = await rescheduleCampaignEmail(campaign.id, messageItem.id, scheduledAt.toISOString());
+      setPreview(current => current.map(item => item.id === result.message.id ? { ...item, ...result.message } : item));
+      setMessage('Email rescheduled within the campaign and workspace sending limits.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not reschedule email.');
     } finally {
       setBusy('');
     }
@@ -498,6 +522,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
             <p className="dash-date">
               {campaign ? `${campaign.daily_send_cap}/day · ${campaign.sending_hours_start || '09:00'}–${campaign.sending_hours_end || '18:00'} · ${campaign.timezone || 'Asia/Singapore'}` : ''}
             </p>
+            {campaign?.attention_required ? <p className="sf-hint" style={{ marginTop: 8 }}>Requires your attention: {campaign.attention_reason || 'Review the campaign settings, then launch when you are happy with them.'}</p> : null}
           </div>
           {campaign ? (
             <div className="page-actions">
@@ -589,10 +614,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                             <div className="mtr-info">
                               <div className="mtr-name">{item.subject || 'Untitled email'}</div>
                               <div className="mtr-detail">{item.leads?.full_name || 'Lead'} at {item.leads?.company_name || 'Unknown company'}</div>
+                              {item.scheduled_at ? <div className="mtr-detail" style={{ marginTop: 4 }}>Scheduled {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.scheduled_at))}{item.schedule_reason ? ` · ${item.schedule_reason}` : ''}</div> : null}
                               <div className="mtr-detail" style={{ marginTop: 6 }}>{(item.body || item.draft_body || '').slice(0, 180)}</div>
                             </div>
                             <span className={`badge ${statusBadge(item.status)}`}><span className="bdot" />{item.status}</span>
                           </button>
+                          {item.scheduled_at && ['draft', 'approved'].includes(item.status) ? <button className="card-action" type="button" onClick={() => handleReschedule(item)} disabled={busy === `reschedule-${item.id}`}>Reschedule</button> : null}
                         </div>
                       ))}
                     </div>

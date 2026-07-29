@@ -13,6 +13,8 @@ import {
   getCampaignLeads,
   getCampaignPreview,
   getCampaigns,
+  getAutopilotRuns,
+  getAutopilotSettings,
   getApolloFilters,
   getApolloImport,
   getLatestApolloImport,
@@ -34,9 +36,14 @@ import {
   startCsvImport,
   syncApolloEmails,
   testSmtp,
+  runAutopilotNow,
+  saveAutopilotSettings,
   updateLead,
   type ApolloFilters,
   type AgentConfig,
+  type AutopilotReadiness,
+  type AutopilotRun,
+  type AutopilotSettings,
   type Campaign,
   type ConnectedAccount,
   type EmailConversation,
@@ -54,7 +61,7 @@ import HomeOverview from './_components/HomeOverview';
 import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, navItems, statusBadge, type Page } from './_lib/ui';
 import { csvTargets, terminalImportStatuses } from './_lib/leadImport';
 
-type SettingsSection = 'mailbox' | 'workspace' | 'compliance';
+type SettingsSection = 'mailbox' | 'autopilot' | 'workspace' | 'compliance';
 type LeadView = 'all' | 'ready' | 'campaign' | 'attention';
 type LeadDrawerMode = 'profile' | 'source';
 
@@ -335,6 +342,7 @@ function DashboardContent() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
   const [leadForm, setLeadForm] = useState(emptyLeadForm);
+  const [manualCampaignId, setManualCampaignId] = useState('');
   const [smtpForm, setSmtpForm] = useState(emptySmtpForm);
   const [apolloFilters, setApolloFilters] = useState<ApolloFilters>(emptyApolloFilters);
   const [apolloIndustryOptions, setApolloIndustryOptions] = useState<string[]>([]);
@@ -343,10 +351,14 @@ function DashboardContent() {
   const [csvPreview, setCsvPreview] = useState<Record<string, unknown>[]>([]);
   const [lastCsvRun, setLastCsvRun] = useState<LeadImportRun | null>(null);
   const [csvMode, setCsvMode] = useState<'import' | 'suppress'>('import');
+  const [csvCampaignId, setCsvCampaignId] = useState('');
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [managedLeadIds, setManagedLeadIds] = useState<string[]>([]);
   const [editingLeadId, setEditingLeadId] = useState('');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('mailbox');
+  const [autopilotSettings, setAutopilotSettings] = useState<AutopilotSettings | null>(null);
+  const [autopilotReadiness, setAutopilotReadiness] = useState<AutopilotReadiness | null>(null);
+  const [autopilotRuns, setAutopilotRuns] = useState<AutopilotRun[]>([]);
   const [mailboxProvider, setMailboxProvider] = useState<'gmail' | 'outlook' | 'manual'>('manual');
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [campaignBuilderLeadIds, setCampaignBuilderLeadIds] = useState<string[]>([]);
@@ -462,6 +474,13 @@ function DashboardContent() {
 
   useEffect(() => {
     refreshAll().catch(error => setMessage(error.message));
+    Promise.all([getAutopilotSettings(), getAutopilotRuns()])
+      .then(([settingsData, runsData]) => {
+        setAutopilotSettings(settingsData.settings);
+        setAutopilotReadiness(settingsData.readiness);
+        setAutopilotRuns(runsData.runs);
+      })
+      .catch(() => undefined);
     getApolloFilters()
       .then(data => {
         setApolloFilters(data.filters);
@@ -481,6 +500,36 @@ function DashboardContent() {
         .catch(() => undefined);
     }
   }, []);
+
+  async function saveAutopilot(next: AutopilotSettings) {
+    setBusy('autopilot');
+    setMessage('');
+    try {
+      const result = await saveAutopilotSettings(next);
+      setAutopilotSettings(result.settings);
+      setAutopilotReadiness(result.readiness);
+      setMessage(result.settings.enabled ? 'Autopilot is active for launched campaigns.' : 'Autopilot is paused.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not save autopilot settings.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function runAutopilot() {
+    setBusy('autopilot-run');
+    setMessage('');
+    try {
+      const result = await runAutopilotNow();
+      const runs = await getAutopilotRuns();
+      setAutopilotRuns(runs.runs);
+      setMessage(result.queued ? `Queued ${result.queued} autopilot run${result.queued === 1 ? '' : 's'}.` : 'Today’s eligible campaigns are already queued.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not start autopilot.');
+    } finally {
+      setBusy('');
+    }
+  }
 
   useEffect(() => {
     if (!activeApolloRun?.created_at) return;
@@ -546,8 +595,9 @@ function DashboardContent() {
     setMessage('');
     try {
       if (editingLeadId) await updateLead(editingLeadId, leadForm);
-      else await createLead({ ...leadForm, source: 'manual' });
+      else await createLead({ ...leadForm, source: 'manual', campaign_id: manualCampaignId || null });
       setLeadForm(emptyLeadForm);
+      setManualCampaignId('');
       setEditingLeadId('');
       const data = await getLeads();
       setLeads(data.leads);
@@ -663,7 +713,7 @@ function DashboardContent() {
     setBusy('csv');
     setMessage('');
     try {
-      const started = await startCsvImport(csvText, csvMappings, csvMode);
+      const started = await startCsvImport(csvText, csvMappings, csvMode, csvMode === 'import' ? csvCampaignId : undefined);
       const run = await waitForImport(started.importRun.id, getLeadImport);
       setLastCsvRun(run);
       setCsvText('');
@@ -1095,8 +1145,8 @@ function DashboardContent() {
                     <button className="btn-primary lead-full-button" type="button" disabled={busy === 'apollo'} onClick={handleApolloImport}>{busy === 'apollo' ? 'Importing...' : 'Import from Apollo'}</button>
                     <button className="btn-outline lead-full-button" type="button" disabled={busy === 'apollo-sync'} onClick={handleApolloSync}>{busy === 'apollo-sync' ? 'Syncing...' : 'Sync Apollo emails'}</button>
                     {activeApolloRun ? <ApolloImportProgress run={activeApolloRun} elapsedSeconds={apolloElapsedSeconds} /> : <p className="lead-source-note">Most 25-lead imports take roughly 2–5 minutes. Apollo response time can vary.</p>}
-                    <details className="lead-source-details"><summary>{editingLeadId ? 'Editing lead' : 'Add a lead manually'}</summary><form onSubmit={handleCreateLead}>{Object.keys(emptyLeadForm).map(key => <input key={key} className="sf-inp" value={leadForm[key as keyof typeof leadForm]} onChange={event => setLeadForm({ ...leadForm, [key]: event.target.value })} placeholder={key.replaceAll('_', ' ')} required={key === 'full_name' || key === 'email'} />)}<button className="btn-outline" type="submit" disabled={busy === 'lead'}>{busy === 'lead' ? 'Saving...' : editingLeadId ? 'Update lead' : 'Save lead'}</button>{editingLeadId ? <button className="card-action" type="button" onClick={cancelEditLead}>Cancel edit</button> : null}</form></details>
-                    <details className="lead-source-details"><summary>Import a CSV</summary><input className="sf-inp" type="file" accept=".csv,text/csv" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; setCsvText(await file.text()); setCsvMappings([]); setCsvPreview([]); }} /><select className="sf-inp" value={csvMode} onChange={event => setCsvMode(event.target.value as 'import' | 'suppress')}><option value="import">Import leads</option><option value="suppress">Exclude from future searches</option></select><button className="btn-outline" type="button" disabled={!csvText || busy === 'csv-preview'} onClick={handleCsvPreview}>{busy === 'csv-preview' ? 'Mapping...' : 'Map columns with AI'}</button>{csvMappings.length ? <div className="lead-csv-mapping">{csvMappings.map((mapping, index) => <label key={`${mapping.source}-${index}`}>{mapping.source}<select className="sf-inp" value={mapping.target} onChange={event => setCsvMappings(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, target: event.target.value } : item))}>{csvTargets.map(target => <option key={target} value={target}>{target}</option>)}</select></label>)}<button className="btn-primary" type="button" disabled={busy === 'csv'} onClick={handleCsvImport}>{busy === 'csv' ? 'Importing...' : `Confirm and ${csvMode === 'suppress' ? 'exclude' : 'import'}`}</button>{lastCsvRun && lastCsvRun.skipped_count > 0 ? <button className="btn-outline" type="button" onClick={handleDownloadCsvErrors}>Download skipped-row report</button> : null}</div> : null}</details>
+                    <details className="lead-source-details"><summary>{editingLeadId ? 'Editing lead' : 'Add a lead manually'}</summary><form onSubmit={handleCreateLead}>{Object.keys(emptyLeadForm).map(key => <input key={key} className="sf-inp" value={leadForm[key as keyof typeof leadForm]} onChange={event => setLeadForm({ ...leadForm, [key]: event.target.value })} placeholder={key.replaceAll('_', ' ')} required={key === 'full_name' || key === 'email'} />)}{!editingLeadId ? <select className="sf-inp" value={manualCampaignId} onChange={event => setManualCampaignId(event.target.value)}><option value="">Keep in lead pool (no campaign)</option>{campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select> : null}<button className="btn-outline" type="submit" disabled={busy === 'lead'}>{busy === 'lead' ? 'Saving...' : editingLeadId ? 'Update lead' : 'Save lead'}</button>{editingLeadId ? <button className="card-action" type="button" onClick={cancelEditLead}>Cancel edit</button> : null}</form></details>
+                    <details className="lead-source-details"><summary>Import a CSV</summary><input className="sf-inp" type="file" accept=".csv,text/csv" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; setCsvText(await file.text()); setCsvMappings([]); setCsvPreview([]); }} /><select className="sf-inp" value={csvMode} onChange={event => setCsvMode(event.target.value as 'import' | 'suppress')}><option value="import">Import leads</option><option value="suppress">Exclude from future searches</option></select>{csvMode === 'import' ? <select className="sf-inp" value={csvCampaignId} onChange={event => setCsvCampaignId(event.target.value)}><option value="">Keep imported leads in the lead pool</option>{campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select> : null}<button className="btn-outline" type="button" disabled={!csvText || busy === 'csv-preview'} onClick={handleCsvPreview}>{busy === 'csv-preview' ? 'Mapping...' : 'Map columns with AI'}</button>{csvMappings.length ? <div className="lead-csv-mapping">{csvMappings.map((mapping, index) => <label key={`${mapping.source}-${index}`}>{mapping.source}<select className="sf-inp" value={mapping.target} onChange={event => setCsvMappings(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, target: event.target.value } : item))}>{csvTargets.map(target => <option key={target} value={target}>{target}</option>)}</select></label>)}<button className="btn-primary" type="button" disabled={busy === 'csv'} onClick={handleCsvImport}>{busy === 'csv' ? 'Importing...' : `Confirm and ${csvMode === 'suppress' ? 'exclude' : 'import'}`}</button>{lastCsvRun && lastCsvRun.skipped_count > 0 ? <button className="btn-outline" type="button" onClick={handleDownloadCsvErrors}>Download skipped-row report</button> : null}</div> : null}</details>
                   </div>
                 ) : selectedLead ? (
                   <LeadResearchProfile
@@ -1234,6 +1284,7 @@ function DashboardContent() {
             <div className="set-grid">
               <div className="set-nav">
                 <button type="button" className={`sn-item${settingsSection === 'mailbox' ? ' active' : ''}`} onClick={() => setSettingsSection('mailbox')}>SMTP and IMAP</button>
+                <button type="button" className={`sn-item${settingsSection === 'autopilot' ? ' active' : ''}`} onClick={() => setSettingsSection('autopilot')}>Autopilot</button>
                 <button type="button" className={`sn-item${settingsSection === 'workspace' ? ' active' : ''}`} onClick={() => setSettingsSection('workspace')}>Workspace</button>
                 <button type="button" className={`sn-item${settingsSection === 'compliance' ? ' active' : ''}`} onClick={() => setSettingsSection('compliance')}>Compliance</button>
               </div>
@@ -1300,6 +1351,50 @@ function DashboardContent() {
                   )}
                 </div>
               </form> : null}
+              {settingsSection === 'autopilot' ? <div className="set-panel">
+                <div className="sf-lbl">Daily campaign autopilot</div>
+                <p className="sf-hint" style={{ marginTop: 8 }}>Autopilot finds Apollo leads, assigns each new lead to one launched campaign, generates the sequence, and schedules sending. Campaigns marked Requires your attention never run here.</p>
+                <div className="msl-list" style={{ marginTop: 18 }}>
+                  <Metric label="Mailbox" value={autopilotReadiness?.mailbox_ready ? 'Verified' : 'Needs attention'} />
+                  <Metric label="Launched campaigns" value={String(autopilotReadiness?.launched_campaigns || 0)} />
+                  <Metric label="Included campaigns" value={String(autopilotReadiness?.included_campaigns || 0)} />
+                  <Metric label="Run time" value={`${autopilotSettings?.daily_run_time || '08:00'} ${autopilotSettings?.timezone || 'Asia/Singapore'}`} />
+                </div>
+                {autopilotSettings ? <>
+                  <div className="sf" style={{ marginTop: 18 }}>
+                    <label className="sf-lbl" htmlFor="autopilot-time">Daily lead discovery time</label>
+                    <input id="autopilot-time" className="sf-inp" type="time" value={autopilotSettings.daily_run_time.slice(0, 5)} onChange={event => setAutopilotSettings(current => current ? { ...current, daily_run_time: event.target.value } : current)} />
+                  </div>
+                  <div className="sf" style={{ marginTop: 14 }}>
+                    <label className="sf-lbl" htmlFor="autopilot-cap">Workspace daily email safety cap</label>
+                    <input id="autopilot-cap" className="sf-inp" type="number" min="1" max="2000" value={autopilotSettings.workspace_daily_send_cap} onChange={event => setAutopilotSettings(current => current ? { ...current, workspace_daily_send_cap: Number(event.target.value) } : current)} />
+                  </div>
+                  <label className="sf-hint" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
+                    <input type="checkbox" checked={autopilotSettings.include_all_launched_campaigns} onChange={event => setAutopilotSettings(current => current ? { ...current, include_all_launched_campaigns: event.target.checked, campaign_ids: event.target.checked ? [] : current.campaign_ids } : current)} />
+                    Include all launched campaigns
+                  </label>
+                  {!autopilotSettings.include_all_launched_campaigns ? <div className="sf" style={{ marginTop: 14 }}>
+                    <div className="sf-lbl">Selected launched campaigns</div>
+                    <div className="sf-hint" style={{ marginTop: 6 }}>Only launched campaigns can be included. Review and launch suggested campaigns first.</div>
+                    <div className="msl-list" style={{ marginTop: 10 }}>
+                      {campaigns.filter(campaign => campaign.status === 'active').map(campaign => <label key={campaign.id} className="sf-hint" style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={autopilotSettings.campaign_ids.includes(campaign.id)} onChange={event => setAutopilotSettings(current => current ? { ...current, campaign_ids: event.target.checked ? [...current.campaign_ids, campaign.id] : current.campaign_ids.filter(id => id !== campaign.id) } : current)} />{campaign.name}</label>)}
+                      {!campaigns.some(campaign => campaign.status === 'active') ? <span className="sf-hint">No launched campaigns yet.</span> : null}
+                    </div>
+                  </div> : null}
+                  <label className="sf-hint" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 18 }}>
+                    <input type="checkbox" checked={autopilotSettings.enabled} disabled={!autopilotReadiness?.can_enable && !autopilotSettings.enabled} onChange={event => setAutopilotSettings(current => current ? { ...current, enabled: event.target.checked } : current)} />
+                    Enable autopilot for launched campaigns
+                  </label>
+                  <div className="set-save">
+                    <button className="btn-outline" type="button" disabled={busy === 'autopilot-run' || !autopilotSettings.enabled} onClick={runAutopilot}>{busy === 'autopilot-run' ? 'Queuing...' : 'Run now'}</button>
+                    <button className="btn-primary" type="button" disabled={busy === 'autopilot'} onClick={() => saveAutopilot(autopilotSettings)}>{busy === 'autopilot' ? 'Saving...' : 'Save autopilot'}</button>
+                  </div>
+                </> : <p className="sf-hint" style={{ marginTop: 18 }}>Autopilot becomes available after the campaign-autopilot database migration is applied.</p>}
+                {autopilotRuns.length ? <div className="sf" style={{ marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--cream-dark)' }}>
+                  <div className="sf-lbl">Recent runs</div>
+                  <div className="msl-list" style={{ marginTop: 10 }}>{autopilotRuns.slice(0, 5).map(run => <Metric key={run.id} label={`${run.campaigns?.name || 'Campaign'} · ${run.local_run_date}`} value={`${run.status} · ${run.assigned_leads} leads · ${run.scheduled_messages} scheduled`} />)}</div>
+                </div> : null}
+              </div> : null}
               {settingsSection === 'workspace' ? (
                 <div className="set-panel">
                   <div className="sf-lbl">Workspace</div>
