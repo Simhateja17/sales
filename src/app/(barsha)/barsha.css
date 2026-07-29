@@ -668,7 +668,7 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;b
 .conversation-composer textarea{display:block;width:100%;min-height:130px;resize:vertical;border:1.5px solid var(--border);border-radius:10px;background:var(--cream);color:var(--text);font:14px/1.55 'DM Sans',sans-serif;padding:12px;outline:none;}
 .conversation-composer textarea:focus{border-color:var(--purple);background:var(--white);}
 .conversation-composer-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px;}
-.conversation-closed-note{border-top:1px solid var(--cream-dark);padding:16px 0 0;color:var(--text-muted);font-size:12px;}
+.conversation-closed-note{border-top:1px solid var(--cream-dark);padding:16px 0 0;color:var(--text-muted);font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:14px;}
 
 /* BILLING */
 .bill-grid{display:grid;grid-template-columns:1fr 300px;gap:20px;}

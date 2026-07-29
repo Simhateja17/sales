@@ -25,6 +25,7 @@ import {
   getLeads,
   getMeetings,
   regenerateInboxMessage,
+  sendManualConversationReply,
   getSentMail,
   getSmtpStatus,
   getWorkspace,
@@ -112,6 +113,7 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [dirty, setDirty] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
 
   const replyTarget = useMemo(() => [...messages].reverse().find(message => message.direction === 'inbound' && !message.responded_at && ['received', 'pending_approval'].includes(message.status)) || null, [messages]);
 
@@ -123,6 +125,7 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
       const target = [...data.messages].reverse().find(message => message.direction === 'inbound' && !message.responded_at && ['received', 'pending_approval'].includes(message.status));
       setDraft(target?.draft_body || '');
       setDirty(false);
+      setComposerOpen(Boolean(target));
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Could not load this conversation');
     } finally {
@@ -158,12 +161,14 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
   }
 
   async function handleApprove() {
-    if (!replyTarget || !draft.trim()) return;
+    if (!draft.trim()) return;
     setBusy('approve');
     try {
-      await approveInboxMessage(replyTarget.id, draft.trim());
+      if (replyTarget) await approveInboxMessage(replyTarget.id, draft.trim());
+      else await sendManualConversationReply(conversation.lead_id, draft.trim());
       setDraft('');
       setDirty(false);
+      setComposerOpen(false);
       await Promise.all([loadThread(), onRefresh()]);
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Could not approve this reply');
@@ -186,11 +191,11 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
             <div className="thread-message-body">{message.body || 'No message content'}</div>
           </article>)}
         </div>
-        {replyTarget ? <div className="conversation-composer">
-          <div className="email-detail-label">Reply to {conversation.lead.full_name || conversation.lead.email}</div>
+        {replyTarget || composerOpen ? <div className="conversation-composer">
+          <div className="email-detail-label">{replyTarget ? `Reply to ${conversation.lead.full_name || conversation.lead.email}` : `Write to ${conversation.lead.full_name || conversation.lead.email}`}</div>
           <textarea value={draft} onChange={event => { setDraft(event.target.value); setDirty(true); }} placeholder="Write a reply, or ask Barsha to draft one…" />
-          <div className="conversation-composer-actions"><button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>{busy === 'generate' ? 'Drafting…' : 'Generate draft'}</button><button className="btn-primary" type="button" disabled={busy === 'approve' || !draft.trim()} onClick={handleApprove}>{busy === 'approve' ? 'Sending…' : 'Approve & send'}</button></div>
-        </div> : <div className="conversation-closed-note">This conversation has no reply awaiting approval.</div>}
+          <div className="conversation-composer-actions">{replyTarget ? <button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>{busy === 'generate' ? 'Drafting…' : 'Generate draft'}</button> : null}<button className="btn-primary" type="button" disabled={busy === 'approve' || !draft.trim()} onClick={handleApprove}>{busy === 'approve' ? 'Sending…' : 'Approve & send'}</button></div>
+        </div> : <div className="conversation-closed-note"><span>This conversation has no reply awaiting approval.</span><button className="btn-outline" type="button" onClick={() => setComposerOpen(true)}>Write a reply</button></div>}
       </section>
     </div>
   );
