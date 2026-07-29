@@ -993,6 +993,12 @@ function DashboardContent() {
     setLeadDrawerMode('profile');
   }
 
+  const autopilotBlockReasons = [
+    autopilotReadiness && !autopilotReadiness.mailbox_ready ? 'Connect and verify both SMTP and IMAP first.' : null,
+    autopilotReadiness && autopilotReadiness.launched_campaigns === 0 ? 'Launch at least one campaign first.' : null,
+    autopilotReadiness && autopilotReadiness.launched_campaigns > 0 && autopilotReadiness.included_campaigns === 0 ? 'Select at least one launched campaign, or choose “Include all launched campaigns”.' : null,
+  ].filter((reason): reason is string => Boolean(reason));
+
   return (
     <>
       <Sidebar
@@ -1398,6 +1404,10 @@ function DashboardContent() {
                     <input type="checkbox" checked={autopilotSettings.enabled} disabled={!autopilotReadiness?.can_enable && !autopilotSettings.enabled} onChange={event => setAutopilotSettings(current => current ? { ...current, enabled: event.target.checked } : current)} />
                     Enable autopilot for launched campaigns
                   </label>
+                  {!autopilotSettings.enabled && autopilotBlockReasons.length ? <div role="status" className="sf-hint" style={{ marginTop: 8, marginLeft: 26, color: 'var(--purple)' }}>
+                    <strong>Why is this unavailable?</strong>
+                    <ul style={{ margin: '6px 0 0 18px', padding: 0 }}>{autopilotBlockReasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
+                  </div> : null}
                   <div className="set-save">
                     <button className="btn-outline" type="button" disabled={busy === 'autopilot-run' || !autopilotSettings.enabled} onClick={runAutopilot}>{busy === 'autopilot-run' ? 'Queuing...' : 'Run now'}</button>
                     <button className="btn-primary" type="button" disabled={busy === 'autopilot'} onClick={() => saveAutopilot(autopilotSettings)}>{busy === 'autopilot' ? 'Saving...' : 'Save autopilot'}</button>
