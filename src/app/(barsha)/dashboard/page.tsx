@@ -102,9 +102,17 @@ const emptyApolloFilters: ApolloFilters = {
 function messagePreview(value?: string | null) {
   const replyOnly = String(value || '')
     .split(/\n(?:On .+ wrote:|From:|>)/i)[0]
+    .split(/\n--\s*\n|\nTo stop receiving these emails,/i)[0]
     .replace(/\s+/g, ' ')
     .trim();
   return replyOnly || 'No message content';
+}
+
+function visibleMessageBody(value?: string | null) {
+  return String(value || '')
+    .split(/\n(?:On .+ wrote:|From:|>)/i)[0]
+    .split(/\n--\s*\n|\nTo stop receiving these emails,/i)[0]
+    .trim() || 'No message content';
 }
 
 function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: { conversation: EmailConversation; onClose: () => void; onRefresh: () => Promise<void>; onError: (message: string) => void }) {
@@ -188,13 +196,13 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
           {loading ? <div className="sf-hint">Loading conversation…</div> : messages.map(message => <article key={message.id} className={`thread-message ${message.direction === 'outbound' ? 'is-outbound' : 'is-inbound'}`}>
             <div className="thread-message-meta"><strong>{message.direction === 'outbound' ? 'You' : conversation.lead.full_name}</strong><span>{fmtDate(message.sent_at || message.received_at || message.created_at)}</span></div>
             <div className="thread-message-subject">{message.subject || 'No subject'}</div>
-            <div className="thread-message-body">{message.body || 'No message content'}</div>
+            <div className="thread-message-body">{visibleMessageBody(message.body)}</div>
           </article>)}
         </div>
         {replyTarget || composerOpen ? <div className="conversation-composer">
           <div className="email-detail-label">{replyTarget ? `Reply to ${conversation.lead.full_name || conversation.lead.email}` : `Write to ${conversation.lead.full_name || conversation.lead.email}`}</div>
-          <textarea value={draft} onChange={event => { setDraft(event.target.value); setDirty(true); }} placeholder="Write a reply, or ask Barsha to draft one…" />
-          <div className="conversation-composer-actions">{replyTarget ? <button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>{busy === 'generate' ? 'Drafting…' : 'Generate draft'}</button> : null}<button className="btn-primary" type="button" disabled={busy === 'approve' || !draft.trim()} onClick={handleApprove}>{busy === 'approve' ? 'Sending…' : 'Approve & send'}</button></div>
+          <textarea value={draft} onChange={event => { setDraft(event.target.value); setDirty(true); }} placeholder="Write your reply here…" />
+          <div className="conversation-composer-actions">{replyTarget ? <button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>{busy === 'generate' ? 'Barsha is writing…' : 'Let Barsha Generate'}</button> : null}<button className="btn-primary" type="button" disabled={busy === 'approve' || !draft.trim()} onClick={handleApprove}>{busy === 'approve' ? 'Sending…' : 'Approve & send'}</button></div>
         </div> : <div className="conversation-closed-note"><span>This conversation has no reply awaiting approval.</span><button className="btn-outline" type="button" onClick={() => setComposerOpen(true)}>Write a reply</button></div>}
       </section>
     </div>
