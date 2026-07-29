@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   approveInboxMessage,
+  draftManualConversationReply,
   connectSmtp,
   createCampaign,
   uploadCampaignSequenceAttachment,
@@ -154,11 +155,15 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
   }
 
   async function handleGenerate() {
-    if (!replyTarget) return;
     setBusy('generate');
     try {
-      const data = await regenerateInboxMessage(replyTarget.id);
-      setDraft(data.message.draft_body || '');
+      if (replyTarget) {
+        const data = await regenerateInboxMessage(replyTarget.id);
+        setDraft(data.message.draft_body || '');
+      } else {
+        const data = await draftManualConversationReply(conversation.lead_id);
+        setDraft(data.body || '');
+      }
       setDirty(false);
       await Promise.all([loadThread(), onRefresh()]);
     } catch (error) {
@@ -202,7 +207,7 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
         {replyTarget || composerOpen ? <div className="conversation-composer">
           <div className="email-detail-label">{replyTarget ? `Reply to ${conversation.lead.full_name || conversation.lead.email}` : `Write to ${conversation.lead.full_name || conversation.lead.email}`}</div>
           <textarea value={draft} onChange={event => { setDraft(event.target.value); setDirty(true); }} placeholder="Write your reply here…" />
-          <div className="conversation-composer-actions">{replyTarget ? <button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>{busy === 'generate' ? 'Barsha is writing…' : 'Let Barsha Generate'}</button> : null}<button className="btn-primary" type="button" disabled={busy === 'approve' || !draft.trim()} onClick={handleApprove}>{busy === 'approve' ? 'Sending…' : 'Approve & send'}</button></div>
+          <div className="conversation-composer-actions"><button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>{busy === 'generate' ? 'Barsha is writing…' : 'Let Barsha Generate'}</button><button className="btn-primary" type="button" disabled={busy === 'approve' || !draft.trim()} onClick={handleApprove}>{busy === 'approve' ? 'Sending…' : 'Approve & send'}</button></div>
         </div> : <div className="conversation-closed-note"><span>This conversation has no reply awaiting approval.</span><button className="btn-outline" type="button" onClick={() => setComposerOpen(true)}>Write a reply</button></div>}
       </section>
     </div>

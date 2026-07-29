@@ -966,6 +966,13 @@ export function sendManualConversationReply(leadId: string, body: string) {
   });
 }
 
+export function draftManualConversationReply(leadId: string) {
+  return apiFetch<{ body: string }>(`/api/inbox/conversations/${leadId}/draft`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
 export function regenerateInboxMessage(messageId: string) {
   return apiFetch<{ message: EmailMessage }>(`/api/inbox/messages/${messageId}/regenerate`, {
     method: 'POST',
