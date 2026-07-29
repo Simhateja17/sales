@@ -271,6 +271,23 @@ export interface EmailMessage {
   campaigns?: Pick<Campaign, 'name'>;
 }
 
+export type ConversationStatus = 'needs_reply' | 'draft_ready' | 'sent' | 'positive' | 'unsubscribed';
+
+export interface EmailConversation {
+  lead_id: string;
+  lead: Pick<Lead, 'id' | 'full_name' | 'company_name' | 'title' | 'email' | 'dnc_status'>;
+  latest_message: EmailMessage;
+  latest_inbound_message_id: string | null;
+  campaign_name: string | null;
+  message_count: number;
+  last_message_at: string;
+  status: ConversationStatus;
+  needs_reply: boolean;
+  draft_ready: boolean;
+  positive_intent: boolean;
+  unsubscribed: boolean;
+}
+
 export interface FollowUp {
   id: string;
   workspace_id: string;
@@ -856,6 +873,10 @@ export function sendCampaignEmailsNow(campaignId: string, messageIds: string[]) 
 
 export function getInbox() {
   return apiFetch<{ conversations: EmailMessage[] }>('/api/inbox');
+}
+
+export function getEmailConversations() {
+  return apiFetch<{ conversations: EmailConversation[] }>('/api/inbox/conversations');
 }
 
 export function getSentMail() {

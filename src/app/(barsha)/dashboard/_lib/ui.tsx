@@ -1,13 +1,12 @@
 import type { Campaign } from '@/lib/api';
 
-export type Page = 'overview' | 'campaigns' | 'leads' | 'sent' | 'inbox' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
+export type Page = 'overview' | 'campaigns' | 'leads' | 'inbox' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
 
 export const navItems: Array<{ id: Page; label: string; marker: string }> = [
   { id: 'overview', label: 'Home', marker: 'Ho' },
   { id: 'campaigns', label: 'Campaigns', marker: 'Ca' },
   { id: 'leads', label: 'Leads', marker: 'Le' },
-  { id: 'sent', label: 'Sent Mails', marker: 'Se' },
-  { id: 'inbox', label: 'Inbox', marker: 'In' },
+  { id: 'inbox', label: 'Conversations', marker: 'Co' },
   { id: 'meetings', label: 'Meetings', marker: 'Me' },
   { id: 'analytics', label: 'Analytics', marker: 'An' },
   { id: 'settings', label: 'Settings', marker: 'Se' },
@@ -29,8 +28,8 @@ export function statusBadge(status?: string | null) {
   if (!status) return 'b-noanswer';
   if (['active', 'sent', 'auto_sent', 'booked', 'positive'].includes(status)) return 'b-booked';
   if (['ready', 'approved', 'interested'].includes(status)) return 'b-interested';
-  if (['draft', 'pending_approval', 'generating', 'queued'].includes(status)) return 'b-pending';
-  if (['failed', 'rejected', 'not_interested', 'dnc_request'].includes(status)) return 'b-noanswer';
+  if (['draft', 'pending_approval', 'generating', 'queued', 'needs_reply', 'draft_ready'].includes(status)) return 'b-pending';
+  if (['failed', 'rejected', 'not_interested', 'dnc_request', 'unsubscribed'].includes(status)) return 'b-noanswer';
   return 'b-new';
 }
 

@@ -18,6 +18,8 @@ import {
   getLatestApolloImport,
   getLeadImport,
   getInbox,
+  getConversation,
+  getEmailConversations,
   getLeads,
   getMeetings,
   regenerateInboxMessage,
@@ -37,6 +39,7 @@ import {
   type AgentConfig,
   type Campaign,
   type ConnectedAccount,
+  type EmailConversation,
   type CsvMapping,
   type EmailMessage,
   type Lead,
@@ -96,34 +99,91 @@ function messagePreview(value?: string | null) {
   return replyOnly || 'No message content';
 }
 
-function MessageDetailModal({ message, onClose }: { message: EmailMessage; onClose: () => void }) {
-  const inbound = message.direction === 'inbound';
-  const person = message.leads?.full_name || message.leads?.email || (inbound ? 'Unknown sender' : 'Recipient');
-  const email = message.leads?.email || 'Not available';
-  const timestamp = fmtDate(inbound ? (message.received_at || message.created_at) : (message.sent_at || message.created_at));
-  const body = message.body || message.draft_body || 'No message content is available.';
+function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: { conversation: EmailConversation; onClose: () => void; onRefresh: () => Promise<void>; onError: (message: string) => void }) {
+  const [messages, setMessages] = useState<EmailMessage[]>([]);
+  const [draft, setDraft] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState('');
+  const [dirty, setDirty] = useState(false);
+
+  const replyTarget = useMemo(() => [...messages].reverse().find(message => message.direction === 'inbound' && !message.responded_at && ['received', 'pending_approval'].includes(message.status)) || null, [messages]);
+
+  async function loadThread() {
+    setLoading(true);
+    try {
+      const data = await getConversation(conversation.lead_id);
+      setMessages(data.messages);
+      const target = [...data.messages].reverse().find(message => message.direction === 'inbound' && !message.responded_at && ['received', 'pending_approval'].includes(message.status));
+      setDraft(target?.draft_body || '');
+      setDirty(false);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Could not load this conversation');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadThread(); }, [conversation.lead_id]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') requestClose(); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  function requestClose() {
+    if (dirty && !window.confirm('Discard your unsent reply draft?')) return;
+    onClose();
+  }
+
+  async function handleGenerate() {
+    if (!replyTarget) return;
+    setBusy('generate');
+    try {
+      const data = await regenerateInboxMessage(replyTarget.id);
+      setDraft(data.message.draft_body || '');
+      setDirty(false);
+      await Promise.all([loadThread(), onRefresh()]);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Could not generate a reply draft');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleApprove() {
+    if (!replyTarget || !draft.trim()) return;
+    setBusy('approve');
+    try {
+      await approveInboxMessage(replyTarget.id, draft.trim());
+      setDraft('');
+      setDirty(false);
+      await Promise.all([loadThread(), onRefresh()]);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Could not approve this reply');
+    } finally {
+      setBusy('');
+    }
+  }
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="modal-card message-detail-modal" role="dialog" aria-modal="true" aria-label={inbound ? 'Received email details' : 'Sent email details'} onMouseDown={event => event.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation" onMouseDown={requestClose}>
+      <section className="modal-card conversation-modal" role="dialog" aria-modal="true" aria-label={`Conversation with ${conversation.lead.full_name}`} onMouseDown={event => event.stopPropagation()}>
         <div className="card-head">
-          <div>
-            <div className="card-title">{inbound ? 'Received email' : 'Sent email'}</div>
-            <div className="sf-hint">{timestamp}</div>
-          </div>
-          <button type="button" className="modal-close" aria-label="Close email details" onClick={onClose}>×</button>
+          <div><div className="card-title">{conversation.lead.full_name || conversation.lead.email}</div><div className="sf-hint">{conversation.lead.title || 'Contact'}{conversation.lead.company_name ? ` · ${conversation.lead.company_name}` : ''} · {conversation.lead.email}</div></div>
+          <button type="button" className="modal-close" aria-label="Close conversation" onClick={requestClose}>×</button>
         </div>
-        <div className="email-detail-body">
-          <div className="message-detail-meta">
-            <span><b>{inbound ? 'From' : 'To'}</b>{person}</span>
-            <span><b>Email</b>{email}</span>
-            {message.campaigns?.name ? <span><b>Campaign</b>{message.campaigns.name}</span> : null}
-          </div>
-          <div className="email-detail-label">Subject</div>
-          <div className="email-detail-subject">{message.subject || 'No subject'}</div>
-          <div className="email-detail-label">Message</div>
-          <div className="email-detail-copy">{body}</div>
+        <div className="conversation-thread">
+          {loading ? <div className="sf-hint">Loading conversation…</div> : messages.map(message => <article key={message.id} className={`thread-message ${message.direction === 'outbound' ? 'is-outbound' : 'is-inbound'}`}>
+            <div className="thread-message-meta"><strong>{message.direction === 'outbound' ? 'You' : conversation.lead.full_name}</strong><span>{fmtDate(message.sent_at || message.received_at || message.created_at)}</span></div>
+            <div className="thread-message-subject">{message.subject || 'No subject'}</div>
+            <div className="thread-message-body">{message.body || 'No message content'}</div>
+          </article>)}
         </div>
+        {replyTarget ? <div className="conversation-composer">
+          <div className="email-detail-label">Reply to {conversation.lead.full_name || conversation.lead.email}</div>
+          <textarea value={draft} onChange={event => { setDraft(event.target.value); setDirty(true); }} placeholder="Write a reply, or ask Barsha to draft one…" />
+          <div className="conversation-composer-actions"><button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>{busy === 'generate' ? 'Drafting…' : 'Generate draft'}</button><button className="btn-primary" type="button" disabled={busy === 'approve' || !draft.trim()} onClick={handleApprove}>{busy === 'approve' ? 'Sending…' : 'Approve & send'}</button></div>
+        </div> : <div className="conversation-closed-note">This conversation has no reply awaiting approval.</div>}
       </section>
     </div>
   );
@@ -253,7 +313,7 @@ function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedPage = searchParams.get('page');
-  const activePage: Page = requestedPage && pageIds.has(requestedPage) ? requestedPage as Page : 'overview';
+  const activePage: Page = requestedPage === 'sent' ? 'inbox' : requestedPage && pageIds.has(requestedPage) ? requestedPage as Page : 'overview';
   const setActivePage = (page: Page) => router.push(page === 'overview' ? '/dashboard' : `/dashboard?page=${page}`);
   const [today, setToday] = useState('');
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -264,7 +324,10 @@ function DashboardContent() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [inbox, setInbox] = useState<EmailMessage[]>([]);
   const [sentMail, setSentMail] = useState<EmailMessage[]>([]);
-  const [openedMessage, setOpenedMessage] = useState<EmailMessage | null>(null);
+  const [conversations, setConversations] = useState<EmailConversation[]>([]);
+  const [openedConversation, setOpenedConversation] = useState<EmailConversation | null>(null);
+  const [conversationFilter, setConversationFilter] = useState<'all' | 'needs_reply' | 'draft_ready' | 'sent' | 'positive' | 'unsubscribed'>('all');
+  const [conversationSearch, setConversationSearch] = useState('');
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [smtpAccount, setSmtpAccount] = useState<ConnectedAccount | null>(null);
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
@@ -330,6 +393,26 @@ function DashboardContent() {
     () => inbox.filter(item => item.direction === 'inbound' || item.status === 'pending_approval'),
     [inbox]
   );
+  const visibleConversations = useMemo(() => {
+    const query = conversationSearch.trim().toLowerCase();
+    return conversations.filter(conversation => {
+      const matchesFilter = conversationFilter === 'all'
+        || (conversationFilter === 'positive' && conversation.positive_intent)
+        || (conversationFilter === 'unsubscribed' && conversation.unsubscribed)
+        || (conversationFilter === 'needs_reply' && conversation.needs_reply)
+        || (conversationFilter === 'draft_ready' && conversation.draft_ready)
+        || (conversationFilter === 'sent' && conversation.status === 'sent');
+      if (!matchesFilter) return false;
+      if (!query) return true;
+      return [
+        conversation.lead.full_name,
+        conversation.lead.email,
+        conversation.lead.company_name,
+        conversation.latest_message.subject,
+        conversation.latest_message.body,
+      ].filter(Boolean).join(' ').toLowerCase().includes(query);
+    });
+  }, [conversationFilter, conversationSearch, conversations]);
   const sentMessages = sentMail.length;
   const openedMessages = preview.filter(item => item.open_count > 0).length;
 
@@ -430,11 +513,12 @@ function DashboardContent() {
   }, [selectedCampaign?.id]);
 
   async function refreshAll() {
-    const [leadData, campaignData, inboxData, sentMailData, meetingData, smtpData] = await Promise.all([
+    const [leadData, campaignData, inboxData, sentMailData, conversationData, meetingData, smtpData] = await Promise.all([
       getLeads(),
       getCampaigns(),
       getInbox(),
       getSentMail(),
+      getEmailConversations(),
       getMeetings(),
       getSmtpStatus(),
     ]);
@@ -448,6 +532,7 @@ function DashboardContent() {
     setCampaigns(campaignData.campaigns);
     setInbox(inboxData.conversations || []);
     setSentMail(sentMailData.messages || []);
+    setConversations(conversationData.conversations || []);
     setMeetings(meetingData.meetings);
     setSmtpAccount(smtpData.account);
     if (!selectedCampaignId && campaignData.campaigns[0]) {
@@ -1030,99 +1115,48 @@ function DashboardContent() {
           <section>
             <div className="page-header">
               <div>
-                <div className="page-kicker">Conversations</div>
-                <h2 className="page-title">Reply with context</h2>
-                <p className="page-sub">Every reply keeps the lead and company context alongside an AI draft for your approval.</p>
+                <div className="page-kicker">Communications</div>
+                <h2 className="page-title">Conversation center</h2>
+                <p className="page-sub">Every inbound and outbound email, organized by lead. Open a conversation to read the thread and approve a reply.</p>
               </div>
             </div>
             <div className="inbox-workspace">
               <div className="card inbox-thread-panel">
                 <div className="card-head">
                   <div>
-                    <div className="card-title">Reply queue</div>
-                    <div className="sf-hint">Approve a draft when it is ready to send.</div>
+                    <div className="card-title">All conversations</div>
+                    <div className="sf-hint">One row per lead. Open any row to see the full email thread.</div>
                   </div>
-                  <span className="card-action">{inbox.length} conversation{inbox.length === 1 ? '' : 's'}</span>
+                  <span className="card-action">{visibleConversations.length} conversation{visibleConversations.length === 1 ? '' : 's'}</span>
                 </div>
-                {inbox.length ? inbox.map(item => (
-                  <div key={item.id} className="call-card message-row" role="button" tabIndex={0} aria-label={`Open email from ${item.leads?.full_name || item.leads?.email || 'sender'}`} onClick={() => setOpenedMessage(item)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpenedMessage(item); } }}>
-                    <div className="call-av">{initials(item.leads?.full_name)}</div>
+                <div className="conversation-controls">
+                  <input aria-label="Search conversations" value={conversationSearch} onChange={event => setConversationSearch(event.target.value)} placeholder="Search people, companies, subjects, or messages…" />
+                  <div className="conversation-filter-list">{(['all', 'needs_reply', 'draft_ready', 'sent', 'positive', 'unsubscribed'] as const).map(filter => <button key={filter} type="button" className={conversationFilter === filter ? 'is-active' : ''} onClick={() => setConversationFilter(filter)}>{filter === 'all' ? 'All' : filter.replace(/_/g, ' ')}</button>)}</div>
+                </div>
+                {visibleConversations.length ? visibleConversations.map(conversation => (
+                  <div key={conversation.lead_id} className="call-card message-row" role="button" tabIndex={0} aria-label={`Open conversation with ${conversation.lead.full_name || conversation.lead.email}`} onClick={() => setOpenedConversation(conversation)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpenedConversation(conversation); } }}>
+                    <div className="call-av">{initials(conversation.lead.full_name)}</div>
                     <div className="call-meta">
-                      <div className="call-name">{item.leads?.full_name || item.leads?.email || 'Inbound email'}</div>
-                      <div className="call-detail">{fmtDate(item.received_at || item.created_at)}</div>
-                      <div className="message-row-preview">“{messagePreview(item.body)}”</div>
+                      <div className="call-name">{conversation.lead.full_name || conversation.lead.email || 'Conversation'}</div>
+                      <div className="call-detail">{conversation.lead.company_name || conversation.lead.email} · {fmtDate(conversation.last_message_at)} · {conversation.message_count} email{conversation.message_count === 1 ? '' : 's'}</div>
+                      <div className="message-row-preview">{conversation.latest_message.subject || messagePreview(conversation.latest_message.body)}</div>
                     </div>
                     <div className="call-right">
-                      <span className={`badge ${statusBadge(item.intent_classification || item.status)}`}><span className="bdot" />{item.intent_classification || item.status}</span>
-                      <div style={{ marginTop: 10 }}>
-                        {item.responded_at ? <span className="card-action">Reply queued</span> : item.status === 'pending_approval' ? (
-                        <button className="btn-outline" type="button" disabled={busy === item.id} onClick={event => { event.stopPropagation(); handleApproveReply(item.id); }}>
-                          {busy === item.id ? 'Sending...' : 'Approve reply'}
-                        </button>
-                        ) : (
-                          <button className="btn-outline" type="button" disabled={busy === item.id} onClick={event => { event.stopPropagation(); handleRegenerateReply(item.id); }}>
-                            {busy === item.id ? 'Drafting...' : 'Generate draft'}
-                          </button>
-                        )}
-                      </div>
+                      <span className={`badge ${statusBadge(conversation.status)}`}><span className="bdot" />{conversation.status.replace(/_/g, ' ')}</span>
+                      <div className="card-action" style={{ marginTop: 10 }}>Open →</div>
                     </div>
                   </div>
-                )) : <EmptyState text="No inbound replies yet. Replies from launched campaigns appear here for review." />}
+                )) : <EmptyState text="No conversations match this filter yet." />}
               </div>
               <aside className="set-panel inbox-summary-panel">
                 <div className="sf-lbl">Conversation health</div>
                 <div className="msl-list" style={{ marginTop: 18 }}>
-                  <Metric label="Needs review" value={pendingReplies.length.toString()} />
-                  <Metric label="Positive intent" value={inbox.filter(item => item.intent_classification === 'positive').length.toString()} />
+                  <Metric label="Needs reply" value={conversations.filter(item => item.needs_reply).length.toString()} />
+                  <Metric label="Draft ready" value={conversations.filter(item => item.draft_ready).length.toString()} />
+                  <Metric label="Positive intent" value={conversations.filter(item => item.positive_intent).length.toString()} />
                   <Metric label="Meetings booked" value={meetings.length.toString()} />
                 </div>
-                <div className="sf-hint" style={{ marginTop: 18 }}>Your reply is never sent just because it was drafted. Check the tone and approve it deliberately.</div>
-              </aside>
-            </div>
-          </section>
-        ) : null}
-
-        {activePage === 'sent' ? (
-          <section>
-            <div className="page-header">
-              <div>
-                <div className="page-kicker">Outbound history</div>
-                <h2 className="page-title">Sent mails</h2>
-                <p className="page-sub">Every email Barsha has successfully sent from this workspace, including approved replies.</p>
-              </div>
-            </div>
-            <div className="inbox-workspace">
-              <div className="card inbox-thread-panel">
-                <div className="card-head">
-                  <div>
-                    <div className="card-title">Delivery history</div>
-                    <div className="sf-hint">Sent messages are retained here as your campaign audit trail.</div>
-                  </div>
-                  <span className="card-action">{sentMail.length} sent</span>
-                </div>
-                {sentMail.length ? sentMail.map(item => (
-                  <div key={item.id} className="call-card message-row" role="button" tabIndex={0} aria-label={`Open sent email to ${item.leads?.full_name || item.leads?.email || 'recipient'}`} onClick={() => setOpenedMessage(item)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpenedMessage(item); } }}>
-                    <div className="call-av">{initials(item.leads?.full_name)}</div>
-                    <div className="call-meta">
-                      <div className="call-name">{item.leads?.full_name || item.leads?.email || 'Recipient'}</div>
-                      <div className="call-detail">{fmtDate(item.sent_at || item.created_at)}</div>
-                      <div className="message-row-preview">{item.subject || 'No subject'}</div>
-                    </div>
-                    <div className="call-right">
-                      <span className="badge b-booked"><span className="bdot" />sent</span>
-                      <div className="call-detail" style={{ marginTop: 10 }}>{item.campaigns?.name || 'Approved reply'}</div>
-                      <div className="call-detail" style={{ marginTop: 6 }}>{item.open_count > 0 ? `${item.open_count} open${item.open_count === 1 ? '' : 's'}` : 'Not opened yet'}</div>
-                    </div>
-                  </div>
-                )) : <EmptyState text="No sent mail yet. Emails appear here as soon as Barsha sends them." />}
-              </div>
-              <aside className="set-panel inbox-summary-panel">
-                <div className="sf-lbl">Delivery summary</div>
-                <div className="msl-list" style={{ marginTop: 18 }}>
-                  <Metric label="Sent" value={sentMail.length.toString()} />
-                  <Metric label="Opened" value={sentMail.filter(item => item.open_count > 0).length.toString()} />
-                  <Metric label="Campaign replies" value={sentMail.filter(item => item.in_reply_to_header).length.toString()} />
-                </div>
+                <div className="sf-hint" style={{ marginTop: 18 }}>Drafts are never sent automatically. Open a conversation, review the thread, then approve the reply deliberately.</div>
               </aside>
             </div>
           </section>
@@ -1375,7 +1409,7 @@ function DashboardContent() {
         }}
         onSubmit={handleCreateCampaign}
       />
-      {openedMessage ? <MessageDetailModal message={openedMessage} onClose={() => setOpenedMessage(null)} /> : null}
+      {openedConversation ? <ConversationThreadModal conversation={openedConversation} onClose={() => setOpenedConversation(null)} onRefresh={refreshAll} onError={setMessage} /> : null}
     </>
   );
 }

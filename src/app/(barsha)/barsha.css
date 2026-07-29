@@ -649,7 +649,26 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;b
 .inbox-thread-panel{overflow:hidden;}
 .inbox-thread-panel .card-head{align-items:flex-start;}
 .inbox-thread-panel .card-head .sf-hint{margin-top:5px;}
+.conversation-controls{padding:0 20px 18px;border-bottom:1px solid var(--cream-dark);}
+.conversation-controls input{width:100%;border:1.5px solid var(--border);border-radius:9px;background:var(--cream);outline:none;color:var(--text);font:13px 'DM Sans',sans-serif;padding:11px 12px;}
+.conversation-controls input:focus{border-color:var(--purple);background:var(--white);}
+.conversation-filter-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px;}
+.conversation-filter-list button{border:1px solid var(--border);border-radius:999px;background:var(--white);color:var(--text-muted);font:600 11px 'DM Sans',sans-serif;padding:7px 10px;cursor:pointer;text-transform:capitalize;}
+.conversation-filter-list button.is-active{background:var(--purple);border-color:var(--purple);color:var(--white);}
 .inbox-summary-panel{position:sticky;top:24px;padding:25px 26px;background:linear-gradient(145deg,var(--white) 0%,var(--gold-pale) 205%);}
+.conversation-modal{width:min(820px,100%);}
+.conversation-thread{display:grid;gap:12px;padding:22px 0;max-height:48vh;overflow:auto;}
+.thread-message{max-width:88%;padding:13px 15px;border:1px solid var(--cream-dark);border-radius:12px;background:var(--cream);}
+.thread-message.is-outbound{margin-left:auto;background:var(--purple-pale);border-color:#d8c9ef;}
+.thread-message-meta{display:flex;justify-content:space-between;gap:14px;font-size:11px;color:var(--text-muted);margin-bottom:8px;}
+.thread-message-meta strong{color:var(--text);font-size:12px;}
+.thread-message-subject{font-size:13px;font-weight:700;color:var(--text);margin-bottom:7px;}
+.thread-message-body{white-space:pre-wrap;font-size:13px;line-height:1.55;color:var(--text);}
+.conversation-composer{border-top:1px solid var(--cream-dark);padding-top:18px;}
+.conversation-composer textarea{display:block;width:100%;min-height:130px;resize:vertical;border:1.5px solid var(--border);border-radius:10px;background:var(--cream);color:var(--text);font:14px/1.55 'DM Sans',sans-serif;padding:12px;outline:none;}
+.conversation-composer textarea:focus{border-color:var(--purple);background:var(--white);}
+.conversation-composer-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px;}
+.conversation-closed-note{border-top:1px solid var(--cream-dark);padding:16px 0 0;color:var(--text-muted);font-size:12px;}
 
 /* BILLING */
 .bill-grid{display:grid;grid-template-columns:1fr 300px;gap:20px;}
