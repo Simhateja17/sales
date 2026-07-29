@@ -1382,7 +1382,7 @@ function DashboardContent() {
                   <Metric label="Mailbox" value={autopilotReadiness?.mailbox_ready ? 'Verified' : 'Needs attention'} />
                   <Metric label="Launched campaigns" value={String(autopilotReadiness?.launched_campaigns || 0)} />
                   <Metric label="Included campaigns" value={String(autopilotReadiness?.included_campaigns || 0)} />
-                  <Metric label="Run time" value={`${autopilotSettings?.daily_run_time || '08:00'} ${autopilotSettings?.timezone || 'Asia/Singapore'}`} />
+                  <Metric label="Run time" value={`${(autopilotSettings?.daily_run_time || '08:00').slice(0, 5)} ${autopilotSettings?.timezone || 'Asia/Singapore'}`} />
                 </div>
                 {autopilotSettings ? <>
                   <div className="sf" style={{ marginTop: 18 }}>
