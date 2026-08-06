@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
-import type { AgentConfig, CampaignBrief, CampaignSequenceStep, Lead } from '@/lib/api';
+import type { AgentConfig, CampaignBrief, CampaignSequenceStep, ConnectedAccount, Lead } from '@/lib/api';
 
 type CampaignDraft = {
   name: string;
@@ -88,18 +88,19 @@ function toSequenceSteps(steps: DesignerStep[]): CampaignSequenceStep[] {
 
 export type CampaignBuilderSubmission = {
   campaign: CampaignDraft;
-  brief: Pick<CampaignBrief, 'campaign_angle' | 'cta' | 'tone'>;
+  brief: Pick<CampaignBrief, 'campaign_angle' | 'cta' | 'tone' | 'proof' | 'language' | 'signature' | 'sector'>;
   leadIds: string[];
   steps: CampaignSequenceStep[];
   attachments: Array<{ stepNumber: number; file: File }>;
 };
 
 export default function CampaignBuilderModal({
-  open, leads, agentConfig, initialLeadIds = [], isSubmitting, onClose, onSubmit,
+  open, leads, agentConfig, mailboxAccount, initialLeadIds = [], isSubmitting, onClose, onSubmit,
 }: {
   open: boolean;
   leads: Lead[];
   agentConfig: AgentConfig | null;
+  mailboxAccount: Pick<ConnectedAccount, 'from_name' | 'from_email'> | null;
   initialLeadIds?: string[];
   isSubmitting: boolean;
   onClose: () => void;
@@ -107,7 +108,7 @@ export default function CampaignBuilderModal({
 }) {
   const [campaign, setCampaign] = useState<CampaignDraft>(initialCampaign);
   const [steps, setSteps] = useState<DesignerStep[]>(() => defaultSteps(3));
-  const [brief, setBrief] = useState<Pick<CampaignBrief, 'campaign_angle' | 'cta' | 'tone'>>({ campaign_angle: '', cta: '', tone: '' });
+  const [brief, setBrief] = useState<Pick<CampaignBrief, 'campaign_angle' | 'cta' | 'tone' | 'proof' | 'language' | 'signature' | 'sector'>>({ campaign_angle: '', cta: '', tone: '', proof: '', language: 'English', signature: '', sector: '' });
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [leadFilter, setLeadFilter] = useState('');
   const [draggedStepIndex, setDraggedStepIndex] = useState<number | null>(null);
@@ -120,14 +121,15 @@ export default function CampaignBuilderModal({
     const eligibleIds = new Set(leads.filter(lead => Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status) && lead.lifecycle_status !== 'suppressed' && lead.dnc_status !== 'blocked').map(lead => lead.id));
     setCampaign(initialCampaign);
     setSteps(defaultSteps(3));
-    setBrief({ campaign_angle: '', cta: agentConfig?.booking_link || '', tone: agentConfig?.tone || '' });
+    const mailboxSignature = [mailboxAccount?.from_name, mailboxAccount?.from_email].filter(Boolean).join('\n');
+    setBrief({ campaign_angle: '', cta: agentConfig?.booking_link || '', tone: agentConfig?.tone || '', proof: '', language: 'English', signature: mailboxSignature, sector: '' });
     setSelectedLeadIds(initialLeadIds.filter(id => eligibleIds.has(id)));
     setLeadFilter('');
     setDraggedStepIndex(null);
     setDropTargetIndex(null);
     setTimezoneOpen(false);
     setTimezoneSearch('');
-  }, [agentConfig?.booking_link, agentConfig?.tone, initialLeadIds, leads, open]);
+  }, [agentConfig?.booking_link, agentConfig?.tone, initialLeadIds, leads, mailboxAccount?.from_email, mailboxAccount?.from_name, open]);
 
   const visibleLeads = useMemo(() => {
     const query = leadFilter.trim().toLowerCase();
@@ -225,6 +227,10 @@ export default function CampaignBuilderModal({
               <label className="campaign-builder-field"><span>Specific angle (optional)</span><input value={brief.campaign_angle} onChange={event => setBrief(current => ({ ...current, campaign_angle: event.target.value }))} placeholder="e.g. help founder-led teams tighten follow-up" /></label>
               <label className="campaign-builder-field"><span>Call to action</span><input value={brief.cta} onChange={event => setBrief(current => ({ ...current, cta: event.target.value }))} placeholder="Book a short call" /></label>
               <label className="campaign-builder-field"><span>Campaign tone</span><input value={brief.tone} onChange={event => setBrief(current => ({ ...current, tone: event.target.value }))} placeholder="Warm, concise, direct" /></label>
+              <label className="campaign-builder-field"><span>Proof or offer context (optional)</span><input value={brief.proof} onChange={event => setBrief(current => ({ ...current, proof: event.target.value }))} placeholder="A verified case study, offer, or useful angle" /></label>
+              <label className="campaign-builder-field"><span>Language</span><input value={brief.language} onChange={event => setBrief(current => ({ ...current, language: event.target.value }))} placeholder="English" /></label>
+              <label className="campaign-builder-field"><span>Sector (optional context)</span><input value={brief.sector} onChange={event => setBrief(current => ({ ...current, sector: event.target.value }))} placeholder="Leave blank for a general campaign" /></label>
+              <label className="campaign-builder-field campaign-builder-field-wide"><span>Signature</span><textarea className="campaign-builder-textarea" value={brief.signature} onChange={event => setBrief(current => ({ ...current, signature: event.target.value }))} placeholder="Prefilled from the connected mailbox; edit if needed" /></label>
             </div>
           </section>
 
@@ -260,7 +266,7 @@ export default function CampaignBuilderModal({
           </section>
         </div>
 
-        <footer className="campaign-builder-footer"><p>Attachments are sent to every lead in their sequence step. Drafts are never sent automatically.</p><div><button className="btn-outline" type="button" onClick={onClose} disabled={isSubmitting}>Cancel</button><button className="btn-primary" type="button" disabled={isSubmitting || !campaign.name.trim() || !selectedLeadIds.length || !steps.every(step => step.name.trim()) || steps.some(step => step.attachment && step.attachment.size > 10 * 1024 * 1024)} onClick={() => onSubmit({ campaign, brief, leadIds: selectedLeadIds, steps: toSequenceSteps(steps), attachments: steps.flatMap((step, index) => step.attachment ? [{ stepNumber: index + 1, file: step.attachment }] : []) })}>{isSubmitting ? 'Creating…' : `Create campaign with ${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'}`}</button></div></footer>
+        <footer className="campaign-builder-footer"><p>Attachments are sent to every lead in their sequence step. When a launched campaign is included in Autopilot, Barsha can research, write, and send automatically within its safeguards.</p><div><button className="btn-outline" type="button" onClick={onClose} disabled={isSubmitting}>Cancel</button><button className="btn-primary" type="button" disabled={isSubmitting || !campaign.name.trim() || !selectedLeadIds.length || !steps.every(step => step.name.trim()) || steps.some(step => step.attachment && step.attachment.size > 10 * 1024 * 1024)} onClick={() => onSubmit({ campaign, brief, leadIds: selectedLeadIds, steps: toSequenceSteps(steps), attachments: steps.flatMap((step, index) => step.attachment ? [{ stepNumber: index + 1, file: step.attachment }] : []) })}>{isSubmitting ? 'Creating…' : `Create campaign with ${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'}`}</button></div></footer>
       </section>
     </div>
   );

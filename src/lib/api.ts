@@ -77,6 +77,8 @@ export interface Lead {
   external_id: string | null;
   import_run_id: string | null;
   full_name: string;
+  first_name?: string | null;
+  last_name?: string | null;
   company_name: string | null;
   title: string | null;
   phone: string | null;
@@ -101,6 +103,10 @@ export interface Lead {
   notes_summary: string | null;
   company_data?: CompanyData;
   personalization_profile?: PersonalizationProfile;
+  research_status?: 'not_started' | 'queued' | 'running' | 'completed' | 'partial' | 'fallback' | 'failed' | 'timed_out';
+  research_last_error?: string | null;
+  research_profile_version?: number;
+  research_expires_at?: string | null;
   raw_data?: Record<string, unknown>;
   last_enriched_at?: string | null;
   created_at: string;
@@ -129,8 +135,18 @@ export interface CompanyData {
 
 export interface PersonalizationProfile {
   enriched_at?: string;
+  researched_at?: string;
+  source?: string;
+  personalization_score?: number;
+  source_fields_used?: string[];
   person?: {
     headline?: string;
+    first_name?: string;
+    last_name?: string;
+    title?: string;
+    recent_activity_type?: string | null;
+    recent_post_text?: string[];
+    about_section?: string | null;
     seniority?: string;
     departments?: string[];
     location?: string;
@@ -146,8 +162,24 @@ export interface PersonalizationProfile {
     funding_date?: string;
     technologies?: string[];
     keywords?: string[];
+    website_url?: string | null;
+    linkedin_url?: string | null;
+    website_pages?: Array<{ url?: string | null; title?: string | null; description?: string | null }>;
   };
-  email_context?: Array<{ fact?: string; source?: string }>;
+  evidence?: ResearchEvidence[];
+  email_context?: Array<{ fact?: string; excerpt?: string; source?: string; source_url?: string | null; observed_at?: string | null }>;
+}
+
+export interface ResearchEvidence {
+  id?: string;
+  claim?: string;
+  fact?: string;
+  excerpt?: string;
+  source_url?: string | null;
+  source_type?: string | null;
+  source?: string | null;
+  observed_at?: string | null;
+  confidence?: number | null;
 }
 
 export interface ConnectedAccount {
@@ -240,10 +272,24 @@ export interface CampaignBrief {
   campaign_angle?: string;
   cta?: string;
   tone?: string;
+  proof?: string;
+  language?: string;
+  signature?: string;
+  sector?: string;
+  writing_config?: {
+    angle?: string;
+    cta?: string;
+    tone?: string;
+    proof?: string;
+    language?: string;
+    signature?: string;
+    sector?: string;
+  };
 }
 
 export interface CampaignGeneration {
   job_id: string | null;
+  stage?: 'researching' | 'research_complete' | 'writing' | null;
   status: 'idle' | 'waiting' | 'active' | 'delayed' | 'prioritized' | 'completed' | 'failed' | 'unknown';
   generated_messages?: number;
   failed_reason?: string | null;
@@ -252,6 +298,9 @@ export interface CampaignGeneration {
     processed?: number;
     generated?: number;
     skipped?: number;
+    researched?: number;
+    fallback?: number;
+    timed_out?: number;
     failed?: number;
   } | null;
 }
@@ -305,10 +354,21 @@ export interface EmailMessage {
   clicked_at: string | null;
   intent_classification: IntentClassification;
   ai_confidence: number | null;
+  generation_meta?: {
+    ai_provider?: string;
+    ai_model?: string;
+    research?: {
+      score?: number;
+      status?: string;
+      source_fields_used?: string[];
+      evidence?: ResearchEvidence[];
+    };
+    validation?: { valid?: boolean; regenerated_once?: boolean; results?: Array<Record<string, unknown>> };
+  };
   error_message: string | null;
   created_at: string;
   updated_at: string;
-  leads?: Pick<Lead, 'full_name' | 'company_name' | 'title' | 'email' | 'status'>;
+  leads?: Pick<Lead, 'full_name' | 'company_name' | 'title' | 'email' | 'status' | 'personalization_profile' | 'research_status' | 'research_last_error'>;
   campaigns?: Pick<Campaign, 'name'>;
 }
 

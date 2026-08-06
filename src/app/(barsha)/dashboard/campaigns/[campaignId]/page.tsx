@@ -71,6 +71,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   const [sendConfirmTarget, setSendConfirmTarget] = useState<'single' | 'selected' | null>(null);
 
   const canEdit = Boolean(campaign && ['draft', 'paused'].includes(campaign.status));
+  const generationBusy = Boolean(generation && (
+    ['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status)
+    || generation.stage === 'research_complete'
+  ));
   const eligibleLeads = useMemo(
     () => leads.filter(lead => Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status) && lead.dnc_status !== 'blocked'),
     [leads]
@@ -109,6 +113,33 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     return Array.from(groups.values()).sort((a, b) => a.stepNumber - b.stepNumber);
   }, [campaign?.email_sequences, preview]);
   const sentCount = preview.filter(item => item.status === 'sent' || item.status === 'auto_sent').length;
+  const researchEvidenceGroups = useMemo(() => {
+    const groups = new Map<string, {
+      leadId: string;
+      name: string;
+      company: string;
+      score: number;
+      status: string;
+      error: string | null;
+      evidence: Array<{ claim?: string; fact?: string; excerpt?: string; source_url?: string | null; source_type?: string | null }>;
+    }>();
+    for (const item of preview) {
+      if (!item.lead_id || groups.has(item.lead_id)) continue;
+      const profile = item.leads?.personalization_profile;
+      const research = item.generation_meta?.research;
+      const evidence = (research?.evidence?.length ? research.evidence : profile?.evidence || profile?.email_context || []).slice(0, 2);
+      groups.set(item.lead_id, {
+        leadId: item.lead_id,
+        name: item.leads?.full_name || 'Lead',
+        company: item.leads?.company_name || 'Company unavailable',
+        score: Number(research?.score ?? profile?.personalization_score ?? 0),
+        status: research?.status || item.leads?.research_status || 'not_started',
+        error: item.leads?.research_last_error || null,
+        evidence,
+      });
+    }
+    return Array.from(groups.values());
+  }, [preview]);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,7 +182,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   }, [campaignId]);
 
   useEffect(() => {
-    if (!generation || !['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status)) return;
+    if (!generation || (!['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status) && generation.stage !== 'research_complete')) return;
     let cancelled = false;
     const poll = async () => {
       try {
@@ -159,7 +190,11 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         if (cancelled) return;
         setGeneration(data.generation);
         const progress = data.generation.progress;
-        if (['completed', 'failed'].includes(data.generation.status)) {
+        if (data.generation.stage === 'researching') {
+          setMessage(`Researching public company and prospect evidence: ${progress?.processed || 0}/${progress?.total || selectedLeadIds.length} leads completed.`);
+        } else if (data.generation.stage === 'research_complete') {
+          setMessage('Research complete. Starting email writing…');
+        } else if (['completed', 'failed'].includes(data.generation.status)) {
           await reloadPreview();
           if (!cancelled) {
             const failed = Number(progress?.failed || 0);
@@ -178,7 +213,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     poll();
     const timer = window.setInterval(poll, 2500);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [campaignId, generation?.status]);
+  }, [campaignId, generation?.stage, generation?.status]);
 
   useEffect(() => {
     setEmailEditSubject(openedEmail?.subject || '');
@@ -526,8 +561,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
           </div>
           {campaign ? (
             <div className="page-actions">
-              <button className="btn-outline" type="button" disabled={busy === 'generate' || Boolean(generation && ['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status)) || !canEdit} onClick={handleGenerate}>
-                {busy === 'generate' || (generation && ['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status)) ? 'Generating...' : 'Generate emails'}
+              <button className="btn-outline" type="button" disabled={busy === 'generate' || generationBusy || !canEdit} onClick={handleGenerate}>
+                {busy === 'generate' || generationBusy ? 'Researching and writing...' : 'Generate emails'}
               </button>
               <button className="btn-primary" type="button" disabled={busy === 'launch'} onClick={handleLaunch}>
                 {busy === 'launch' ? 'Launching...' : 'Launch'}
@@ -564,7 +599,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
               <div className="card-head">
                 <div>
                   <div className="card-title">Review generated emails</div>
-                  <div className="sf-hint">Edit anything you need, then explicitly approve the drafts that can launch.</div>
+                  <div className="sf-hint">Edit anything you need. Manual launches use approval; launched campaigns included in Autopilot can research, write, and send automatically within the configured safeguards.</div>
                 </div>
                 <div className="preview-actions">
                   <button className="card-action preview-select-all" type="button" disabled={!approvablePreviewIds.length} onClick={toggleAllPreviewSelection}>
@@ -578,6 +613,33 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                   <span className="card-action">{preview.length} email{preview.length === 1 ? '' : 's'}</span>
                 </div>
               </div>
+              {researchEvidenceGroups.length ? (
+                <section className="campaign-research-panel" aria-label="Research evidence used for email writing">
+                  <div className="campaign-research-panel-head">
+                    <div>
+                      <div className="card-title">Evidence used for writing</div>
+                      <div className="sf-hint">Autopilot uses these public facts automatically. Apollo remains the contact source; Apify evidence is cached and shown here for traceability.</div>
+                    </div>
+                    <span className="card-action">{researchEvidenceGroups.length} lead{researchEvidenceGroups.length === 1 ? '' : 's'}</span>
+                  </div>
+                  <div className="campaign-research-list">
+                    {researchEvidenceGroups.slice(0, 12).map(group => (
+                      <article className="campaign-research-item" key={group.leadId}>
+                        <div className="campaign-research-item-topline"><strong>{group.name}</strong><span>{group.company}</span><em>Score {group.score}/3 · {group.status}</em></div>
+                        {group.evidence.length ? group.evidence.map((item, index) => (
+                          <div className="campaign-research-evidence" key={`${group.leadId}-${index}`}>
+                            <span>{item.claim || item.fact || 'Evidence'}</span>
+                            <p>{item.excerpt || item.fact || 'No excerpt stored.'}</p>
+                            {item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Open source ↗</a> : <small>{item.source_type || 'Apollo field'}</small>}
+                          </div>
+                        )) : <p className="campaign-research-empty">No source-backed evidence was available; this lead uses the safe fallback profile.</p>}
+                        {group.error ? <small className="campaign-research-error">Fallback note: {group.error}</small> : null}
+                      </article>
+                    ))}
+                  </div>
+                  {researchEvidenceGroups.length > 12 ? <p className="sf-hint" style={{ marginTop: 12 }}>Showing the first 12 leads. Each generated message retains its own provenance in the stored generation metadata.</p> : null}
+                </section>
+              ) : null}
               {preview.length ? previewSequenceGroups.map(group => {
                 const draftIds = group.messages.filter(item => item.status === 'draft').map(item => item.id);
                 const allGroupDraftsSelected = draftIds.length > 0 && draftIds.every(id => selectedPreviewIds.includes(id));
@@ -698,14 +760,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 ))}
               </div>
               <div className="sf-hint" style={{ marginTop: 16 }}>
-                Your launch safeguard: only approved emails can be queued. Editing a draft always returns it to review.
+                Manual launch safeguard: only approved emails are queued immediately. Autopilot keeps its automatic path for launched campaigns and records the research evidence used for each draft.
               </div>
               <div className="set-save">
                 <button className="btn-outline" type="button" onClick={() => selectedLeadIds.length ? setTab('leads') : setShowExistingPicker(true)}>
                   {selectedLeadIds.length ? `Manage ${selectedLeadIds.length} leads` : 'Add verified leads'}
                 </button>
-                <button className="btn-primary" type="button" disabled={busy === 'generate' || Boolean(generation && ['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status)) || !canEdit} onClick={handleGenerate}>
-                  {busy === 'generate' || (generation && ['waiting', 'active', 'delayed', 'prioritized'].includes(generation.status)) ? 'Generating...' : 'Generate emails'}
+                <button className="btn-primary" type="button" disabled={busy === 'generate' || generationBusy || !canEdit} onClick={handleGenerate}>
+                  {busy === 'generate' || generationBusy ? 'Researching and writing...' : 'Generate emails'}
                 </button>
               </div>
             </div>

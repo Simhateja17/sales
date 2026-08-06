@@ -1631,6 +1631,7 @@ function DashboardContent() {
         open={showCampaignForm}
         leads={emailLeads}
         agentConfig={agentConfig}
+        mailboxAccount={smtpAccount}
         initialLeadIds={campaignBuilderLeadIds}
         isSubmitting={busy === 'campaign'}
         onClose={() => {
