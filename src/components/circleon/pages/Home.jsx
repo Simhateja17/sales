@@ -221,16 +221,16 @@ export default function Home({ v }) {
             <p>
               A living AI team that sources opportunities, speaks with them, and keeps moving until the work is done. Choose one service, or let the whole crew run together.
             </p>
-            <div className="co-actions">
-              <button className="co-button" onClick={v.gotoWaitlist}>
-                Book a demo
-              </button>
-              {' '}
-              <span className="co-see" onClick={v.scrollSolutions}>
-                See the flow
-              </span>
-            </div>
           </section>
+          <div className="co-actions">
+            <button className="co-button" onClick={v.gotoWaitlist}>
+              Book a demo
+            </button>
+            {' '}
+            <span className="co-see" onClick={v.scrollSolutions}>
+              See the flow
+            </span>
+          </div>
           <section className="co-world">
             <div className="co-path" />
             <div className="co-hub">
