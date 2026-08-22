@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { logout, type ConnectedAccount, type Workspace } from '@/lib/api';
 import { navItems, type Page } from './ui';
+import { useTheme } from './theme';
 
 export default function Sidebar({
   activePage,
@@ -26,6 +27,7 @@ export default function Sidebar({
 }) {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -77,6 +79,16 @@ export default function Sidebar({
           </div>
         </div>
       </div>
+      <button
+        type="button"
+        className="sb-theme-toggle"
+        onClick={toggleTheme}
+        aria-pressed={theme === 'dark'}
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        <span className="sb-theme-icon" aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
+        <span className="nav-label">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+      </button>
       <button
         type="button"
         className="nav-item sb-logout"
