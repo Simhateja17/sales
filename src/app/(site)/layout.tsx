@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import '@/components/circleon/circleon.css';
+import { THEME_BOOTSTRAP } from '@/lib/theme';
 
 export const metadata: Metadata = {
   title: 'CircleOn.ai — Every lead gets a call',
@@ -7,14 +8,10 @@ export const metadata: Metadata = {
     'A living AI team that sources opportunities, speaks with them, and keeps moving until the work is done. Choose one service, or let the whole crew run together.',
 };
 
-// Applies the saved theme before first paint so dark mode does not flash light
-// on navigation. The attribute sits on <html>, so it is an ancestor of every
-// [data-co-theme="dark"] rule in circleon.css.
-const THEME_BOOTSTRAP = `try{var t=localStorage.getItem('circleon-theme');if(t==='dark')document.documentElement.setAttribute('data-co-theme','dark');}catch(e){}`;
-
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // THEME_BOOTSTRAP stamps the theme attributes before React hydrates.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

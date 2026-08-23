@@ -1,24 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { applyTheme, readStoredTheme, type Theme } from '@/lib/theme';
 
-export type Theme = 'light' | 'dark';
-
-const STORAGE_KEY = 'barsha-theme';
-
-function readStoredTheme(): Theme {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'light';
-  } catch {
-    // Private mode, or site data blocked. Light is the documented default.
-    return 'light';
-  }
-}
+export type { Theme };
 
 /**
- * Reads and writes the `data-theme` attribute that barsha.css keys off.
+ * React binding over the shared theme preference in `@/lib/theme`.
  *
- * The attribute is already set before first paint by the bootstrap script in
+ * The attributes are already set before first paint by the bootstrap script in
  * (barsha)/layout.tsx, so this hook starts at 'light' to match what the server
  * rendered and syncs to the real value in an effect. Doing it the other way
  * round — reading localStorage during render — would hydrate-mismatch.
@@ -32,14 +22,7 @@ export function useTheme() {
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
-    const root = document.documentElement;
-    if (next === 'dark') root.setAttribute('data-theme', 'dark');
-    else root.removeAttribute('data-theme');
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Preference simply will not persist; the current page still switches.
-    }
+    applyTheme(next);
   }, []);
 
   const toggleTheme = useCallback(() => {

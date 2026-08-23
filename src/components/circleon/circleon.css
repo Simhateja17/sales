@@ -187,7 +187,8 @@
   .co-status{position:absolute;z-index:9;border-radius:6px;padding:6px 8px;background:rgba(255,255,255,.86);border:1px solid rgba(216,213,226,.9);color:#471E86;font:9px 'DM Mono',monospace;box-shadow:0 10px 28px rgba(71,30,134,.1);opacity:0;animation:coStatus 9s ease-in-out infinite}
   .co-status.one{left:20%;bottom:250px}.co-status.two{left:48%;bottom:254px;animation-delay:3s}.co-status.three{right:13%;bottom:238px;animation-delay:6s}
   @keyframes coStatus{0%,5%,32%,100%{opacity:0;transform:translateY(8px)}9%,27%{opacity:1;transform:translateY(0)}}
-  .co-theme-toggle{border:1px solid rgba(116,71,200,.24);border-radius:999px;background:rgba(255,255,255,.76);color:#1A172C;height:34px;padding:0 12px;font:800 10px 'Manrope',system-ui,sans-serif;letter-spacing:.02em;cursor:pointer;box-shadow:0 8px 20px rgba(71,30,134,.08);transition:background .2s,color .2s,border-color .2s,transform .2s}
+  .co-theme-toggle{border:1px solid rgba(116,71,200,.24);border-radius:999px;background:rgba(255,255,255,.76);color:#1A172C;width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 20px rgba(71,30,134,.08);transition:background .2s,color .2s,border-color .2s,transform .2s}
+  .co-theme-toggle svg{width:16px;height:16px;display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
   .co-theme-toggle:hover{transform:translateY(-1px)}
   [data-co-theme="dark"]{background:#261a2f!important;color:#f7f0ff!important}
   [data-co-theme="dark"] .co-theme-ambience{background:radial-gradient(ellipse 60% 58% at 50% 67%,#321b45 0,rgba(32,15,44,.85) 45%,#100716 84%)!important}
@@ -235,7 +236,10 @@
   [data-co-theme="dark"] .co-match{background:#c8872c!important;color:#27162a!important}
   [data-co-theme="dark"] .co-booked{background:#a94839!important;color:#2a1020!important;border-color:#a94839!important}
   [data-co-theme="dark"] footer{background:#2b1e35!important}
-  [data-co-theme="dark"] section:not(.co-hero){position:relative;z-index:2}
+  /* Lifts page sections above the dark ambience layer. .co-intro and .co-world
+     are <section>s inside the hero with their own positioning (absolute world,
+     z-index:5 intro) that this rule out-specifies, so they stay excluded. */
+  [data-co-theme="dark"] section:not(.co-hero):not(.co-intro):not(.co-world){position:relative;z-index:2}
   [data-co-theme="dark"] .co-home-page #solutions>div:first-child h2,
   [data-co-theme="dark"] .co-home-page .co-workflows>div>h3{color:#fff9ff!important}
   [data-co-theme="dark"] .co-home-page #solutions>div:first-child h2 span,
@@ -367,3 +371,19 @@
 [data-co-theme="dark"] .co-nav-mobile a { color: #f7f0ff !important; }
 [data-co-theme="dark"] .co-nav-mobile a span { color: #b9a7c9 !important; }
 [data-co-theme="dark"] .co-nav-mobile-sep { background: #b895d71c !important; }
+
+/* --- Header sign-in link (added; the export had a single action pill) ------
+   Sits outside .co-nav-links, so it needs its own colour rules. Text weight
+   keeps Sign Up the only emphasised call to action in the header. */
+.co-nav-login { font-size: 14px; font-weight: 600; letter-spacing: -.005em;
+  color: #1A172C; text-decoration: none; padding-bottom: 3px; white-space: nowrap;
+  border-bottom: 1px solid transparent; transition: color .2s, border-color .2s; }
+.co-nav-login:hover { border-bottom-color: #7447C8; }
+[data-co-theme="dark"] .co-nav-login { color: #f7f0ff !important; }
+[data-co-theme="dark"] .co-nav-login:hover { border-bottom-color: #d3a844 !important; }
+
+@media (max-width: 720px) {
+  /* The bar is already logo + toggle + pill + burger at 360px; the link moves
+     into the mobile panel instead of crowding that row. */
+  .co-nav-login { display: none; }
+}

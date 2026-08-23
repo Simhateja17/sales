@@ -26,6 +26,7 @@ import Stories from './pages/Stories';
 import Blog from './pages/Blog';
 import Help from './pages/Help';
 import Pricing from './pages/Pricing';
+import { applyTheme, readStoredTheme } from '@/lib/theme';
 
 export const ROUTES = {
   'home': '/',
@@ -39,8 +40,6 @@ export const ROUTES = {
   'blog': '/blog',
   'help': '/help',
 };
-
-const THEME_KEY = 'circleon-theme';
 
 // Set by gotoAndScroll() when an anchor on the home page is requested from
 // another route; consumed by componentDidMount once the home page renders.
@@ -81,10 +80,9 @@ class CircleOnShell extends React.Component {
 
   componentDidMount() {
     this.setState({ mounted: true });
-    try {
-      const saved = localStorage.getItem(THEME_KEY);
-      if (saved === 'dark' || saved === 'light') this.setState({ theme: saved });
-    } catch { /* private mode */ }
+    // The preference is shared with the dashboard and auth pages, so a choice
+    // made anywhere in the product is already stored by the time this mounts.
+    this.setState({ theme: readStoredTheme() });
     if (pendingScroll) {
       const id = pendingScroll;
       pendingScroll = null;
@@ -130,7 +128,9 @@ class CircleOnShell extends React.Component {
   setAnnual = () => this.setState({ billing: 'annual' });
   toggleTheme = () => this.setState((s) => {
     const theme = s.theme === 'dark' ? 'light' : 'dark';
-    try { localStorage.setItem(THEME_KEY, theme); } catch { /* private mode */ }
+    // Stamps <html> as well as persisting, so the dashboard, login, signup, and
+    // onboarding pages open in the same theme.
+    applyTheme(theme);
     return { theme };
   });
   toggleCalc = (key) => this.setState(s => ({ [key]: !s[key] }));
@@ -684,7 +684,6 @@ class CircleOnShell extends React.Component {
       isMonthly, proPrice, proPer, starterPrice, starterPer, comparisonRows,
       starterFeats,
       theme: this.state.theme,
-      themeToggleLabel: this.state.theme === 'dark' ? 'Light mode' : 'Dark mode',
       themeToggleAria: this.state.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode',
       toggleTheme: this.toggleTheme,
       starterIsLead: starterPick === 'lead', starterIsVoice: starterPick === 'voice', starterIsFollow: starterPick === 'follow',

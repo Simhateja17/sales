@@ -1,10 +1,5 @@
 import './barsha.css';
-
-// Applies the saved theme before first paint so dark mode does not flash light
-// on load or navigation. The attribute sits on <html>, so it is an ancestor of
-// every :root[data-theme="dark"] rule in barsha.css. Mirrors the equivalent
-// bootstrap in (site)/layout.tsx.
-const THEME_BOOTSTRAP = `try{var t=localStorage.getItem('barsha-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}`;
+import { THEME_BOOTSTRAP } from '@/lib/theme';
 
 export default function BarshaLayout({ children }: { children: React.ReactNode }) {
   return (
