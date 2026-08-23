@@ -82,7 +82,7 @@ export default function HomeOverview({
           <button className="home-snapshot home-snapshot-gold" type="button" onClick={onOpenInbox}>
             <span className="home-snapshot-label">INBOX</span>
             <strong>{pendingReplies}</strong>
-            <span>reply{pendingReplies === 1 ? '' : 'ies'} to assess</span>
+            <span>repl{pendingReplies === 1 ? 'y' : 'ies'} to assess</span>
           </button>
           <div className="home-meeting-note">
             <span className="home-meeting-dot" />

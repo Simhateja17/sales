@@ -55,7 +55,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   const [notFound, setNotFound] = useState(false);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // The sidebar has no manual collapse control any more; it collapses only
+  // when a drawer needs the room, which this page has none of.
+  const [sidebarCollapsed] = useState(false);
 
   const [tab, setTab] = useState<'emails' | 'leads'>('leads');
   const [showImportChooser, setShowImportChooser] = useState(false);
@@ -543,7 +545,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         smtpAccount={smtpAccount}
         pendingReplies={pendingReplies}
         collapsed={sidebarCollapsed}
-        onToggleCollapsed={() => setSidebarCollapsed(current => !current)}
         onError={setMessage}
       />
 
