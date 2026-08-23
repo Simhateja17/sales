@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { logout, type ConnectedAccount, type Workspace } from '@/lib/api';
 import { navItems, type Page } from './ui';
-import { useTheme } from './theme';
 
 export default function Sidebar({
   activePage,
@@ -13,7 +12,6 @@ export default function Sidebar({
   smtpAccount,
   pendingReplies,
   collapsed,
-  onToggleCollapsed,
   onError,
 }: {
   activePage: Page;
@@ -22,12 +20,10 @@ export default function Sidebar({
   smtpAccount: ConnectedAccount | null;
   pendingReplies: number;
   collapsed: boolean;
-  onToggleCollapsed: () => void;
   onError?: (message: string) => void;
 }) {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
-  const { theme, toggleTheme } = useTheme();
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -50,9 +46,6 @@ export default function Sidebar({
             <div className="sb-sub">Email sales agent</div>
           </div>
         </div>
-        <button className="sb-collapse-toggle" type="button" onClick={onToggleCollapsed} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} title={collapsed ? 'Expand navigation' : 'Collapse navigation'}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-        </button>
       </div>
       <nav className="sb-nav">
         {navItems.map(item => (
@@ -61,7 +54,6 @@ export default function Sidebar({
             type="button"
             className={`nav-item ${activePage === item.id ? 'active' : ''}`}
             onClick={() => onNavigate(item.id)}
-            style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left' }}
           >
             <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>{item.marker}</span>
             <span className="nav-label">{item.label}</span>
@@ -81,20 +73,9 @@ export default function Sidebar({
       </div>
       <button
         type="button"
-        className="sb-theme-toggle"
-        onClick={toggleTheme}
-        aria-pressed={theme === 'dark'}
-        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      >
-        <span className="sb-theme-icon" aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
-        <span className="nav-label">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-      </button>
-      <button
-        type="button"
         className="nav-item sb-logout"
         onClick={handleLogout}
         disabled={loggingOut}
-        style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left' }}
       >
         <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>Lo</span>
         <span className="nav-label">{loggingOut ? 'Logging out...' : 'Log out'}</span>

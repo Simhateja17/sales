@@ -8,7 +8,10 @@ const THEME_BOOTSTRAP = `try{var t=localStorage.getItem('barsha-theme');if(t==='
 
 export default function BarshaLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // THEME_BOOTSTRAP stamps data-theme on this element before React hydrates,
+    // which React otherwise reports as a hydration mismatch on every load.
+    // Suppression is scoped to this element's own attributes, not its subtree.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

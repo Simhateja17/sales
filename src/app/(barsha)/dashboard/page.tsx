@@ -60,10 +60,11 @@ import {
 import Sidebar from './_lib/Sidebar';
 import CampaignBuilderModal, { type CampaignBuilderSubmission } from './_components/CampaignBuilderModal';
 import HomeOverview from './_components/HomeOverview';
-import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, navItems, statusBadge, type Page } from './_lib/ui';
+import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, intentBadge, navItems, statusBadge, type Page } from './_lib/ui';
 import { csvTargets, terminalImportStatuses } from './_lib/leadImport';
+import { useTheme } from './_lib/theme';
 
-type SettingsSection = 'mailbox' | 'autopilot' | 'workspace' | 'compliance';
+type SettingsSection = 'mailbox' | 'autopilot' | 'workspace' | 'compliance' | 'profile';
 type LeadView = 'all' | 'ready' | 'campaign' | 'attention';
 type LeadDrawerMode = 'profile' | 'source';
 
@@ -157,15 +158,22 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
   async function handleGenerate() {
     setBusy('generate');
     try {
+      let generated = '';
       if (replyTarget) {
         const data = await regenerateInboxMessage(replyTarget.id);
-        setDraft(data.message.draft_body || '');
+        generated = data.message?.draft_body || '';
       } else {
         const data = await draftManualConversationReply(conversation.lead_id);
-        setDraft(data.body || '');
+        generated = data.body || '';
       }
-      setDirty(false);
+      // Reload first, then apply the generated text. loadThread() resets the
+      // composer from the server's copy of the thread, so setting the draft
+      // before it ran meant the freshly generated reply was overwritten and
+      // the box came back empty.
       await Promise.all([loadThread(), onRefresh()]);
+      setDraft(generated);
+      setComposerOpen(true);
+      setDirty(false);
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Could not generate a reply draft');
     } finally {
@@ -191,17 +199,26 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
   }
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={requestClose}>
-      <section className="modal-card conversation-modal" role="dialog" aria-modal="true" aria-label={`Conversation with ${conversation.lead.full_name}`} onMouseDown={event => event.stopPropagation()}>
-        <div className="card-head">
-          <div><div className="card-title">{conversation.lead.full_name || conversation.lead.email}</div><div className="sf-hint">{conversation.lead.title || 'Contact'}{conversation.lead.company_name ? ` · ${conversation.lead.company_name}` : ''} · {conversation.lead.email}</div></div>
-          <button type="button" className="modal-close" aria-label="Close conversation" onClick={requestClose}>×</button>
+    // The design opens the thread in the same right-hand drawer used elsewhere,
+    // not a centred modal.
+    <div className="detail-drawer-overlay" role="presentation" onMouseDown={requestClose}>
+      <aside className="detail-drawer conversation-drawer" role="dialog" aria-modal="true" aria-label={`Conversation with ${conversation.lead.full_name}`} onMouseDown={event => event.stopPropagation()}>
+        <div className="detail-drawer-head">
+          <div>
+            <p className="detail-drawer-eyebrow">Thread</p>
+            <h3>{conversation.latest_message.subject || `Conversation with ${conversation.lead.full_name || conversation.lead.email}`}</h3>
+            <div className="sf-hint" style={{ marginTop: 6 }}>{conversation.lead.full_name || conversation.lead.email}{conversation.lead.company_name ? ` · ${conversation.lead.company_name}` : ''}</div>
+          </div>
+          <button type="button" className="detail-drawer-close" aria-label="Close conversation" onClick={requestClose}>×</button>
         </div>
+        <div className="detail-drawer-body">
         <div className="conversation-thread">
           {loading ? <div className="sf-hint">Loading conversation…</div> : messages.map(message => <article key={message.id} className={`thread-message ${message.direction === 'outbound' ? 'is-outbound' : 'is-inbound'}`}>
             <div className="thread-message-meta"><strong>{message.direction === 'outbound' ? 'You' : conversation.lead.full_name}</strong><span>{fmtDate(message.sent_at || message.received_at || message.created_at)}</span></div>
             <div className="thread-message-subject">{message.subject || 'No subject'}</div>
-            <div className="thread-message-body">{visibleMessageBody(message.body)}</div>
+            {/* A reply awaiting approval carries its text in draft_body; body
+                is only populated once it has actually been sent. */}
+            <div className="thread-message-body">{visibleMessageBody(message.body || message.draft_body)}</div>
           </article>)}
         </div>
         {replyTarget || composerOpen ? <div className="conversation-composer">
@@ -209,7 +226,8 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
           <textarea value={draft} onChange={event => { setDraft(event.target.value); setDirty(true); }} placeholder="Write your reply here…" />
           <div className="conversation-composer-actions"><button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>{busy === 'generate' ? 'Barsha is writing…' : 'Let Barsha Generate'}</button><button className="btn-primary" type="button" disabled={busy === 'approve' || !draft.trim()} onClick={handleApprove}>{busy === 'approve' ? 'Sending…' : 'Approve & send'}</button></div>
         </div> : <div className="conversation-closed-note"><span>This conversation has no reply awaiting approval.</span><button className="btn-outline" type="button" onClick={() => setComposerOpen(true)}>Write a reply</button></div>}
-      </section>
+        </div>
+      </aside>
     </div>
   );
 }
@@ -237,9 +255,13 @@ function leadViewClass(lead: Lead) {
 }
 
 function leadEnrichment(lead: Lead) {
-  const reasons = (lead.fit_reasons || []).map(reason => reason.reason).filter(Boolean);
-  if (reasons.length) return reasons.slice(0, 2).join(', ');
-  return lead.enrichment_status === 'completed' ? 'Company and role verified' : 'Work email verified';
+  if (lead.enrichment_status === 'failed') return 'Enrichment failed';
+  if (lead.enrichment_status === 'cooldown') return 'Enrichment cooldown';
+  if (lead.enrichment_status === 'pending') return 'Enrichment running';
+  if (lead.enrichment_status === 'completed') {
+    return lead.company_name && lead.title ? 'Company and role verified' : 'Work email verified';
+  }
+  return lead.email ? 'Work email verified' : 'Not enriched yet';
 }
 
 function formatCompanyNumber(value?: number | null, prefix = '') {
@@ -251,10 +273,14 @@ function LeadResearchProfile({
   lead,
   onAddToCampaign,
   onEdit,
+  onDelete,
 }: {
   lead: Lead;
   onAddToCampaign: () => void;
   onEdit: () => void;
+  // Deletion used to live only behind the removed table checkboxes; the design
+  // puts per-row actions in the detail panel, so it lives here now.
+  onDelete: () => void;
 }) {
   const company = lead.company_data || {};
   const profile = lead.personalization_profile || {};
@@ -320,7 +346,7 @@ function LeadResearchProfile({
         <h5>What Barsha can use in email</h5>
         <p>{researchFacts[0] || `The verified role, ${industry || 'company'} context, and available technology signals can anchor a specific first message.`}</p>
       </section>
-      <div className="lead-profile-actions"><button className="btn-primary" type="button" disabled={!isCampaignEligibleLead(lead)} onClick={onAddToCampaign}>Add to campaign</button><button className="btn-outline" type="button" onClick={onEdit}>Edit lead</button></div>
+      <div className="lead-profile-actions"><button className="btn-primary" type="button" disabled={!isCampaignEligibleLead(lead)} onClick={onAddToCampaign}>Add to campaign</button><button className="btn-outline" type="button" onClick={onDelete}>Delete lead</button><button className="btn-outline" type="button" onClick={onEdit}>Edit lead</button></div>
     </div>
   );
 }
@@ -347,6 +373,34 @@ function meetingTime(meeting: Meeting) {
     minute: '2-digit',
     timeZone: meeting.timezone || 'Asia/Singapore',
   }).format(new Date(meeting.starts_at));
+}
+
+function meetingStamp(meeting: Meeting) {
+  if (!meeting.starts_at) return 'Not scheduled';
+  // en-US for month-first ("Aug 24, 10:00"), matching the design. The
+  // timezone stays Asia/Singapore like every other stamp in the dashboard.
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    hour12: false, timeZone: 'Asia/Singapore',
+  }).format(new Date(meeting.starts_at));
+}
+
+/** The design's meetings page: one flat list, stamp / title+invitee / status. */
+function MeetingsList({ meetings }: { meetings: Meeting[] }) {
+  const ordered = [...meetings].sort((a, b) => String(a.starts_at || '').localeCompare(String(b.starts_at || '')));
+  if (!ordered.length) return <div className="mtg-list"><EmptyState text="No meetings booked yet." /></div>;
+  return (
+    <div className="mtg-list">
+      {ordered.map(meeting => (
+        <div className="mtg-item" key={meeting.id}>
+          <div className="mi-time">{meetingStamp(meeting)}</div>
+          <div className="mi-name">{meeting.title}</div>
+          <div className="mi-detail">{meeting.invitee_name || meeting.leads?.full_name || meeting.invitee_email || 'Invitee pending'}</div>
+          <span className={`mi-type ${meeting.status === 'canceled' ? 'is-canceled' : ''}`}>{meeting.status.replace('_', ' ')}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function MeetingsCalendar({ meetings }: { meetings: Meeting[] }) {
@@ -487,9 +541,9 @@ function DashboardContent() {
   const [csvMode, setCsvMode] = useState<'import' | 'suppress'>('import');
   const [csvCampaignId, setCsvCampaignId] = useState('');
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
-  const [managedLeadIds, setManagedLeadIds] = useState<string[]>([]);
   const [editingLeadId, setEditingLeadId] = useState('');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('mailbox');
+  const { theme, toggleTheme } = useTheme();
   const [autopilotSettings, setAutopilotSettings] = useState<AutopilotSettings | null>(null);
   const [autopilotReadiness, setAutopilotReadiness] = useState<AutopilotReadiness | null>(null);
   const [autopilotRuns, setAutopilotRuns] = useState<AutopilotRun[]>([]);
@@ -503,6 +557,7 @@ function DashboardContent() {
   const [leadDrawerMode, setLeadDrawerMode] = useState<LeadDrawerMode>('profile');
   const [leadDrawerOpen, setLeadDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [meetingsView, setMeetingsView] = useState<'list' | 'calendar'>('list');
   const apolloMonitorRef = useRef('');
   const apolloRecoveryStartedRef = useRef(false);
 
@@ -518,12 +573,18 @@ function DashboardContent() {
     [leads]
   );
   const visibleLeads = useMemo(
-    () => leads.filter(lead => lead.dnc_status !== 'blocked' && lead.lifecycle_status !== 'suppressed' && (lead.source !== 'apollo' || ['ready', 'selected_for_campaign', 'contacted'].includes(lead.lifecycle_status))),
+    () => leads.filter(lead => lead.dnc_status !== 'blocked'),
     [leads]
   );
+  // Counted over the same set the table renders, so the metric and the
+  // "Needs attention" tab can never disagree.
   const attentionLeadCount = useMemo(
-    () => leads.filter(lead => lead.enrichment_status === 'failed' || lead.enrichment_status === 'cooldown' || lead.dnc_status === 'pending').length,
-    [leads]
+    () => visibleLeads.filter(lead => leadViewStatus(lead) === 'Needs attention').length,
+    [visibleLeads]
+  );
+  const verifiedEmailLeadCount = useMemo(
+    () => visibleLeads.filter(lead => lead.email).length,
+    [visibleLeads]
   );
   const filteredLeads = useMemo(() => {
     if (leadView === 'ready') return visibleLeads.filter(lead => leadViewStatus(lead) === 'Ready to contact');
@@ -599,6 +660,37 @@ function DashboardContent() {
       setBillingBusy(false);
     }
   }
+
+  // Background refresh replaces the old Refresh button, which the design has no
+  // control for. It runs on an interval and whenever the tab regains focus, and
+  // holds off while a modal or drawer is open so content never shifts under an
+  // interaction. Failures stay silent: this is not something the user asked for,
+  // so it must never raise a banner over their work.
+  const backgroundRefreshBlocked = showCampaignForm || leadDrawerOpen || Boolean(openedConversation);
+  const backgroundRefreshBlockedRef = useRef(backgroundRefreshBlocked);
+  backgroundRefreshBlockedRef.current = backgroundRefreshBlocked;
+
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled || backgroundRefreshBlockedRef.current) return;
+      if (document.visibilityState !== 'visible') return;
+      refreshAll().catch(() => undefined);
+    };
+    const timer = window.setInterval(tick, 60000);
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    window.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+    // refreshAll is stable for the component's lifetime; re-subscribing on every
+    // render would reset the interval continuously.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleAuthenticationRequired = () => redirectForAuthentication();
@@ -762,13 +854,12 @@ function DashboardContent() {
   }
 
   async function handleDeleteLeads(ids: string[]) {
-    if (!ids.length || !window.confirm(`Delete ${ids.length} selected lead${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    if (!ids.length || !window.confirm(`Delete ${ids.length} lead${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
     setBusy('lead-delete');
     setMessage('');
     try {
       await Promise.all(ids.map(id => deleteLead(id)));
       setLeads(current => current.filter(lead => !ids.includes(lead.id)));
-      setManagedLeadIds(current => current.filter(id => !ids.includes(id)));
       setSelectedLeadIds(current => current.filter(id => !ids.includes(id)));
       if (editingLeadId && ids.includes(editingLeadId)) cancelEditLead();
       setMessage(`${ids.length} lead${ids.length === 1 ? '' : 's'} deleted.`);
@@ -996,16 +1087,12 @@ function DashboardContent() {
       setMessage('Pause the campaign before adding leads.');
       return;
     }
-    const eligibleIds = managedLeadIds.filter(id => {
-      const lead = leads.find(item => item.id === id);
-      return isCampaignEligibleLead(lead);
-    });
+    const eligibleIds = leads.filter(isCampaignEligibleLead).map(lead => lead.id);
     if (!eligibleIds.length) {
       setMessage('Select at least one ready lead with an email address.');
       return;
     }
     await saveCampaignLeadSelection([...new Set([...selectedLeadIds, ...eligibleIds])]);
-    setManagedLeadIds([]);
   }
 
 
@@ -1112,6 +1199,7 @@ function DashboardContent() {
   function closeLeadDrawer() {
     setLeadDrawerOpen(false);
     setLeadDrawerMode('profile');
+    setSidebarCollapsed(false);
   }
 
   const autopilotBlockReasons = [
@@ -1129,29 +1217,13 @@ function DashboardContent() {
         smtpAccount={smtpAccount}
         pendingReplies={pendingReplies.length}
         collapsed={sidebarCollapsed}
-        onToggleCollapsed={() => setSidebarCollapsed(current => !current)}
         onError={setMessage}
       />
 
 
       <main className={`main-content${sidebarCollapsed ? ' sidebar-is-collapsed' : ''}`}>
-        {activePage !== 'overview' ? <div className="dash-topbar">
-          <div>
-            <h1 className="dash-greeting">Email command center</h1>
-            <p className="dash-date">{today}</p>
-          </div>
-          <div className="page-actions">
-            <button type="button" className="btn-outline" onClick={() => refreshAll().catch(error => setMessage(error.message))}>
-              Refresh
-            </button>
-            <button type="button" className="btn-primary" onClick={() => {
-              setActivePage('campaigns');
-              openCampaignBuilder();
-            }}>
-              New campaign
-            </button>
-          </div>
-        </div> : null}
+        {/* No global topbar: in the design each page owns its header. Refresh
+            moved into the per-page header actions below. */}
 
         {message ? <div className="pdpa-banner">{message}</div> : null}
 
@@ -1216,16 +1288,18 @@ function DashboardContent() {
 
         {activePage === 'leads' ? (
           <section className="leads-page">
-            <div className="leads-page-head">
+            <div className="page-header">
               <div>
-                <h2 className="leads-title">Leads</h2>
-                <p className="leads-subtitle">Your verified audience</p>
+                <h2 className="page-title">Leads</h2>
+                <p className="page-sub">Your verified audience</p>
               </div>
-              <button className="btn-primary" type="button" onClick={openLeadSourcing}>Find leads</button>
+              <div className="page-actions">
+                <button className="btn-primary" type="button" onClick={openLeadSourcing}>Find leads</button>
+              </div>
             </div>
 
             <div className="lead-metrics" aria-label="Lead library summary">
-              <div><strong>{visibleLeads.length}</strong><span>Verified work emails</span></div>
+              <div><strong>{verifiedEmailLeadCount}</strong><span>Verified work emails</span></div>
               <div><strong>{visibleLeads.filter(lead => leadViewStatus(lead) === 'Ready to contact').length}</strong><span>Ready for review</span></div>
               <div><strong>{attentionLeadCount}</strong><span>Need attention</span></div>
             </div>
@@ -1247,16 +1321,16 @@ function DashboardContent() {
                   <div className="lead-table-scroll"><table className="lead-table">
                     <thead>
                       <tr>
-                        <th><input className="cb" aria-label="Select all visible leads" type="checkbox" checked={Boolean(filteredLeads.length) && filteredLeads.every(lead => managedLeadIds.includes(lead.id))} onChange={event => setManagedLeadIds(event.target.checked ? Array.from(new Set([...managedLeadIds, ...filteredLeads.map(lead => lead.id)])) : managedLeadIds.filter(id => !filteredLeads.some(lead => lead.id === id)))} /></th>
+
                         <th>Lead</th><th>Company</th><th>Status</th><th>Enrichment</th><th>Last updated</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredLeads.map(lead => (
                         <tr key={lead.id} className={selectedLead?.id === lead.id ? 'selected' : ''}>
-                          <td onClick={event => event.stopPropagation()}><input className="cb" aria-label={`Select ${lead.full_name}`} type="checkbox" checked={managedLeadIds.includes(lead.id)} onChange={() => setManagedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} /></td>
+
                           <td><button className="lead-person-button" type="button" onClick={() => openLeadResearch(lead)}><span className="lead-avatar">{initials(lead.full_name)}</span><span><strong>{lead.full_name}</strong><small>{lead.title || 'Contact'}</small></span></button></td>
-                          <td><div className="lead-company"><span>{initials(lead.company_name)}</span>{lead.company_name || 'Independent'}</div></td>
+                          <td><div className="lead-company">{lead.company_name || 'Independent'}</div></td>
                           <td><span className={`lead-status ${leadViewClass(lead)}`}>{leadViewStatus(lead)}</span></td>
                           <td><span className="lead-enrichment">{leadEnrichment(lead)}</span></td>
                           <td className="lead-updated">{fmtDate(lead.updated_at)}</td>
@@ -1267,7 +1341,6 @@ function DashboardContent() {
                   {!filteredLeads.length ? <EmptyState text="No leads match this view yet." /> : null}
                   <div className="lead-table-footer">
                     <span>Showing {filteredLeads.length ? `1–${filteredLeads.length}` : '0'} of {filteredLeads.length} leads</span>
-                    {managedLeadIds.length ? <div><button className="btn-outline" type="button" disabled={busy === 'lead-delete'} onClick={() => handleDeleteLeads(managedLeadIds)}>Delete selected</button><button className="btn-primary" type="button" onClick={() => openCampaignBuilder(managedLeadIds.filter(id => isCampaignEligibleLead(leads.find(lead => lead.id === id))))}>Add to campaign</button></div> : null}
                   </div>
                 </div>
               </main>
@@ -1293,6 +1366,7 @@ function DashboardContent() {
                     lead={selectedLead}
                     onAddToCampaign={() => { closeLeadDrawer(); openCampaignBuilder([selectedLead.id]); }}
                     onEdit={() => { beginEditLead(selectedLead); setLeadDrawerMode('source'); }}
+                    onDelete={() => { closeLeadDrawer(); handleDeleteLeads([selectedLead.id]); }}
                   />
                 ) : <div className="lead-empty-profile"><p>Select a lead to review its context, or start a new Apollo search.</p><button className="btn-primary" type="button" onClick={openLeadSourcing}>Find leads</button></div>}
               </aside>
@@ -1306,21 +1380,27 @@ function DashboardContent() {
             <div className="page-header">
               <div>
                 <div className="page-kicker">Communications</div>
-                <h2 className="page-title">Conversation center</h2>
-                <p className="page-sub">Every inbound and outbound email, organized by lead. Open a conversation to read the thread and approve a reply.</p>
+                <h2 className="page-title">Reply with context</h2>
+                <p className="page-sub">Every reply keeps the lead and company context alongside an AI draft for your approval.</p>
               </div>
             </div>
             <div className="inbox-workspace">
               <div className="card inbox-thread-panel">
                 <div className="card-head">
                   <div>
-                    <div className="card-title">All conversations</div>
-                    <div className="sf-hint">One row per lead. Open any row to see the full email thread.</div>
+                    <div className="card-title">Reply queue</div>
+                    <div className="sf-hint">Approve a draft when it is ready to send.</div>
                   </div>
                   <span className="card-action">{visibleConversations.length} conversation{visibleConversations.length === 1 ? '' : 's'}</span>
                 </div>
                 <div className="conversation-controls">
-                  <input aria-label="Search conversations" value={conversationSearch} onChange={event => setConversationSearch(event.target.value)} placeholder="Search people, companies, subjects, or messages…" />
+                  <div className="conversation-search">
+                    <svg className="conversation-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                    <input aria-label="Search conversations" value={conversationSearch} onChange={event => setConversationSearch(event.target.value)} placeholder="Search conversations" />
+                    {conversationSearch ? (
+                      <button type="button" className="conversation-search-clear" aria-label="Clear search" onClick={() => setConversationSearch('')}>×</button>
+                    ) : null}
+                  </div>
                   <div className="conversation-filter-list">{(['all', 'needs_reply', 'draft_ready', 'sent', 'positive', 'unsubscribed'] as const).map(filter => <button key={filter} type="button" className={conversationFilter === filter ? 'is-active' : ''} onClick={() => setConversationFilter(filter)}>{filter === 'all' ? 'All' : filter.replace(/_/g, ' ')}</button>)}</div>
                 </div>
                 {visibleConversations.length ? visibleConversations.map(conversation => (
@@ -1328,12 +1408,31 @@ function DashboardContent() {
                     <div className="call-av">{initials(conversation.lead.full_name)}</div>
                     <div className="call-meta">
                       <div className="call-name">{conversation.lead.full_name || conversation.lead.email || 'Conversation'}</div>
-                      <div className="call-detail">{conversation.lead.company_name || conversation.lead.email} · {fmtDate(conversation.last_message_at)} · {conversation.message_count} email{conversation.message_count === 1 ? '' : 's'}</div>
-                      <div className="message-row-preview">{conversation.latest_message.subject || messagePreview(conversation.latest_message.body)}</div>
+                      <div className="call-detail">{conversation.lead.company_name || conversation.lead.email} · {fmtDate(conversation.last_message_at)}</div>
+                      <div className="message-row-preview">{messagePreview(conversation.latest_message.body)}</div>
                     </div>
                     <div className="call-right">
-                      <span className={`badge ${statusBadge(conversation.status)}`}><span className="bdot" />{conversation.status.replace(/_/g, ' ')}</span>
-                      <div className="card-action" style={{ marginTop: 10 }}>Open →</div>
+                      {conversation.latest_message.intent_classification ? (
+                        <span className={`badge ${intentBadge(conversation.latest_message.intent_classification)}`}>
+                          {conversation.latest_message.intent_classification.replace(/_/g, ' ')}
+                        </span>
+                      ) : null}
+                      {/* Opens the thread rather than sending straight away.
+                          The design does the same, and this panel's own copy
+                          says the reply is never sent just because it was
+                          drafted — approving unread would contradict that.
+                          The actual approve lives in the thread drawer. */}
+                      <button
+                        type="button"
+                        className="btn-outline reply-approve"
+                        title={conversation.draft_ready ? 'Review the drafted reply' : 'No draft ready yet — open the thread'}
+                        onClick={event => {
+                          event.stopPropagation();
+                          setOpenedConversation(conversation);
+                        }}
+                      >
+                        Approve reply
+                      </button>
                     </div>
                   </div>
                 )) : <EmptyState text="No conversations match this filter yet." />}
@@ -1341,12 +1440,14 @@ function DashboardContent() {
               <aside className="set-panel inbox-summary-panel">
                 <div className="sf-lbl">Conversation health</div>
                 <div className="msl-list" style={{ marginTop: 18 }}>
-                  <Metric label="Needs reply" value={conversations.filter(item => item.needs_reply).length.toString()} />
-                  <Metric label="Draft ready" value={conversations.filter(item => item.draft_ready).length.toString()} />
+                  {/* Three rows, matching the design. "Needs review" is the
+                      queue this page exists to clear: replies with a draft
+                      waiting on you. */}
+                  <Metric label="Needs review" value={conversations.filter(item => item.draft_ready).length.toString()} />
                   <Metric label="Positive intent" value={conversations.filter(item => item.positive_intent).length.toString()} />
                   <Metric label="Meetings booked" value={meetings.length.toString()} />
                 </div>
-                <div className="sf-hint" style={{ marginTop: 18 }}>Drafts are never sent automatically. Open a conversation, review the thread, then approve the reply deliberately.</div>
+                <div className="sf-hint" style={{ marginTop: 18 }}>Your reply is never sent just because it was drafted. Check the tone and approve it deliberately.</div>
               </aside>
             </div>
           </section>
@@ -1360,8 +1461,27 @@ function DashboardContent() {
                 <h2 className="page-title">Meetings that move forward</h2>
                 <p className="page-sub">Positive replies become a clear, quiet meeting queue.</p>
               </div>
+              <div className="page-actions">
+                {/* The design shows the list only. The month calendar is an
+                    existing feature, so it stays available here rather than
+                    being dropped. */}
+                <div className="view-switch" role="tablist" aria-label="Meetings view">
+                  {(['list', 'calendar'] as const).map(view => (
+                    <button
+                      key={view}
+                      type="button"
+                      role="tab"
+                      aria-selected={meetingsView === view}
+                      className={`rs-pill${meetingsView === view ? ' is-active' : ''}`}
+                      onClick={() => setMeetingsView(view)}
+                    >
+                      {view === 'list' ? 'List' : 'Calendar'}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-            <MeetingsCalendar meetings={meetings} />
+            {meetingsView === 'list' ? <MeetingsList meetings={meetings} /> : <MeetingsCalendar meetings={meetings} />}
           </section>
         ) : null}
 
@@ -1382,7 +1502,7 @@ function DashboardContent() {
                 ['Replies', inbox.length, 'Re'],
               ]}
             />
-            <div className="an-grid">
+            <div className="an-grid metric-grid">
               <div className="card">
                 <div className="card-head"><div className="card-title">Campaign status</div></div>
                 <div className="chart-wrap">
@@ -1418,6 +1538,7 @@ function DashboardContent() {
                 <button type="button" className={`sn-item${settingsSection === 'autopilot' ? ' active' : ''}`} onClick={() => setSettingsSection('autopilot')}>Autopilot</button>
                 <button type="button" className={`sn-item${settingsSection === 'workspace' ? ' active' : ''}`} onClick={() => setSettingsSection('workspace')}>Workspace</button>
                 <button type="button" className={`sn-item${settingsSection === 'compliance' ? ' active' : ''}`} onClick={() => setSettingsSection('compliance')}>Compliance</button>
+                <button type="button" className={`sn-item${settingsSection === 'profile' ? ' active' : ''}`} onClick={() => setSettingsSection('profile')}>Profile</button>
               </div>
               {settingsSection === 'mailbox' ? <form className="set-panel" onSubmit={handleSmtpConnect}>
                 <div className="sf">
@@ -1425,7 +1546,7 @@ function DashboardContent() {
                   <div className="sf-hint">{smtpAccount ? `${smtpAccount.from_email} · ${smtpAccount.status}` : 'No mailbox connected.'}</div>
                   {smtpAccount ? <div className="sf-hint">SMTP {smtpAccount.smtp_verified_at ? 'verified' : 'not verified'} · IMAP {smtpAccount.imap_verified_at ? 'verified' : 'not verified'}</div> : null}
                 </div>
-                <div className="sf" style={{ display: 'flex', gap: 10 }}>
+                <div className="sf mailbox-presets">
                   <button className={mailboxProvider === 'gmail' ? 'btn-primary' : 'btn-outline'} type="button" onClick={() => applyMailboxPreset('gmail')}>Gmail preset</button>
                   <button className={mailboxProvider === 'outlook' ? 'btn-primary' : 'btn-outline'} type="button" onClick={() => applyMailboxPreset('outlook')}>Outlook preset</button>
                   <button className={mailboxProvider === 'manual' ? 'btn-primary' : 'btn-outline'} type="button" onClick={() => {
@@ -1533,13 +1654,13 @@ function DashboardContent() {
               {settingsSection === 'workspace' ? (
                 <div className="set-panel">
                   <div className="sf-lbl">Workspace</div>
-                  <div className="msl-list" style={{ marginTop: 16 }}>
+                  <div className="msl-list" style={{ marginTop: 14 }}>
                     <Metric label="Name" value={workspace?.name || 'Workspace'} />
                     <Metric label="Plan" value={workspace?.plan || 'Not selected'} />
                     <Metric label="Onboarding" value={workspace?.onboarding_completed ? 'Complete' : 'Incomplete'} />
                     <Metric label="Visible leads" value={visibleLeads.length.toString()} />
                   </div>
-                  <div className="sf-hint" style={{ marginTop: 18 }}>Lead targeting and email-writing preferences are managed through onboarding. Billing controls are kept separate.</div>
+                  <div className="sf-hint" style={{ marginTop: 16 }}>Lead targeting and email-writing preferences are managed through onboarding. Billing controls are kept separate.</div>
                   <div className="set-save">
                     <button className="btn-outline" type="button" onClick={() => router.push('/onboarding')}>Edit targeting</button>
                     <button className="btn-primary" type="button" onClick={() => setActivePage('billing')}>View billing</button>
@@ -1550,7 +1671,7 @@ function DashboardContent() {
                 <div className="set-panel">
                   <div className="sf-lbl">Email compliance</div>
                   <div className="sf-hint" style={{ marginTop: 8 }}>These safeguards are applied to campaign sending and replies.</div>
-                  <div className="msl-list" style={{ marginTop: 18 }}>
+                  <div className="msl-list" style={{ marginTop: 14 }}>
                     <Metric label="Verified sender required" value="Enabled" />
                     <Metric label="Unsubscribe footer" value="Added automatically" />
                     <Metric label="Reply opt-outs" value="Block future sends" />
@@ -1561,6 +1682,29 @@ function DashboardContent() {
                   <div className="set-save">
                     <button className="btn-outline" type="button" onClick={() => setActivePage('leads')}>Manage suppressions</button>
                   </div>
+                </div>
+              ) : null}
+              {settingsSection === 'profile' ? (
+                <div className="set-panel">
+                  <div className="sf-lbl">Profile</div>
+                  <div className="msl-list" style={{ marginTop: 14 }}>
+                    <Metric label="Signed-in mailbox" value={smtpAccount?.from_email || 'Not connected'} />
+                    <Metric label="Workspace" value={workspace?.name || 'Workspace'} />
+                    <Metric label="Plan" value={workspace?.plan || 'Not selected'} />
+                  </div>
+                  <div className="sf-lbl" style={{ marginTop: 22 }}>Appearance</div>
+                  <div className="pref-row" style={{ marginTop: 6 }}>
+                    <span className="pref-copy"><strong>Dark mode</strong>{theme === 'dark' ? 'Currently using the dark palette.' : 'Currently using the light palette.'}</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      className="theme-switch"
+                      aria-checked={theme === 'dark'}
+                      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                      onClick={toggleTheme}
+                    ><span aria-hidden="true" /></button>
+                  </div>
+                  <div className="sf-hint" style={{ marginTop: 16 }}>The theme is stored on this device, so each browser you sign in from keeps its own choice.</div>
                 </div>
               ) : null}
             </div>
@@ -1604,7 +1748,7 @@ function DashboardContent() {
                 <p className="page-sub">A practical checklist for the services that make campaign sending work.</p>
               </div>
             </div>
-            <div className="an-grid">
+            <div className="an-grid metric-grid">
               <div className="card">
                 <div className="card-head"><div className="card-title">Setup checklist</div></div>
                 <div className="msl-list">

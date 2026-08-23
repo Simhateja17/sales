@@ -273,6 +273,35 @@ export const fixtureInbox: EmailMessage[] = [
     intent_classification: 'auto_reply',
     received_at: iso(19, 8, 33),
   }),
+  // Unclassified inbound — this is what the overview counts as "to assess".
+  message('msg_6', 1, 1, {
+    body: 'Who else on your side would join the call?',
+    intent_classification: null,
+    received_at: iso(22, 11, 5),
+  }),
+  // Outbound awaiting approval — what the overview counts as "email drafts".
+  message('draft_1', 0, 0, {
+    direction: 'outbound',
+    status: 'pending_approval',
+    subject: 'Q3 Investor Outreach — step 2',
+    body: null,
+    draft_body: 'Hi Jonathan — following up with the fund one-pager we discussed.',
+    intent_classification: null,
+    open_count: 0,
+    opened_at: null,
+    received_at: null,
+  }),
+  message('draft_2', 5, 1, {
+    direction: 'outbound',
+    status: 'draft',
+    subject: 'Family Office Touchpoint — step 3',
+    body: null,
+    draft_body: 'Hi Mei Ping — attaching the track record deck ahead of Tuesday.',
+    intent_classification: null,
+    open_count: 0,
+    opened_at: null,
+    received_at: null,
+  }),
 ];
 
 /** Outbound counterparts, so per-campaign sent/opened counts are derivable. */

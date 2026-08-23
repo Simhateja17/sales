@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import HomeOverview from '../dashboard/_components/HomeOverview';
 import { useTheme } from '../dashboard/_lib/theme';
 import { initials } from '../dashboard/_lib/ui';
 import {
@@ -16,6 +17,9 @@ import {
 
 type DetailKind = 'campaign' | 'lead' | 'message' | 'meeting';
 type Detail = { kind: DetailKind; index: number };
+
+/** Preview has no navigation; every callback is inert. */
+const noop = () => {};
 
 /* Every token in barsha.css, so a theme change can be eyeballed in one place. */
 const TOKEN_GROUPS: Array<[string, string[]]> = [
@@ -62,9 +66,13 @@ export default function PreviewClient() {
     if (requested === 'dark' || requested === 'light') setTheme(requested);
   }, [setTheme]);
 
+  // fixtureInbox now carries outbound drafts too (the overview counts them);
+  // the conversation list shows only what actually arrived.
+  const conversations = fixtureInbox.filter(m => m.direction === 'inbound');
+
   const campaign = detail?.kind === 'campaign' ? fixtureCampaigns[detail.index] : null;
   const lead = detail?.kind === 'lead' ? fixtureLeads[detail.index] : null;
-  const message = detail?.kind === 'message' ? fixtureInbox[detail.index] : null;
+  const message = detail?.kind === 'message' ? conversations[detail.index] : null;
   const meeting = detail?.kind === 'meeting' ? fixtureMeetings[detail.index] : null;
 
   // Derived exactly the way the real campaign drawer will: group messages by
@@ -101,6 +109,43 @@ export default function PreviewClient() {
               {tokens.map(token => <Swatch key={token} token={token} />)}
             </div>
           ))}
+        </div>
+      </Section>
+
+      <Section
+        id="overview"
+        title="Overview page"
+        note="The real HomeOverview component, rendered against fixtures — populated, then with nothing set up yet."
+      >
+        <div className="pv-frame">
+          <HomeOverview
+            workspace={fixtureWorkspace}
+            campaigns={fixtureCampaigns}
+            emailLeads={fixtureLeads.filter(l => l.email)}
+            inbox={fixtureInbox}
+            meetings={fixtureMeetings}
+            smtpAccount={fixtureSmtpAccount}
+            onCreateCampaign={noop}
+            onOpenCampaigns={noop}
+            onOpenLeads={noop}
+            onOpenInbox={noop}
+            onOpenSettings={noop}
+          />
+        </div>
+        <div className="pv-frame" style={{ marginTop: 16 }}>
+          <HomeOverview
+            workspace={fixtureWorkspace}
+            campaigns={[]}
+            emailLeads={[]}
+            inbox={[]}
+            meetings={[]}
+            smtpAccount={null}
+            onCreateCampaign={noop}
+            onOpenCampaigns={noop}
+            onOpenLeads={noop}
+            onOpenInbox={noop}
+            onOpenSettings={noop}
+          />
         </div>
       </Section>
 
@@ -183,9 +228,9 @@ export default function PreviewClient() {
         <div className="rs-card" style={{ marginTop: 16 }}>
           <div className="rs-card-head">
             <div className="rs-card-title">Conversations</div>
-            <span className="rs-card-meta">{fixtureInbox.length} conversations</span>
+            <span className="rs-card-meta">{conversations.length} conversations</span>
           </div>
-          {fixtureInbox.map((m, index) => (
+          {conversations.map((m, index) => (
             <button key={m.id} type="button" className="rs-row" onClick={() => setDetail({ kind: 'message', index })}>
               <span className="rs-avatar">{initials(m.leads?.full_name)}</span>
               <span className="rs-row-main">
