@@ -8,6 +8,8 @@
 //     auth-aware. Styling is unchanged.
 //  2. The export hid every nav link below 720px with nothing in its place, so a
 //     menu button and panel were added for small screens.
+//  3. Signed-out visitors also get a "Login" link beside the theme toggle; below
+//     720px it moves into the mobile panel rather than crowding the bar.
 //
 // Everything else is a faithful copy — see CircleOn.jsx for the state behind `v`.
 import { Fragment, useEffect, useState } from 'react';
@@ -28,6 +30,22 @@ const LINK_STYLE = {
   cursor: 'pointer', paddingBottom: '3px',
   borderBottom: '1px solid transparent', transition: '.2s',
 };
+
+// The glyph names the destination, matching themeToggleAria: a sun in dark mode
+// (click returns to light), a moon in light mode. Inline SVG rather than the
+// Unicode characters, which some platforms draw as colour emoji.
+const SUN_ICON = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.2" />
+    <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" />
+  </svg>
+);
+
+const MOON_ICON = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1Z" />
+  </svg>
+);
 
 export default function Nav({ v }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -106,9 +124,15 @@ export default function Nav({ v }) {
         </div>
         <div className="co-nav-actions" style={{"display": "flex", "alignItems": "center", "justifyContent": "flex-end", "gap": "22px"}}>
           <button className="co-theme-toggle" onClick={v.toggleTheme} aria-label={v.themeToggleAria}>
-            {v.themeToggleLabel}
+            {v.theme === 'dark' ? SUN_ICON : MOON_ICON}
           </button>
           {' '}
+          {isAuthenticated ? null : (
+            <>
+            <Link className="co-nav-login" href="/login">Login</Link>
+            {' '}
+            </>
+          )}
           <Link className="co-nav-demo co-p40d131" href={isAuthenticated ? '/dashboard' : '/signup'} style={PILL_STYLE}>
             {isAuthenticated ? 'Dashboard ' : 'Sign Up '}
             <span style={{"width": "26px", "height": "26px", "borderRadius": "50%", "background": "rgba(255,255,255,.18)", "display": "inline-flex", "alignItems": "center", "justifyContent": "center", "fontSize": "13px"}}>
@@ -142,6 +166,12 @@ export default function Nav({ v }) {
               <span>{r.note}</span>
             </a>
           ))}
+          {isAuthenticated ? null : (
+            <>
+            <div className="co-nav-mobile-sep" />
+            <Link href="/login" onClick={close}>Log in</Link>
+            </>
+          )}
         </div>
       ) : null}
     </nav>
