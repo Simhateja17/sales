@@ -157,7 +157,7 @@ export default function Product({ v }) {
                       {' '}
                       <input value={v.freeLeadsForm.email} onChange={v.onFreeLeadEmail} type="email" placeholder="Work email" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none", "gridColumn": "1/-1"}} />
                       {' '}
-                      <button type="submit" style={{"gridColumn": "1/-1", "marginTop": "14px", "width": "100%", "padding": "16px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-pc6e9be">
+                      <button type="submit" style={{"gridColumn": "1/-1", "marginTop": "14px", "width": "100%", "padding": "16px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-pc6e9be co-on-gold">
                         Show My 3 Free Leads →
                       </button>
                       {' '}
@@ -185,7 +185,7 @@ export default function Product({ v }) {
                       {v.freeLeadsHeadline}{". We'll email them to "}{v.freeLeadsEmail || 'you'}{" shortly."}
                     </p>
                     <div style={{"display": "flex", "flexWrap": "wrap", "gap": "16px", "justifyContent": "center", "marginTop": "34px"}}>
-                      <a onClick={v.gotoWaitlist} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "15px 28px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398">
+                      <a onClick={v.gotoWaitlist} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "15px 28px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398 co-on-gold">
                         Get unlimited leads →
                       </a>
                       {' '}
