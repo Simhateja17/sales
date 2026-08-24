@@ -122,12 +122,12 @@ export default function SignupPage() {
           <div className="or-row">or sign up with email</div>
 
           {error && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
+            <div style={{ background: 'var(--red-pale)', border: '1px solid var(--red-border)', color: 'var(--red-text)', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
               {error}
             </div>
           )}
           {success && (
-            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#16A34A', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
+            <div style={{ background: 'var(--green-pale)', border: '1px solid var(--green-border)', color: 'var(--green-text)', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
               {success}
             </div>
           )}

@@ -74,7 +74,7 @@ export default function PlanSelectPage() {
         </div>
         <div className="start-body">
           {error && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 14 }}>
+            <div style={{ background: 'var(--red-pale)', border: '1px solid var(--red-border)', color: 'var(--red-text)', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 14 }}>
               {error}
             </div>
           )}

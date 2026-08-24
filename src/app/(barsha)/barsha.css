@@ -43,9 +43,17 @@ body {
   --gold-text:#92670A; --gold-border:#F1E3B8;
 
   /* Status */
-  --green:#22C55E; --green-pale:#DCFCE7; --green-text:#15803D;
+  --green:#22C55E; --green-pale:#DCFCE7; --green-border:#A7E9BF; --green-text:#15803D;
   --red:#EF4444; --red-pale:#FFF5F5; --red-border:#F4B4B4; --red-text:#B44C4C;
   --blue:#6366F1; --blue-pale:#EEF2FF; --blue-text:#415DD0;
+
+  /* Plan-select's featured card. It is a dark card on a light page, so it is
+     the one surface that cannot follow --surface: in dark mode it has to be
+     lifted *above* the page instead of dropped below it, or it lands within a
+     few points of the two plain cards and stops reading as featured. */
+  --price-feature-grad:linear-gradient(180deg,#2B2439,#201A2D);
+  --price-feature-glow:rgba(140,90,240,.40);
+  --price-feature-shadow:0 30px 60px -20px rgba(74,32,140,.40);
 
   /* Filled brand surfaces (primary buttons, badges, active chips) do NOT flip
      with the theme: --purple lightens in dark mode for use as text on dark
@@ -94,9 +102,14 @@ body {
   --gold:#E8C45F; --gold-l:#F0D68A; --gold-pale:#3A3324;
   --gold-text:#E8C45F; --gold-border:#4A4230;
 
-  --green:#4ADE80; --green-pale:#16311F; --green-text:#6EE7A0;
+  --green:#4ADE80; --green-pale:#16311F; --green-border:#2A5537; --green-text:#6EE7A0;
   --red:#F87171; --red-pale:#331B1D; --red-border:#5C2B2E; --red-text:#FCA5A5;
   --blue:#818CF8; --blue-pale:#242745; --blue-text:#A5B4FC;
+
+  /* Lifted, not dropped — see the note in the light block above. */
+  --price-feature-grad:linear-gradient(180deg,#4A3878,#33265C);
+  --price-feature-glow:rgba(165,120,255,.45);
+  --price-feature-shadow:0 30px 60px -20px rgba(0,0,0,.55);
 
   --shadow-sm:rgba(0,0,0,.25);
   --shadow-md:rgba(0,0,0,.35);
@@ -891,40 +904,48 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;b
 .or-row::before,.or-row::after{content:'';flex:1;height:1px;background:var(--border);}
 .start-foot{display:flex;justify-content:center;font-size:12px;color:var(--text-muted);padding:2px 0 6px;}
 .start-foot a{color:var(--purple);font-weight:600;text-decoration:none;}
-/* Plan-select: pricing cards — exact match to marketing /pricing */
+/* Plan-select: pricing cards — exact match to marketing /pricing.
+   Colours resolve through the token layer at the top of this file, so the dark
+   theme needs no rules of its own here. The one exception is the featured
+   card's gradient: it is a *dark* card in light mode, so it cannot simply flip
+   with --surface — in dark mode it has to be lifted above --surface instead of
+   dropped below it, which is what --price-feature-grad / --price-feature-glow
+   carry. Colours inside .feature stay literal on purpose: that card is dark in
+   both themes, so light text on it is correct either way. */
 #plan-select .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
-#plan-select .price{background:oklch(1 0.004 295);border:1px solid oklch(0.88 0.018 295);border-radius:22px;padding:36px;position:relative;cursor:pointer;transition:box-shadow .2s,transform .2s;}
-#plan-select .price.feature{background:linear-gradient(180deg,oklch(0.22 0.04 290),oklch(0.16 0.04 290));color:oklch(0.95 0.01 295);border-color:oklch(1 0 0 / 0.06);box-shadow:0 30px 60px -20px oklch(0.3 0.18 295 / 0.4);}
-#plan-select .price.feature::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 60% at 50% 0%,oklch(0.55 0.22 295 / 0.4),transparent 60%);border-radius:22px;pointer-events:none;}
+#plan-select .price{background:var(--surface);border:1px solid var(--border);border-radius:22px;padding:36px;position:relative;cursor:pointer;transition:box-shadow .2s,transform .2s;}
+#plan-select .price.feature{background:var(--price-feature-grad);color:oklch(0.95 0.01 295);border-color:oklch(1 0 0 / 0.06);box-shadow:var(--price-feature-shadow);}
+#plan-select .price.feature::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 60% at 50% 0%,var(--price-feature-glow),transparent 60%);border-radius:22px;pointer-events:none;}
 #plan-select .price>*{position:relative;}
-#plan-select .price.selected{box-shadow:0 0 0 2px oklch(0.52 0.19 295),0 8px 24px -8px oklch(0.52 0.19 295 / 0.25);}
-#plan-select .price.feature.selected{box-shadow:0 30px 60px -20px oklch(0.3 0.18 295 / 0.4),0 0 0 2px oklch(0.62 0.22 295);}
-#plan-select .price .tier{font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:oklch(0.55 0.03 290);line-height:1.4;}
+#plan-select .price.selected{box-shadow:0 0 0 2px var(--purple),0 8px 24px -8px var(--shadow-md);}
+#plan-select .price.feature.selected{box-shadow:var(--price-feature-shadow),0 0 0 2px oklch(0.72 0.19 295);}
+#plan-select .price .tier{font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);line-height:1.4;}
 #plan-select .price.feature .tier{color:oklch(0.85 0.06 85);}
 #plan-select .price .ribbon{display:inline-block;padding:4px 10px;border-radius:999px;background:linear-gradient(180deg,oklch(0.92 0.07 85),oklch(0.78 0.1 78));color:oklch(0.25 0.06 60);font-size:11px;font-weight:500;letter-spacing:.04em;margin-left:10px;}
-#plan-select .price .plan-name{font-family:'Fraunces','Cormorant Garamond',serif;font-weight:380;font-size:32px;letter-spacing:-.02em;margin:6px 0 0;line-height:1.1;}
+#plan-select .price .plan-name{font-family:'Fraunces','Cormorant Garamond',serif;font-weight:380;font-size:32px;letter-spacing:-.02em;margin:6px 0 0;line-height:1.1;color:var(--text);}
 #plan-select .price.feature .plan-name{color:oklch(0.96 0.01 295);}
-#plan-select .price .plan-name em{font-style:italic;font-weight:320;color:oklch(0.52 0.19 295);}
+#plan-select .price .plan-name em{font-style:italic;font-weight:320;color:var(--purple);}
 #plan-select .price.feature .plan-name em{color:oklch(0.85 0.08 85);}
-#plan-select .price .amount{font-family:'Fraunces',serif;font-weight:300;font-size:64px;letter-spacing:-.02em;margin:22px 0 4px;line-height:1;font-variation-settings:"opsz" 144,"SOFT" 20;}
+#plan-select .price .amount{font-family:'Fraunces',serif;font-weight:300;font-size:64px;letter-spacing:-.02em;margin:22px 0 4px;line-height:1;font-variation-settings:"opsz" 144,"SOFT" 20;color:var(--text);}
+#plan-select .price.feature .amount{color:oklch(0.96 0.01 295);}
 #plan-select .price .amount .currency{font-size:28px;vertical-align:super;margin-right:2px;opacity:.6;font-weight:300;}
-#plan-select .price .amount .per{font-size:13.5px;color:oklch(0.55 0.03 290);margin-left:8px;font-weight:400;letter-spacing:0;}
+#plan-select .price .amount .per{font-size:13.5px;color:var(--text-muted);margin-left:8px;font-weight:400;letter-spacing:0;}
 #plan-select .price.feature .amount .per{color:oklch(0.7 0.02 295);}
-#plan-select .price .amount-sub{font-size:12.5px;color:oklch(0.55 0.03 290);margin-bottom:22px;}
+#plan-select .price .amount-sub{font-size:12.5px;color:var(--text-muted);margin-bottom:22px;}
 #plan-select .price.feature .amount-sub{color:oklch(0.7 0.02 295);}
-#plan-select .price .desc{font-size:14px;color:oklch(0.38 0.035 290);line-height:1.55;margin:18px 0 22px;max-width:32ch;}
+#plan-select .price .desc{font-size:14px;color:var(--text-muted);line-height:1.55;margin:18px 0 22px;max-width:32ch;}
 #plan-select .price.feature .desc{color:oklch(0.78 0.02 295);}
 #plan-select .price ul{list-style:none;padding:0;margin:22px 0 28px;}
-#plan-select .price ul li{font-size:13.5px;color:oklch(0.38 0.035 290);padding:10px 0;display:flex;gap:10px;border-top:1px solid oklch(0.88 0.018 295);}
+#plan-select .price ul li{font-size:13.5px;color:var(--text-muted);padding:10px 0;display:flex;gap:10px;border-top:1px solid var(--border);}
 #plan-select .price ul li:first-child{border-top:0;padding-top:0;}
 #plan-select .price.feature ul li{color:oklch(0.85 0.01 295);border-color:oklch(1 0 0 / 0.06);}
-#plan-select .price ul li::before{content:"✓";color:oklch(0.52 0.19 295);font-size:13px;flex-shrink:0;margin-top:1px;}
+#plan-select .price ul li::before{content:"✓";color:var(--purple);font-size:13px;flex-shrink:0;margin-top:1px;}
 #plan-select .price.feature ul li::before{color:oklch(0.85 0.06 85);}
 #plan-select .price .btn{width:100%;justify-content:center;display:inline-flex;align-items:center;gap:10px;height:44px;padding:0 18px;border-radius:999px;font:500 14px/1 'Inter Tight','DM Sans',sans-serif;letter-spacing:-.005em;cursor:pointer;border:0;transition:transform .25s,box-shadow .25s;text-decoration:none;white-space:nowrap;}
 #plan-select .price .btn-primary{background:linear-gradient(180deg,oklch(0.62 0.22 295),oklch(0.52 0.19 295) 50%,oklch(0.36 0.16 295));color:#fff;box-shadow:inset 0 1px 0 0 oklch(1 0 0 / 0.35),inset 0 -1px 0 0 oklch(0 0 0 / 0.15),0 1px 2px oklch(0.3 0.16 295 / 0.3),0 8px 24px -10px oklch(0.52 0.19 295);}
 #plan-select .price .btn-primary:hover{transform:translateY(-1px);}
-#plan-select .price .btn-ghost{background:transparent;color:oklch(0.22 0.04 290);border:1px solid oklch(0.78 0.025 295);}
-#plan-select .price .btn-ghost:hover{background:oklch(0.96 0.004 295);border-color:oklch(0.55 0.03 290);}
+#plan-select .price .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border-strong);}
+#plan-select .price .btn-ghost:hover{background:var(--surface-sunken);border-color:var(--text-muted);}
 #plan-select .price .btn-pill-arrow{width:22px;height:22px;border-radius:50%;background:oklch(1 0 0 / 0.18);display:inline-flex;align-items:center;justify-content:center;transition:transform .25s;}
 #plan-select .price .btn-primary:hover .btn-pill-arrow{transform:translateX(3px);}
 
