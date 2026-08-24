@@ -253,7 +253,7 @@ export default function Product({ v }) {
                           {l.company}
                         </div>
                       </div>
-                      <div style={cssToObj(`padding:5px 11px;border-radius:100px;font-size:11px;font-weight:700;flex-shrink:0;${l.pillStyle ?? ""}`)}>
+                      <div className="co-chip" style={cssToObj(`padding:5px 11px;border-radius:100px;font-size:11px;font-weight:700;flex-shrink:0;${l.pillStyle ?? ""}`)}>
                         {l.score}{" · "}{l.tag}
                       </div>
                     </div>

@@ -31,6 +31,9 @@
   .co-sol-orb-3:before{animation-delay:1.4s}.co-sol-orb-3:after{animation-delay:3.2s}
   .co-solutions-panel:before{content:"";position:absolute;top:0;left:0;width:22%;height:100%;pointer-events:none;z-index:4;background:linear-gradient(90deg,transparent,rgba(116,71,200,.07) 45%,rgba(196,158,98,.05) 62%,transparent);animation:coSolSweep 7.5s ease-in-out infinite}
   .co-sol-demo-card{max-width:620px;margin:32px auto 0;background:#fff;border:1px solid #D8D5E2;border-radius:20px;padding:22px 26px;box-shadow:0 20px 44px -30px rgba(71,30,134,.35)}
+  /* A chip owns its background and states its foreground as --chip-fg, so it
+     opts out of any blanket text override the surrounding card applies. */
+  .co-chip{color:var(--chip-fg,inherit)}
   .co-sol-tab-dot{width:6px;height:6px;border-radius:50%;background:#C49E62;margin-right:9px;box-shadow:0 0 10px rgba(196,158,98,.6);animation:coPulse 1.5s infinite;flex-shrink:0}
   @media(prefers-reduced-motion:reduce){
     .co-sol-col,.co-sol-demo,.co-sol-float,.co-sol-orb:before,.co-sol-orb:after,.co-solutions-panel:before,.co-sol-tab-dot{animation:none}
@@ -246,7 +249,7 @@
   [data-co-theme="dark"] .co-screen{background:linear-gradient(150deg,#25142c,#160b20)!important}
   [data-co-theme="dark"] .co-tabs span{color:#bdb0c0!important;background:#3b2a42!important}
   [data-co-theme="dark"] .co-tabs .active,[data-co-theme="dark"] .co-tab-lead{color:#ffd0b6!important;background:#843e2a!important}
-  [data-co-theme="dark"] .co-stage-title,[data-co-theme="dark"] .co-lead-name,[data-co-theme="dark"] .co-call-name,[data-co-theme="dark"] .co-message b{color:#f7f0ff!important}
+  [data-co-theme="dark"] .co-stage-title,[data-co-theme="dark"] .co-lead-name,[data-co-theme="dark"] .co-call-name,[data-co-theme="dark"] .co-message b,[data-co-theme="dark"] .co-call-summary b{color:#f7f0ff!important}
   [data-co-theme="dark"] .co-stage-title small,[data-co-theme="dark"] .co-lead-role,[data-co-theme="dark"] .co-call-number,[data-co-theme="dark"] .co-call-summary,[data-co-theme="dark"] .co-message small{color:#bdb0c0!important}
   [data-co-theme="dark"] .co-lead-card,[data-co-theme="dark"] .co-caller-card,[data-co-theme="dark"] .co-call-summary,[data-co-theme="dark"] .co-message,[data-co-theme="dark"] .co-status{background:rgba(37,20,40,.88)!important;border-color:#75533d!important;box-shadow:0 8px 22px #0007!important}
   [data-co-theme="dark"] .co-wave-wrap{background:linear-gradient(145deg,rgba(126,71,82,.22),rgba(207,155,77,.16))!important}
@@ -259,7 +262,7 @@
   [data-co-theme="dark"] .co-ladder i{background:#a86e3e!important}
   [data-co-theme="dark"] .co-invoice{background:#ce8a2e!important;color:#25162d!important}
   [data-co-theme="dark"] .co-match{background:#c8872c!important;color:#27162a!important}
-  [data-co-theme="dark"] .co-booked{background:#a94839!important;color:#2a1020!important;border-color:#a94839!important}
+  [data-co-theme="dark"] .co-booked{background:#a94839!important;color:#fff1ec!important;border-color:#a94839!important}
   [data-co-theme="dark"] footer{background:#2b1e35!important}
   /* Lifts page sections above the dark ambience layer. .co-intro and .co-world
      are <section>s inside the hero with their own positioning (absolute world,
@@ -305,18 +308,18 @@
   [data-co-theme="dark"] > sc-if + sc-if section,[data-co-theme="dark"] > div:not(.co-home-page) section{position:relative;z-index:2}
   [data-co-theme="dark"] section:not(.co-hero) h1,[data-co-theme="dark"] section:not(.co-hero) h2,[data-co-theme="dark"] section:not(.co-hero) h3{color:#fff9ff!important}
   [data-co-theme="dark"] section:not(.co-hero) p,[data-co-theme="dark"] section:not(.co-hero) a{color:#ddd2e4!important}
-  [data-co-theme="dark"] section:not(.co-hero) [style*="color:#1A172C"],[data-co-theme="dark"] section:not(.co-hero) [style*="color:#29243A"],[data-co-theme="dark"] section:not(.co-hero) [style*="color:#423F54"]{color:#fff9ff!important}
+  [data-co-theme="dark"] section:not(.co-hero) [style*="color:#1A172C"]:not(.co-on-gold),[data-co-theme="dark"] section:not(.co-hero) [style*="color:#29243A"]:not(.co-on-gold),[data-co-theme="dark"] section:not(.co-hero) [style*="color:#423F54"]:not(.co-on-gold){color:#fff9ff!important}
   [data-co-theme="dark"] section:not(.co-hero) [style*="color:#565267"],[data-co-theme="dark"] section:not(.co-hero) [style*="color:#716F82"],[data-co-theme="dark"] section:not(.co-hero) [style*="color:#888397"],[data-co-theme="dark"] section:not(.co-hero) [style*="color:#9691A8"],[data-co-theme="dark"] section:not(.co-hero) [style*="color:#9E9CAD"]{color:#ded3e5!important}
-  [data-co-theme="dark"] section:not(.co-hero) [style*="color:#471E86"],[data-co-theme="dark"] section:not(.co-hero) [style*="color:#7447C8"],[data-co-theme="dark"] section:not(.co-hero) [style*="color:#7C3AED"]{color:#e2ba63!important}
+  [data-co-theme="dark"] section:not(.co-hero) [style*="color:#471E86"]:not(.co-on-gold),[data-co-theme="dark"] section:not(.co-hero) [style*="color:#7447C8"]:not(.co-on-gold),[data-co-theme="dark"] section:not(.co-hero) [style*="color:#7C3AED"]:not(.co-on-gold){color:#e2ba63!important}
   [data-co-theme="dark"] section:not(.co-hero) [style*="background:#FAF9FF"],[data-co-theme="dark"] section:not(.co-hero) [style*="background:#F4F2FB"],[data-co-theme="dark"] section:not(.co-hero) [style*="background:#F1EEFD"]{background:#25182f!important}
   [data-co-theme="dark"] section:not(.co-hero) [style*="background:#fff"],[data-co-theme="dark"] section:not(.co-hero) [style*="background:#FFF"]{background:#2c1f36!important}
   [data-co-theme="dark"] section:not(.co-hero) [style*="border:1px solid #D8D5E2"],[data-co-theme="dark"] section:not(.co-hero) [style*="border-bottom:1px solid #D8D5E2"],[data-co-theme="dark"] section:not(.co-hero) [style*="border:1px solid #EAE7F2"],[data-co-theme="dark"] section:not(.co-hero) [style*="border:1px solid #E9E4FA"],[data-co-theme="dark"] section:not(.co-hero) [style*="border:1px solid #F1EEFD"],[data-co-theme="dark"] section:not(.co-hero) [style*="border-bottom:1px solid #1A172C"]{border-color:#765c7f!important}
   [data-co-theme="dark"] [style*="background:#FAF9FF"]:not(.co-hero *),[data-co-theme="dark"] [style*="background:#F4F2FB"]:not(.co-hero *),[data-co-theme="dark"] [style*="background:#F1EEFD"]:not(.co-hero *){background:#25182f!important}
   [data-co-theme="dark"] [style*="background:#fff"]:not(.co-hero *),[data-co-theme="dark"] [style*="background:#FFF"]:not(.co-hero *){background:#2c1f36!important}
   [data-co-theme="dark"] [style*="background:#1A172C"]:not(.co-hero *){background:#392944!important;color:#fff9ff!important}
-  [data-co-theme="dark"] [style*="color:#1A172C"]:not(.co-hero *),[data-co-theme="dark"] [style*="color:#29243A"]:not(.co-hero *),[data-co-theme="dark"] [style*="color:#423F54"]:not(.co-hero *){color:#fff9ff!important}
+  [data-co-theme="dark"] [style*="color:#1A172C"]:not(.co-hero *):not(.co-on-gold),[data-co-theme="dark"] [style*="color:#29243A"]:not(.co-hero *):not(.co-on-gold),[data-co-theme="dark"] [style*="color:#423F54"]:not(.co-hero *):not(.co-on-gold){color:#fff9ff!important}
   [data-co-theme="dark"] [style*="color:#565267"]:not(.co-hero *),[data-co-theme="dark"] [style*="color:#716F82"]:not(.co-hero *),[data-co-theme="dark"] [style*="color:#888397"]:not(.co-hero *),[data-co-theme="dark"] [style*="color:#9691A8"]:not(.co-hero *),[data-co-theme="dark"] [style*="color:#9E9CAD"]:not(.co-hero *){color:#ded3e5!important}
-  [data-co-theme="dark"] [style*="color:#471E86"]:not(.co-hero *),[data-co-theme="dark"] [style*="color:#7447C8"]:not(.co-hero *){color:#e2ba63!important}
+  [data-co-theme="dark"] [style*="color:#471E86"]:not(.co-hero *):not(.co-on-gold),[data-co-theme="dark"] [style*="color:#7447C8"]:not(.co-hero *):not(.co-on-gold){color:#e2ba63!important}
   [data-co-theme="dark"] [style*="-webkit-text-fill-color:transparent"]:not(.co-hero *){-webkit-text-fill-color:#e2ba63!important;background:none!important}
   [data-co-theme="dark"] input:not(.co-hero *){background:#2c1f36!important;color:#fff9ff!important;border-color:#765c7f!important}
   [data-co-theme="dark"] input:not(.co-hero *)::placeholder{color:#b9aabd!important}
@@ -327,6 +330,11 @@
   [data-co-theme="dark"] .co-home-page .co-workflows .co-voice-tag,[data-co-theme="dark"] .co-home-page .co-workflows .co-voice-meter-label,[data-co-theme="dark"] .co-home-page .co-workflows .co-voice-meta{color:#cfc3d5!important}
   [data-co-theme="dark"] .co-dark-card{color:#f8f2ff!important}
   [data-co-theme="dark"] .co-dark-card *{color:#ded3e5!important}
+  /* Opt-out for elements that own both their background and their text colour.
+     The blanket rule above repaints every descendant, which turned the score
+     pills into pale text on their own pale background. A chip states its
+     foreground as --chip-fg; this rule is more specific (0,3,0 vs 0,2,1) and
+     equally !important, so the chip's own colour survives. */
   [data-co-theme="dark"] .co-dark-card h1,[data-co-theme="dark"] .co-dark-card h2,[data-co-theme="dark"] .co-dark-card h3,[data-co-theme="dark"] .co-dark-card strong,[data-co-theme="dark"] .co-dark-card b,[data-co-theme="dark"] .co-dark-card [style*="font-weight:700"],[data-co-theme="dark"] .co-dark-card [style*="font-weight:600"]{color:#fff9ff!important}
   [data-co-theme="dark"] .co-dark-card [style*="color:#C49E62"]{color:#e5bb62!important}
   [data-co-theme="dark"] .co-dark-chip,[data-co-theme="dark"] .co-dark-chip *{color:#fff9ff!important}
@@ -413,3 +421,25 @@
      into the mobile panel instead of crowding that row. */
   .co-nav-login { display: none; }
 }
+
+/* --- dark-mode colour opt-outs ------------------------------------------
+   Last in the file on purpose. Dark mode repaints text through several
+   blanket rules that key off inline style substrings (`color:#1A172C`,
+   `font-weight:700`, `.co-dark-card *`). Elements that own both their
+   background and their foreground — the lead score pills, anything on the
+   gold brand fill — were being repainted into their own background: pale
+   text on a pale chip, gold on gold, white on gold. These rules restore the
+   element's intended colour, and sit after every rule that would undo them
+   so ordering, not an ever-growing specificity war, settles it.
+
+   The .co-dark-card variants are not redundant: the card rules score (0,3,0),
+   so a bare class would lose to them on specificity no matter how late it is
+   declared. Matching their specificity and coming last is what settles it. */
+[data-co-theme="dark"] .co-chip,
+[data-co-theme="dark"] .co-chip *,
+[data-co-theme="dark"] .co-dark-card .co-chip,
+[data-co-theme="dark"] .co-dark-card .co-chip *{color:var(--chip-fg)!important}
+[data-co-theme="dark"] .co-on-gold,
+[data-co-theme="dark"] .co-on-gold *,
+[data-co-theme="dark"] .co-dark-card .co-on-gold,
+[data-co-theme="dark"] .co-dark-card .co-on-gold *{color:#241A10!important;-webkit-text-fill-color:#241A10!important}
