@@ -13,7 +13,7 @@ export default function Safety({ v }) {
         <div style={{"fontSize": "13px", "fontWeight": "600", "letterSpacing": ".08em", "textTransform": "uppercase", "color": "#C49E62", "marginBottom": "14px"}}>
           Safety & Trust
         </div>
-        <h1 data-reveal style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(32px,4.4vw,52px)", "letterSpacing": "-.02em", "fontWeight": "400", "margin": "0 0 20px", "color": "#1A172C", "maxWidth": "760px", "lineHeight": "1.08"}}>
+        <h1 data-reveal style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(32px,4.4vw,52px)", "letterSpacing": "-.02em", "fontWeight": "400", "margin": "0 0 20px", "color": "#1A172C", "maxWidth": "760px", "lineHeight": "1.08"}}>
           Responsible AI, built on trust
         </h1>
         <p data-reveal style={{"fontSize": "19px", "lineHeight": "1.65", "color": "#423F54", "maxWidth": "680px", "margin": "0 0 48px"}}>

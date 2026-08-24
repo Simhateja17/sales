@@ -84,7 +84,7 @@ export default function Nav({ v }) {
             <span style={{"width": "6px", "height": "6px", "borderRadius": "50%", "background": "#C49E62"}} />
           </span>
           {' '}
-          <span className="co-nav-wordmark" style={{"fontFamily": "'Fraunces',serif", "fontWeight": "400", "fontSize": "21px", "letterSpacing": "-.01em", "color": "#1A172C"}}>
+          <span className="co-nav-wordmark" style={{"fontFamily": "'Cormorant Garamond',serif", "fontWeight": "400", "fontSize": "21px", "letterSpacing": "-.01em", "color": "#1A172C"}}>
             CircleOn
             <span style={{"fontStyle": "normal", "color": "#7447C8"}}>
               .ai

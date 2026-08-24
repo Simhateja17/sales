@@ -15,7 +15,7 @@ export default function Blog({ v }) {
           <div style={{"fontSize": "13px", "fontWeight": "600", "letterSpacing": ".08em", "textTransform": "uppercase", "color": "#C49E62", "marginBottom": "14px"}}>
             Our Blog
           </div>
-          <h1 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(32px,4.4vw,52px)", "letterSpacing": "-.02em", "fontWeight": "400", "margin": "0 0 16px", "color": "#1A172C", "lineHeight": "1.12"}}>
+          <h1 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(32px,4.4vw,52px)", "letterSpacing": "-.02em", "fontWeight": "400", "margin": "0 0 16px", "color": "#1A172C", "lineHeight": "1.12"}}>
             Insights and inspiration, explore our blog
           </h1>
           <p style={{"fontSize": "16.5px", "lineHeight": "1.6", "color": "#423F54", "margin": "0 0 32px"}}>
@@ -82,7 +82,7 @@ export default function Blog({ v }) {
               Featured Blogs
             </span>
           </div>
-          <h2 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(24px,3vw,34px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 14px", "color": "#1A172C"}}>
+          <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(24px,3vw,34px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 14px", "color": "#1A172C"}}>
             Dive into our top blogs
           </h2>
           <p style={{"fontSize": "16px", "color": "#423F54", "lineHeight": "1.6", "margin": "0"}}>
@@ -95,7 +95,7 @@ export default function Blog({ v }) {
               <div style={{"fontSize": "12px", "fontWeight": "600", "color": "#C49E62", "textTransform": "uppercase", "letterSpacing": ".06em", "marginBottom": "10px"}}>
                 {v.featured.cat}{" · "}{v.featured.read}
               </div>
-              <h3 style={{"fontFamily": "'Fraunces',serif", "fontSize": "22px", "fontWeight": "400", "letterSpacing": "-.01em", "margin": "0 0 10px", "color": "#1A172C"}}>
+              <h3 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "22px", "fontWeight": "400", "letterSpacing": "-.01em", "margin": "0 0 10px", "color": "#1A172C"}}>
                 {v.featured.title}
               </h3>
               <p style={{"fontSize": "14.5px", "lineHeight": "1.6", "color": "#423F54", "margin": "0 0 20px"}}>

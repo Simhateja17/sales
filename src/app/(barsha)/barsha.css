@@ -922,11 +922,11 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;b
 #plan-select .price .tier{font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);line-height:1.4;}
 #plan-select .price.feature .tier{color:oklch(0.85 0.06 85);}
 #plan-select .price .ribbon{display:inline-block;padding:4px 10px;border-radius:999px;background:linear-gradient(180deg,oklch(0.92 0.07 85),oklch(0.78 0.1 78));color:oklch(0.25 0.06 60);font-size:11px;font-weight:500;letter-spacing:.04em;margin-left:10px;}
-#plan-select .price .plan-name{font-family:'Fraunces','Cormorant Garamond',serif;font-weight:380;font-size:32px;letter-spacing:-.02em;margin:6px 0 0;line-height:1.1;color:var(--text);}
+#plan-select .price .plan-name{font-family:'Cormorant Garamond',serif;font-weight:380;font-size:32px;letter-spacing:-.02em;margin:6px 0 0;line-height:1.1;color:var(--text);}
 #plan-select .price.feature .plan-name{color:oklch(0.96 0.01 295);}
 #plan-select .price .plan-name em{font-style:italic;font-weight:320;color:var(--purple);}
 #plan-select .price.feature .plan-name em{color:oklch(0.85 0.08 85);}
-#plan-select .price .amount{font-family:'Fraunces',serif;font-weight:300;font-size:64px;letter-spacing:-.02em;margin:22px 0 4px;line-height:1;font-variation-settings:"opsz" 144,"SOFT" 20;color:var(--text);}
+#plan-select .price .amount{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:64px;letter-spacing:-.02em;margin:22px 0 4px;line-height:1;color:var(--text);}
 #plan-select .price.feature .amount{color:oklch(0.96 0.01 295);}
 #plan-select .price .amount .currency{font-size:28px;vertical-align:super;margin-right:2px;opacity:.6;font-weight:300;}
 #plan-select .price .amount .per{font-size:13.5px;color:var(--text-muted);margin-left:8px;font-weight:400;letter-spacing:0;}
@@ -941,7 +941,7 @@ input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;b
 #plan-select .price.feature ul li{color:oklch(0.85 0.01 295);border-color:oklch(1 0 0 / 0.06);}
 #plan-select .price ul li::before{content:"✓";color:var(--purple);font-size:13px;flex-shrink:0;margin-top:1px;}
 #plan-select .price.feature ul li::before{color:oklch(0.85 0.06 85);}
-#plan-select .price .btn{width:100%;justify-content:center;display:inline-flex;align-items:center;gap:10px;height:44px;padding:0 18px;border-radius:999px;font:500 14px/1 'Inter Tight','DM Sans',sans-serif;letter-spacing:-.005em;cursor:pointer;border:0;transition:transform .25s,box-shadow .25s;text-decoration:none;white-space:nowrap;}
+#plan-select .price .btn{width:100%;justify-content:center;display:inline-flex;align-items:center;gap:10px;height:44px;padding:0 18px;border-radius:999px;font:500 14px/1 'DM Sans',sans-serif;letter-spacing:-.005em;cursor:pointer;border:0;transition:transform .25s,box-shadow .25s;text-decoration:none;white-space:nowrap;}
 #plan-select .price .btn-primary{background:linear-gradient(180deg,oklch(0.62 0.22 295),oklch(0.52 0.19 295) 50%,oklch(0.36 0.16 295));color:#fff;box-shadow:inset 0 1px 0 0 oklch(1 0 0 / 0.35),inset 0 -1px 0 0 oklch(0 0 0 / 0.15),0 1px 2px oklch(0.3 0.16 295 / 0.3),0 8px 24px -10px oklch(0.52 0.19 295);}
 #plan-select .price .btn-primary:hover{transform:translateY(-1px);}
 #plan-select .price .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border-strong);}

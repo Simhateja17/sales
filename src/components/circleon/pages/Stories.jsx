@@ -13,7 +13,7 @@ export default function Stories({ v }) {
         <div style={{"fontSize": "13px", "fontWeight": "600", "letterSpacing": ".08em", "textTransform": "uppercase", "color": "#C49E62", "marginBottom": "14px"}}>
           Customer Stories
         </div>
-        <h1 data-reveal style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(32px,4.4vw,52px)", "letterSpacing": "-.02em", "fontWeight": "400", "margin": "0 0 44px", "color": "#1A172C", "maxWidth": "760px", "lineHeight": "1.08"}}>
+        <h1 data-reveal style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(32px,4.4vw,52px)", "letterSpacing": "-.02em", "fontWeight": "400", "margin": "0 0 44px", "color": "#1A172C", "maxWidth": "760px", "lineHeight": "1.08"}}>
           Teams growing faster with CircleOn
         </h1>
         {/* Metrics and quotes stay hidden until they are real: the export
@@ -24,7 +24,7 @@ export default function Stories({ v }) {
           {(v.metrics || []).map((m, $index) => (
             <Fragment key={$index}>
             <div data-reveal style={{"background": "#fff", "border": "1px solid #D8D5E2", "borderRadius": "16px", "padding": "28px", "textAlign": "center"}}>
-              <div style={{"fontFamily": "'Fraunces',serif", "fontSize": "38px", "fontWeight": "400", "color": "#1A172C", "letterSpacing": "-.01em"}}>
+              <div style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "38px", "fontWeight": "400", "color": "#1A172C", "letterSpacing": "-.01em"}}>
                 {m.value}
               </div>
               <div style={{"fontSize": "14.5px", "color": "#423F54", "fontWeight": "600", "marginTop": "6px"}}>

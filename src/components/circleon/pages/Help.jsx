@@ -14,7 +14,7 @@ export default function Help({ v }) {
           <div style={{"fontSize": "13px", "fontWeight": "600", "letterSpacing": ".08em", "textTransform": "uppercase", "color": "#C49E62", "marginBottom": "14px"}}>
             Help Center
           </div>
-          <h1 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(30px,4vw,46px)", "letterSpacing": "-.02em", "fontWeight": "400", "margin": "0 0 24px", "color": "#1A172C"}}>
+          <h1 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(30px,4vw,46px)", "letterSpacing": "-.02em", "fontWeight": "400", "margin": "0 0 24px", "color": "#1A172C"}}>
             How can we help?
           </h1>
           <div style={{"maxWidth": "560px", "margin": "0 auto", "position": "relative"}}>
