@@ -130,7 +130,7 @@ function LoginContent() {
           <div className="or-row">or log in with email</div>
 
           {error && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
+            <div style={{ background: 'var(--red-pale)', border: '1px solid var(--red-border)', color: 'var(--red-text)', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
               {error}
             </div>
           )}
