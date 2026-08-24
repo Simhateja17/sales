@@ -10,6 +10,31 @@
   input,button{font-family:inherit}
   @keyframes revealIn{from{transform:translateY(20px)}to{transform:none}}
   [data-reveal]{animation:revealIn .6s cubic-bezier(.2,.7,.2,1) both}
+  /* Solutions panel motion, from the later export: the columns rise in, the
+     orbs drift and pulse aura rings, a light sweep crosses the card, and the
+     per-solution demo fades in when the active tab changes. Colours use this
+     port's palette (#7447C8 / #C49E62) rather than the export's newer one. */
+  @keyframes coSolIn{0%{transform:translateY(34px) scale(.94)}100%{transform:translateY(0) scale(1)}}
+  @keyframes coSolFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-11px)}}
+  @keyframes coSolAura{0%{transform:scale(.86);opacity:0}22%{opacity:.5}100%{transform:scale(1.42);opacity:0}}
+  @keyframes coSolSweep{0%{transform:translateX(-40%) skewX(-12deg)}55%,100%{transform:translateX(340%) skewX(-12deg)}}
+  @keyframes coSolDemoIn{0%{opacity:0;transform:translateY(12px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}
+  .co-sol-col{animation:coSolIn .9s cubic-bezier(.16,.84,.24,1) both}
+  .co-sol-col-1{animation-delay:.05s}.co-sol-col-2{animation-delay:.19s}.co-sol-col-3{animation-delay:.33s}
+  .co-sol-demo{animation:coSolDemoIn .45s cubic-bezier(.2,.8,.2,1) both}
+  .co-sol-float{animation:coSolFloat 6.4s ease-in-out infinite}
+  .co-sol-float-2{animation-duration:7.6s;animation-delay:-2.1s}
+  .co-sol-float-3{animation-duration:6.9s;animation-delay:-4.3s}
+  .co-sol-orb:before{content:"";position:absolute;inset:-6px;border-radius:50%;border:1px solid rgba(116,71,200,.5);animation:coSolAura 3.6s ease-out infinite;pointer-events:none}
+  .co-sol-orb:after{content:"";position:absolute;inset:-6px;border-radius:50%;border:1px solid rgba(196,158,98,.45);animation:coSolAura 3.6s ease-out infinite 1.8s;pointer-events:none}
+  .co-sol-orb-2:before{border-color:rgba(196,158,98,.55);animation-delay:.7s}.co-sol-orb-2:after{animation-delay:2.5s}
+  .co-sol-orb-3:before{animation-delay:1.4s}.co-sol-orb-3:after{animation-delay:3.2s}
+  .co-solutions-panel:before{content:"";position:absolute;top:0;left:0;width:22%;height:100%;pointer-events:none;z-index:4;background:linear-gradient(90deg,transparent,rgba(116,71,200,.07) 45%,rgba(196,158,98,.05) 62%,transparent);animation:coSolSweep 7.5s ease-in-out infinite}
+  .co-sol-demo-card{max-width:620px;margin:32px auto 0;background:#fff;border:1px solid #D8D5E2;border-radius:20px;padding:22px 26px;box-shadow:0 20px 44px -30px rgba(71,30,134,.35)}
+  .co-sol-tab-dot{width:6px;height:6px;border-radius:50%;background:#C49E62;margin-right:9px;box-shadow:0 0 10px rgba(196,158,98,.6);animation:coPulse 1.5s infinite;flex-shrink:0}
+  @media(prefers-reduced-motion:reduce){
+    .co-sol-col,.co-sol-demo,.co-sol-float,.co-sol-orb:before,.co-sol-orb:after,.co-solutions-panel:before,.co-sol-tab-dot{animation:none}
+  }
   @keyframes floatA{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
   @keyframes numFall{0%{transform:translateY(-40px);opacity:0}12%{opacity:1}80%{opacity:1}100%{transform:translateY(440px);opacity:0}}
   @keyframes floatB{0%,100%{transform:translateY(0)}50%{transform:translateY(12px)}}
@@ -251,6 +276,7 @@
   [data-co-theme="dark"] .co-solutions-panel .co-solution-icon{background:#403248!important;box-shadow:0 10px 24px rgba(7,3,10,.3)!important}
   [data-co-theme="dark"] .co-solutions-panel .co-solution-title{color:#fff8ff!important}
   [data-co-theme="dark"] .co-solutions-panel .co-solution-desc{color:#d2c6d8!important}
+  [data-co-theme="dark"] .co-sol-demo-card{background:#21172b!important;border-color:#806044!important;box-shadow:0 20px 44px -30px #000a!important}
   [data-co-theme="dark"] .co-workflow-panel .co-workflow-node{border-color:#806044!important;box-shadow:none!important}
   [data-co-theme="dark"] .co-workflow-panel .co-workflow-label{color:#cfc3d5!important}
   [data-co-theme="dark"] .co-workflow-panel .co-workflow-arrow{color:#9b72df!important}

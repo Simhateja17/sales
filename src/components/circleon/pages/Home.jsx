@@ -576,19 +576,22 @@ export default function Home({ v }) {
             <div style={{"display": "flex", "justifyContent": "center", "margin": "0 0 40px", "padding": "0"}}>
               <div style={{"display": "flex", "justifyContent": "center", "width": "100%", "gap": "clamp(32px,5vw,64px)", "background": "transparent", "borderBottom": "none", "borderRadius": "0", "padding": "24px clamp(20px,3vw,32px)"}}>
                 <div onClick={v.setActiveLead} style={cssToObj(v.leadTabStyle)}>
+                  {v.leadActive ? <span className="co-sol-tab-dot" /> : null}
                   {" Lead Generation "}
                 </div>
                 <div onClick={v.setActiveVoice} style={cssToObj(v.voiceTabStyle)}>
+                  {v.voiceActive ? <span className="co-sol-tab-dot" /> : null}
                   {" Voice Agent "}
                 </div>
                 <div onClick={v.setActiveFollow} style={cssToObj(v.followTabStyle)}>
+                  {v.followActive ? <span className="co-sol-tab-dot" /> : null}
                   {" Follow Up "}
                 </div>
               </div>
             </div>
             <div style={{"position": "relative", "display": "flex", "alignItems": "flex-end", "justifyContent": "center", "gap": "clamp(8px,2vw,20px)", "padding": "0 clamp(20px,3vw,32px) 0"}}>
-              <div style={{"display": "flex", "flexDirection": "column", "alignItems": "center", "textAlign": "center", "position": "relative", "zIndex": "2", "marginTop": "92px"}}>
-                <div onMouseEnter={v.setActiveLead} onClick={v.goLeadContent} style={cssToObj(v.leadOrbStyle)}>
+              <div className="co-sol-col co-sol-col-1" style={{"display": "flex", "flexDirection": "column", "alignItems": "center", "textAlign": "center", "position": "relative", "zIndex": "2", "marginTop": "92px"}}>
+                <div className="co-sol-orb co-sol-float" onMouseEnter={v.setActiveLead} onClick={v.goLeadContent} style={cssToObj(v.leadOrbStyle)}>
                   <span className="co-solution-icon" style={cssToObj(v.leadIconWrapStyle)}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7447C8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="9" />
@@ -607,8 +610,8 @@ export default function Home({ v }) {
                   Discover, enrich, and score prospects that match your ICP, then route them to your CRM the moment they're sales-ready.
                 </p>
               </div>
-              <div style={{"display": "flex", "flexDirection": "column", "alignItems": "center", "textAlign": "center", "position": "relative", "zIndex": "3", "marginTop": "0"}}>
-                <div onMouseEnter={v.setActiveVoice} onClick={v.goVoiceContent} style={cssToObj(v.voiceOrbStyle)}>
+              <div className="co-sol-col co-sol-col-2" style={{"display": "flex", "flexDirection": "column", "alignItems": "center", "textAlign": "center", "position": "relative", "zIndex": "3", "marginTop": "0"}}>
+                <div className="co-sol-orb co-sol-orb-2 co-sol-float co-sol-float-2" onMouseEnter={v.setActiveVoice} onClick={v.goVoiceContent} style={cssToObj(v.voiceOrbStyle)}>
                   <span className="co-solution-icon" style={cssToObj(v.voiceIconWrapStyle)}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C49E62" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M4 5c0 8 7 15 15 15l1-3-4-2-2 2c-3-1.5-5.5-4-7-7l2-2-2-4z" />
@@ -626,8 +629,8 @@ export default function Home({ v }) {
                   Answer every call in under a second, 24/7. Qualify prospects, book appointments, and handle support, no voicemail, no lost jobs.
                 </p>
               </div>
-              <div style={{"display": "flex", "flexDirection": "column", "alignItems": "center", "textAlign": "center", "position": "relative", "zIndex": "1", "marginTop": "52px"}}>
-                <div onMouseEnter={v.setActiveFollow} onClick={v.goFollowContent} style={cssToObj(v.followOrbStyle)}>
+              <div className="co-sol-col co-sol-col-3" style={{"display": "flex", "flexDirection": "column", "alignItems": "center", "textAlign": "center", "position": "relative", "zIndex": "1", "marginTop": "52px"}}>
+                <div className="co-sol-orb co-sol-orb-3 co-sol-float co-sol-float-3" onMouseEnter={v.setActiveFollow} onClick={v.goFollowContent} style={cssToObj(v.followOrbStyle)}>
                   <span className="co-solution-icon" style={cssToObj(v.followIconWrapStyle)}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7447C8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M22 2 11 13" />
@@ -645,6 +648,112 @@ export default function Home({ v }) {
                   Personalized email, SMS, and WhatsApp sequences, timed by AI, because 80% of sales close only after five or more follow-ups.
                 </p>
               </div>
+            </div>
+            {/* Live demo for whichever solution is active — same markup as the
+                hero hub's stages, but switched by the tabs instead of a loop. */}
+            <div className="co-sol-demo-card">
+              {v.leadActive ? (
+                <div className="co-sol-demo">
+                  <div className="co-stage-title">
+                    {"Finding ideal prospects "}
+                    <small>
+                      ENRICHING LIVE
+                    </small>
+                  </div>
+                  <div className="co-lead-grid">
+                    <div className="co-lead-card">
+                      <span className="co-avatar">AM</span>
+                      <span className="co-lead-name">Ava Martin</span>
+                      <span className="co-lead-role">VP Sales · SaaS</span>
+                      <span className="co-score"><b>96%</b>{" MATCH"}</span>
+                    </div>
+                    <div className="co-lead-card">
+                      <span className="co-avatar">JL</span>
+                      <span className="co-lead-name">James Lee</span>
+                      <span className="co-lead-role">Founder · Fintech</span>
+                      <span className="co-score"><b>91%</b>{" MATCH"}</span>
+                    </div>
+                    <div className="co-lead-card">
+                      <span className="co-avatar">NS</span>
+                      <span className="co-lead-name">Nina Shah</span>
+                      <span className="co-lead-role">COO · Healthcare</span>
+                      <span className="co-score"><b>88%</b>{" MATCH"}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              {v.voiceActive ? (
+                <div className="co-sol-demo">
+                  <div className="co-stage-title">
+                    {"AI voice agent connecting "}
+                    <small>
+                      CALL IN PROGRESS
+                    </small>
+                  </div>
+                  <div className="co-voice-layout">
+                    <div className="co-caller-card">
+                      <span className="co-avatar">AM</span>
+                      <span className="co-call-name">Ava Martin</span>
+                      <span className="co-call-number">Qualified lead</span>
+                    </div>
+                    <div className="co-wave-wrap">
+                      <div className="co-wave">
+                        <i /><i /><i /><i /><i /><i /><i />
+                      </div>
+                      <span className="co-call-state">AI AGENT SPEAKING</span>
+                    </div>
+                    <div className="co-call-summary">
+                      <b>Call intelligence</b>
+                      <span>Need confirmed</span>
+                      <span>Budget qualified</span>
+                      <span>Meeting requested</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              {v.followActive ? (
+                <div className="co-sol-demo">
+                  <div className="co-stage-title">
+                    {"Following up at the right moment "}
+                    <small>
+                      AUTOMATION ACTIVE
+                    </small>
+                  </div>
+                  <div className="co-follow-layout">
+                    <div className="co-message-stack">
+                      <div className="co-message">
+                        <span className="co-message-icon">✉</span>
+                        <span>
+                          <b>Email sent</b>
+                          <small>Personalized by AI</small>
+                        </span>
+                      </div>
+                      <div className="co-message two">
+                        <span className="co-message-icon">S</span>
+                        <span>
+                          <b>SMS delivered</b>
+                          <small>Replied in 42 sec</small>
+                        </span>
+                      </div>
+                      <div className="co-message three">
+                        <span className="co-message-icon">W</span>
+                        <span>
+                          <b>WhatsApp follow-up</b>
+                          <small>Best time detected</small>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="co-follow-arrow">
+                      <i />
+                    </div>
+                    <div className="co-calendar">
+                      <strong>MEETING</strong>
+                      <b>10:30</b>
+                      <span>BOOKED ✓</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
             {' '}
             <a onClick={v.gotoWaitlist} style={{"position": "absolute", "right": "clamp(20px,3vw,32px)", "bottom": "clamp(20px,3vw,28px)", "display": "inline-flex", "alignItems": "center", "gap": "12px", "padding": "6px 6px 6px 24px", "borderRadius": "999px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#fff", "background": "linear-gradient(135deg,#8B5CF6,#5B2A9E)", "boxShadow": "0 12px 24px -10px rgba(71,30,134,.55)", "cursor": "pointer", "transition": ".2s", "whiteSpace": "nowrap"}} className="co-p1066ae">
