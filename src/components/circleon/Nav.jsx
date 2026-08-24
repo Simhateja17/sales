@@ -5,7 +5,9 @@
 //  1. The export's only action was "Book a demo". The site it replaces showed
 //     "Dashboard" to signed-in visitors and "Sign Up" to everyone else, and
 //     dropping that would leave the product with no entry point, so the pill is
-//     auth-aware. Styling is unchanged.
+//     auth-aware: "Dashboard" links to the app, "Sign Up" scrolls to the
+//     waitlist section like the "Sign up" pill on the solutions card. Styling
+//     is unchanged.
 //  2. The export hid every nav link below 720px with nothing in its place, so a
 //     menu button and panel were added for small screens.
 //  3. Signed-out visitors also get a "Login" link beside the theme toggle; below
@@ -25,6 +27,12 @@ const PILL_STYLE = {
   boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,.35),inset 0 -1px 0 0 rgba(0,0,0,.15),0 1px 2px rgba(71,30,134,.3),0 8px 24px -10px #7447C8',
   transition: 'transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s',
 };
+
+const PILL_ARROW = (
+  <span style={{"width": "26px", "height": "26px", "borderRadius": "50%", "background": "rgba(255,255,255,.18)", "display": "inline-flex", "alignItems": "center", "justifyContent": "center", "fontSize": "13px"}}>
+    →
+  </span>
+);
 
 const LINK_STYLE = {
   cursor: 'pointer', paddingBottom: '3px',
@@ -133,12 +141,19 @@ export default function Nav({ v }) {
             {' '}
             </>
           )}
-          <Link className="co-nav-demo co-p40d131" href={isAuthenticated ? '/dashboard' : '/signup'} style={PILL_STYLE}>
-            {isAuthenticated ? 'Dashboard ' : 'Sign Up '}
-            <span style={{"width": "26px", "height": "26px", "borderRadius": "50%", "background": "rgba(255,255,255,.18)", "display": "inline-flex", "alignItems": "center", "justifyContent": "center", "fontSize": "13px"}}>
-              →
-            </span>
-          </Link>
+          {isAuthenticated ? (
+            <Link className="co-nav-demo co-p40d131" href="/dashboard" style={PILL_STYLE}>
+              {'Dashboard '}
+              {PILL_ARROW}
+            </Link>
+          ) : (
+            // Signed-out visitors get the same destination as the "Sign up" pill
+            // on the solutions card: the waitlist section, not the account form.
+            <a className="co-nav-demo co-p40d131" onClick={run(v.gotoWaitlist)} style={PILL_STYLE}>
+              {'Sign Up '}
+              {PILL_ARROW}
+            </a>
+          )}
           <button
             type="button"
             className="co-nav-burger"
