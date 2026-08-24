@@ -153,7 +153,7 @@ export default function Pricing({ v }) {
               Voice minutes per month
             </div>
             <div style={{"display": "flex", "alignItems": "center", "gap": "16px"}}>
-              <input type="range" min="0" max="15000" step="250" value={v.calcMinutes} onChange={v.setCalcMinutes} style={{"flex": "1", "accentColor": "#1A172C", "height": "6px"}} />
+              <input className="co-range" type="range" min="0" max="15000" step="250" value={v.calcMinutes} onChange={v.setCalcMinutes} style={{"flex": "1", "height": "6px"}} />
               <span style={{"fontSize": "14px", "fontWeight": "500", "color": "#1A172C", "width": "92px", "textAlign": "right", "flexShrink": "0"}}>
                 {v.calcMinutesLabel}
               </span>
@@ -187,7 +187,10 @@ export default function Pricing({ v }) {
           </div>
         </div>
 
-        <div className="co-dark-card" data-reveal style={{"marginTop": "clamp(56px,7vw,88px)"}}>
+        {/* The dark theme paints this card a solid panel, which squared off
+            against the rounded table inside it. Radius is harmless in light
+            mode, where the card has no background of its own. */}
+        <div className="co-dark-card" data-reveal style={{"marginTop": "clamp(56px,7vw,88px)", "borderRadius": "20px", "padding": "clamp(20px,3vw,28px)"}}>
           <h2 style={{ ...SECTION_H2, textAlign: 'center' }}>Compare plans</h2>
           <div style={{"overflowX": "auto", "border": "1px solid #D8D5E2", "borderRadius": "16px", "background": "#fff"}}>
             <div style={{"display": "grid", "gridTemplateColumns": "1.4fr 1fr 1fr 1fr", "minWidth": "560px"}}>
