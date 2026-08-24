@@ -1178,7 +1178,7 @@ export default function Home({ v }) {
                   {' '}
                   <input value={v.form.company} onChange={v.onCompany} placeholder="Company name" style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
                   {' '}
-                  <button type="submit" style={{"marginTop": "14px", "width": "100%", "padding": "16px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-pc6e9be">
+                  <button type="submit" style={{"marginTop": "14px", "width": "100%", "padding": "16px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-pc6e9be co-on-gold">
                     Join Waitlist
                   </button>
                   {' '}

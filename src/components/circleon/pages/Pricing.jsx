@@ -75,7 +75,7 @@ function PlanCard({ plan }) {
           {plan.tier}
         </span>
         {plan.ribbon ? (
-          <span style={{ display: 'inline-block', padding: '4px 11px', borderRadius: '999px', background: '#C49E62', color: '#1A172C', fontSize: '10.5px', fontWeight: '700', letterSpacing: '.06em', textTransform: 'uppercase' }}>
+          <span className="co-on-gold" style={{ display: 'inline-block', padding: '4px 11px', borderRadius: '999px', background: '#C49E62', color: '#1A172C', fontSize: '10.5px', fontWeight: '700', letterSpacing: '.06em', textTransform: 'uppercase' }}>
             {plan.ribbon}
           </span>
         ) : null}
@@ -105,7 +105,7 @@ function PlanCard({ plan }) {
       <a
         href={plan.href}
         onClick={plan.onClick}
-        className={dark ? 'co-pda0398' : 'co-p859bb1'}
+        className={dark ? 'co-pda0398 co-on-gold' : 'co-p859bb1'}
         style={dark
           ? { ...BTN, background: '#C49E62', color: '#1A172C' }
           : { ...BTN, border: '1px solid #1A172C', color: '#1A172C' }}
@@ -177,7 +177,7 @@ export default function Pricing({ v }) {
                 <div>{v.calcMinutesNote}</div>
                 <div>Billed annually</div>
               </div>
-              <a onClick={v.gotoWaitlist} style={{"display": "block", "textAlign": "center", "padding": "15px", "borderRadius": "10px", "background": "#C49E62", "color": "#1A172C", "fontWeight": "600", "fontSize": "15px", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398">
+              <a onClick={v.gotoWaitlist} style={{"display": "block", "textAlign": "center", "padding": "15px", "borderRadius": "10px", "background": "#C49E62", "color": "#1A172C", "fontWeight": "600", "fontSize": "15px", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398 co-on-gold">
                 Talk to us about this
               </a>
             </div>

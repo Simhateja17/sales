@@ -194,11 +194,18 @@ class CircleOnShell extends React.Component {
     return raw.map((v) => ({ ...v, orb: `conic-gradient(from 200deg,${v.a},${v.d},${v.b},${v.a})` }));
   }
 
-  leadSamplesData() {
+  // The score pills carry their own colours, so they need dark variants: the
+  // light pink/cream backgrounds stayed put in dark mode while the card's
+  // blanket text override repainted the labels pale, leaving them unreadable.
+  leadSamplesData(dark) {
+    // Carried as --chip-fg rather than `color:` so the card's blanket override,
+    // which is !important and would beat any inline colour, cannot reach it.
+    const hot = dark ? 'background:#4A2A24;--chip-fg:#F0B7A3' : 'background:#FBE9E4;--chip-fg:#B4522F';
+    const warm = dark ? 'background:#453820;--chip-fg:#EBCB79' : 'background:#FCF3DC;--chip-fg:#8A6A16';
     return [
-      { initials: 'SC', name: 'Sarah Chen', company: 'Acme Corp', score: 92, tag: 'Hot', pillStyle: 'background:#FBE9E4;color:#B4522F', delayMs: 600 },
-      { initials: 'MW', name: 'Marcus Webb', company: 'Loopline', score: 78, tag: 'Warm', pillStyle: 'background:#FCF3DC;color:#8A6A16', delayMs: 1900 },
-      { initials: 'PN', name: 'Priya Nair', company: 'Vantage Systems', score: 95, tag: 'Hot', pillStyle: 'background:#FBE9E4;color:#B4522F', delayMs: 3200 },
+      { initials: 'SC', name: 'Sarah Chen', company: 'Acme Corp', score: 92, tag: 'Hot', pillStyle: hot, delayMs: 600 },
+      { initials: 'MW', name: 'Marcus Webb', company: 'Loopline', score: 78, tag: 'Warm', pillStyle: warm, delayMs: 1900 },
+      { initials: 'PN', name: 'Priya Nair', company: 'Vantage Systems', score: 95, tag: 'Hot', pillStyle: hot, delayMs: 3200 },
     ];
   }
 
@@ -773,7 +780,7 @@ class CircleOnShell extends React.Component {
       voiceFlow: this.numHoriz(['Incoming Call', 'AI Understands Customer Intent', 'Retrieves Business Knowledge', 'Answers Questions', 'Schedules Appointment or Executes Task', 'Transfers to Human if Needed']),
       followFlow: this.numHoriz(['Lead Captured', 'AI Waits Based on Smart Timing', 'Personalized Email', 'SMS or WhatsApp Reminder', 'Meeting Confirmation', 'Customer Conversion']),
       voices: this.voicesData(),
-      leadSamples: this.leadSamplesData(),
+      leadSamples: this.leadSamplesData(dark),
       form: this.state.form,
       onName: this.onField('name'), onEmail: this.onField('email'), onCompany: this.onField('company'),
       submit: this.submit, submitted: this.state.submitted, notSubmitted: !this.state.submitted,
