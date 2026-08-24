@@ -98,7 +98,11 @@ export default function Nav({ v }) {
               {' '}
             </Fragment>
           ))}
-          <div style={{"position": "relative"}}>
+          {/* display:flex, not the export's plain block: the inline-flex anchor
+              inside sat on a line box whose leading made this item 23px tall
+              against the other links' 18px, so centring pushed "Resources"
+              2.5px below the rest of the bar. */}
+          <div style={{"position": "relative", "display": "flex", "alignItems": "center"}}>
             <a onClick={v.toggleResources} style={{"cursor": "pointer", "paddingBottom": "3px", "borderBottom": "1px solid transparent", "transition": ".2s", "display": "inline-flex", "alignItems": "center", "gap": "5px"}}>
               {"Resources "}
               <span style={{"fontSize": "9px"}}>
