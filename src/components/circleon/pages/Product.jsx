@@ -18,7 +18,7 @@ export default function Product({ v }) {
                 {v.product.eyebrow}
               </span>
             </div>
-            <h1 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(36px,4.8vw,58px)", "lineHeight": "1.08", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 22px", "color": "#1A172C"}}>
+            <h1 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(36px,4.8vw,58px)", "lineHeight": "1.08", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 22px", "color": "#1A172C"}}>
               {v.product.title}
             </h1>
             <p style={{"fontSize": "clamp(17px,1.6vw,19px)", "lineHeight": "1.7", "color": "#423F54", "margin": "0 0 36px"}}>
@@ -142,7 +142,7 @@ export default function Product({ v }) {
                         Free Preview
                       </span>
                     </div>
-                    <h2 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(24px,3vw,34px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 12px"}}>
+                    <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(24px,3vw,34px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 12px"}}>
                       Tell us about your business, get 3 free leads
                     </h2>
                     <p style={{"fontSize": "15.5px", "color": "#9E9CAD", "lineHeight": "1.6", "margin": "0 0 34px"}}>
@@ -171,14 +171,14 @@ export default function Product({ v }) {
                 {v.freeLeadsSubmitted ? (
                   <>
                   <div style={{"maxWidth": "640px", "margin": "0 auto", "textAlign": "center", "position": "relative"}}>
-                    <div style={{"fontFamily": "'Fraunces',serif", "fontSize": "32px", "color": "#C49E62", "marginBottom": "10px"}}>
+                    <div style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "32px", "color": "#C49E62", "marginBottom": "10px"}}>
                       ✓
                     </div>
                     {/* The export listed three hardcoded people here — identical
                         for every visitor — despite the form promising prospects
                         matched to your ICP. The layout is kept; the claim now
                         matches what actually happens (the request is emailed). */}
-                    <h2 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(22px,2.8vw,30px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 8px"}}>
+                    <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(22px,2.8vw,30px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 8px"}}>
                       Your 3 free leads are on the way
                     </h2>
                     <p style={{"fontSize": "14.5px", "color": "#9E9CAD", "margin": "0 0 30px"}}>
@@ -210,7 +210,7 @@ export default function Product({ v }) {
                   In Action
                 </span>
               </div>
-              <h2 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(26px,3vw,38px)", "lineHeight": "1.14", "letterSpacing": "-.015em", "fontWeight": "400", "margin": "0 0 16px", "color": "#1A172C", "textWrap": "balance"}}>
+              <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(26px,3vw,38px)", "lineHeight": "1.14", "letterSpacing": "-.015em", "fontWeight": "400", "margin": "0 0 16px", "color": "#1A172C", "textWrap": "balance"}}>
                 What it looks like on your side
               </h2>
               <p style={{"fontSize": "15.5px", "color": "#423F54", "lineHeight": "1.7", "margin": "0", "maxWidth": "340px"}}>
@@ -260,7 +260,7 @@ export default function Product({ v }) {
                     </Fragment>
                   ))}
                   <div style={{"marginTop": "6px", "borderRadius": "12px", "background": "linear-gradient(135deg,#1A172C,#3A2E5C)", "padding": "16px 18px", "display": "flex", "alignItems": "center", "gap": "14px", "animation": "popIn 9000ms ease-out infinite", "animationDelay": "4000ms"}}>
-                    <div style={{"fontFamily": "'Fraunces',serif", "fontSize": "24px", "fontWeight": "600", "color": "#C49E62", "flexShrink": "0"}}>
+                    <div style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "24px", "fontWeight": "600", "color": "#C49E62", "flexShrink": "0"}}>
                       128
                     </div>
                     <div style={{"fontSize": "12.5px", "color": "#D8D5E2", "lineHeight": "1.45"}}>
@@ -383,14 +383,14 @@ export default function Product({ v }) {
           </div>
         </section>
         <section style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "clamp(32px,4vw,56px) 24px"}}>
-          <h2 data-reveal style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(24px,3vw,34px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 32px", "color": "#1A172C"}}>
+          <h2 data-reveal style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(24px,3vw,34px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 32px", "color": "#1A172C"}}>
             Features
           </h2>
           <div className="co-dark-panel" style={{"display": "grid", "gridTemplateColumns": "repeat(auto-fit,minmax(250px,1fr))", "gap": "1px", "background": "#D8D5E2", "border": "1px solid #D8D5E2", "borderRadius": "16px", "overflow": "hidden"}}>
             {(v.product.features || []).map((f, $index) => (
               <Fragment key={$index}>
               <div className="co-dark-card" data-reveal style={{"background": "#FAF9FF", "padding": "30px"}}>
-                <div style={{"fontFamily": "'Fraunces',serif", "fontSize": "22px", "fontWeight": "400", "color": "#C49E62", "marginBottom": "16px"}}>
+                <div style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "22px", "fontWeight": "400", "color": "#C49E62", "marginBottom": "16px"}}>
                   {f.n2}
                 </div>
                 <div style={{"fontSize": "18px", "fontWeight": "600", "marginBottom": "8px", "color": "#1A172C"}}>
@@ -412,7 +412,7 @@ export default function Product({ v }) {
                   Workflow
                 </span>
               </div>
-              <h2 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(28px,3.2vw,42px)", "lineHeight": "1.1", "letterSpacing": "-.015em", "fontWeight": "400", "margin": "0 0 18px", "color": "#1A172C", "textWrap": "balance"}}>
+              <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(28px,3.2vw,42px)", "lineHeight": "1.1", "letterSpacing": "-.015em", "fontWeight": "400", "margin": "0 0 18px", "color": "#1A172C", "textWrap": "balance"}}>
                 {v.product.workflowTitle}
               </h2>
               <p style={{"fontSize": "15.5px", "color": "#423F54", "lineHeight": "1.7", "margin": "0 0 30px", "maxWidth": "330px"}}>
@@ -444,7 +444,7 @@ export default function Product({ v }) {
                   <span style={{"position": "absolute", "bottom": "-3px", "left": "50%", "width": "7px", "height": "7px", "borderRadius": "50%", "background": "#7447C8", "transform": "translateX(-50%)", "boxShadow": "0 0 0 4px rgba(116,71,200,.15)"}} />
                 </div>
                 <div style={{"position": "absolute", "inset": "46px", "borderRadius": "50%", "background": "radial-gradient(130% 130% at 30% 22%,#1A172C 0%,#1A172C 58%)", "display": "flex", "flexDirection": "column", "alignItems": "center", "justifyContent": "center", "boxShadow": "0 26px 54px -22px rgba(21,14,42,.65),inset 0 1px 0 rgba(255,255,255,.06)"}}>
-                  <div style={{"fontFamily": "'Fraunces',serif", "fontSize": "44px", "fontWeight": "600", "color": "#fff", "lineHeight": "1", "letterSpacing": "-.01em"}}>
+                  <div style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "44px", "fontWeight": "600", "color": "#fff", "lineHeight": "1", "letterSpacing": "-.01em"}}>
                     {v.product.heroStat.value}
                   </div>
                   <div style={{"fontSize": "11px", "color": "#9E9CAD", "marginTop": "8px", "textAlign": "center", "padding": "0 22px", "lineHeight": "1.5"}}>
@@ -459,7 +459,7 @@ export default function Product({ v }) {
                 {(v.product.flowHighlights || []).map((s, $index) => (
                   <Fragment key={$index}>
                   <div style={{"display": "flex", "gap": "18px", "alignItems": "flex-start", "position": "relative"}}>
-                    <div style={cssToObj(`width:48px;height:48px;border-radius:50%;background:${s.accent ?? ""};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-family:'Fraunces',serif;font-weight:600;font-size:16px;box-shadow:0 8px 20px -8px ${s.accent ?? ""};position:relative;z-index:1;border:3px solid #FAF9FF`)}>
+                    <div style={cssToObj(`width:48px;height:48px;border-radius:50%;background:${s.accent ?? ""};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-family:'Cormorant Garamond',serif;font-weight:600;font-size:16px;box-shadow:0 8px 20px -8px ${s.accent ?? ""};position:relative;z-index:1;border:3px solid #FAF9FF`)}>
                       {s.n2}
                     </div>
                     <div style={{"paddingTop": "4px"}}>
@@ -485,7 +485,7 @@ export default function Product({ v }) {
           </div>
           <div className="co-dark-panel" style={{"display": "grid", "gridTemplateColumns": "repeat(auto-fit,minmax(320px,1fr))", "gap": "1px", "background": "#D8D5E2", "border": "1px solid #D8D5E2", "borderRadius": "20px", "overflow": "hidden", "boxShadow": "0 1px 2px rgba(21,14,42,.04)"}}>
             <div className="co-dark-card" data-reveal style={{"background": "#FAF9FF", "padding": "clamp(28px,3.2vw,36px) clamp(24px,3vw,32px) 32px"}}>
-              <div style={{"fontFamily": "'Fraunces',serif", "fontSize": "19px", "fontWeight": "400", "letterSpacing": "-.005em", "color": "#1A172C", "marginBottom": "32px", "maxWidth": "320px", "lineHeight": "1.35"}}>
+              <div style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "19px", "fontWeight": "400", "letterSpacing": "-.005em", "color": "#1A172C", "marginBottom": "32px", "maxWidth": "320px", "lineHeight": "1.35"}}>
                 {v.product.statsBar.title}
               </div>
               <div style={{"display": "flex", "flexDirection": "column", "gap": "26px", "minHeight": "200px", "justifyContent": "center"}}>
@@ -513,7 +513,7 @@ export default function Product({ v }) {
               </p>
             </div>
             <div className="co-dark-card" data-reveal style={{"background": "#FAF9FF", "padding": "clamp(28px,3.2vw,36px) clamp(24px,3vw,32px) 32px"}}>
-              <div style={{"fontFamily": "'Fraunces',serif", "fontSize": "19px", "fontWeight": "400", "letterSpacing": "-.005em", "color": "#1A172C", "marginBottom": "32px", "maxWidth": "320px", "lineHeight": "1.35"}}>
+              <div style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "19px", "fontWeight": "400", "letterSpacing": "-.005em", "color": "#1A172C", "marginBottom": "32px", "maxWidth": "320px", "lineHeight": "1.35"}}>
                 {v.product.statsTrend.title}
               </div>
               <div style={{"position": "relative", "height": "200px"}}>
@@ -572,7 +572,7 @@ export default function Product({ v }) {
           {(v.product.sections || []).map((sec, $index) => (
             <Fragment key={$index}>
             <div data-reveal>
-              <h2 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(22px,2.6vw,30px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 8px", "color": "#1A172C"}}>
+              <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(22px,2.6vw,30px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 8px", "color": "#1A172C"}}>
                 {sec.heading}
               </h2>
               <p style={{"fontSize": "16px", "color": "#423F54", "margin": "0 0 26px", "maxWidth": "660px", "lineHeight": "1.6"}}>
@@ -650,7 +650,7 @@ export default function Product({ v }) {
               FAQ
             </span>
           </div>
-          <h2 data-reveal style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(26px,3.2vw,40px)", "lineHeight": "1.1", "letterSpacing": "-.015em", "fontWeight": "400", "margin": "0 0 34px", "color": "#1A172C"}}>
+          <h2 data-reveal style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(26px,3.2vw,40px)", "lineHeight": "1.1", "letterSpacing": "-.015em", "fontWeight": "400", "margin": "0 0 34px", "color": "#1A172C"}}>
             Frequently asked questions
           </h2>
           <div style={{"display": "flex", "flexDirection": "column"}}>
@@ -658,7 +658,7 @@ export default function Product({ v }) {
               <Fragment key={$index}>
               <div className="co-faq-row" data-reveal style={{"borderTop": "1px solid #D8D5E2"}}>
                 <div onClick={q.toggle} style={{"display": "flex", "alignItems": "flex-start", "gap": "20px", "padding": "24px 4px", "cursor": "pointer", "userSelect": "none"}}>
-                  <span style={{"fontFamily": "'Fraunces',serif", "fontSize": "14px", "fontWeight": "600", "color": "#C49E62", "paddingTop": "3px", "flexShrink": "0", "width": "26px"}}>
+                  <span style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "14px", "fontWeight": "600", "color": "#C49E62", "paddingTop": "3px", "flexShrink": "0", "width": "26px"}}>
                     {q.n2}
                   </span>
                   {' '}
@@ -697,7 +697,7 @@ export default function Product({ v }) {
         </section>
         <section style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "clamp(40px,5vw,72px) 24px clamp(64px,8vw,100px)"}}>
           <div data-reveal style={{"textAlign": "center", "background": "#1A172C", "padding": "clamp(48px,7vw,80px) 24px", "borderRadius": "20px"}}>
-            <h2 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(26px,3.2vw,38px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 12px"}}>
+            <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(26px,3.2vw,38px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 12px"}}>
               Ready to get started?
             </h2>
             <p style={{"fontSize": "16.5px", "color": "#9E9CAD", "margin": "0 0 30px"}}>

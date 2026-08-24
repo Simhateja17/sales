@@ -13,7 +13,7 @@ export default function About({ v }) {
         <div style={{"fontSize": "13px", "fontWeight": "600", "letterSpacing": ".08em", "textTransform": "uppercase", "color": "#C49E62", "marginBottom": "14px"}}>
           About CircleOn
         </div>
-        <h1 data-reveal style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(32px,4.4vw,52px)", "letterSpacing": "-.02em", "fontWeight": "400", "margin": "0 0 20px", "color": "#1A172C", "maxWidth": "760px", "lineHeight": "1.08"}}>
+        <h1 data-reveal style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(32px,4.4vw,52px)", "letterSpacing": "-.02em", "fontWeight": "400", "margin": "0 0 20px", "color": "#1A172C", "maxWidth": "760px", "lineHeight": "1.08"}}>
           We're building the AI workforce for growing businesses
         </h1>
         <p data-reveal style={{"fontSize": "19px", "lineHeight": "1.65", "color": "#423F54", "maxWidth": "680px", "margin": "0 0 48px"}}>
@@ -49,7 +49,7 @@ export default function About({ v }) {
             team to `team` in CircleOn.jsx and this section returns. */}
         {v.team && v.team.length ? (
         <>
-        <h2 data-reveal style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(22px,2.6vw,30px)", "fontWeight": "400", "letterSpacing": "-.02em", "color": "#1A172C", "margin": "0 0 24px"}}>
+        <h2 data-reveal style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(22px,2.6vw,30px)", "fontWeight": "400", "letterSpacing": "-.02em", "color": "#1A172C", "margin": "0 0 24px"}}>
           The team
         </h2>
         <div style={{"display": "grid", "gridTemplateColumns": "repeat(auto-fit,minmax(180px,1fr))", "gap": "18px"}}>

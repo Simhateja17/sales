@@ -31,15 +31,18 @@ const TIER = {
   textTransform: 'uppercase', marginBottom: '14px',
 };
 const NAME = {
-  fontFamily: "'Fraunces',serif", fontSize: '26px', fontWeight: '400',
+  fontFamily: "'Cormorant Garamond',serif", fontSize: '26px', fontWeight: '400',
   letterSpacing: '-.01em', marginBottom: '20px',
 };
 const AMOUNT = {
-  fontFamily: "'Fraunces',serif", fontSize: '54px', lineHeight: '1',
+  fontFamily: "'Cormorant Garamond',serif", fontSize: '54px', lineHeight: '1',
   fontWeight: '400', letterSpacing: '-.02em',
 };
 const PER = {
-  fontFamily: "'Inter',sans-serif", fontSize: '15px', fontWeight: '500',
+  // The export sets 'Inter' here, which this site has never loaded, so the
+  // suffix silently fell back to a system face. DM Sans is the export's own
+  // body font; loading a fourth family for one "/mo" is not worth it.
+  fontFamily: "'DM Sans',sans-serif", fontSize: '15px', fontWeight: '500',
   color: '#716F82', letterSpacing: '0',
 };
 const BLURB = { fontSize: '14px', lineHeight: '1.55', margin: '16px 0 22px' };
@@ -62,7 +65,7 @@ const CELL = {
   borderBottom: '1px solid #F4F2FB', borderLeft: '1px solid #F4F2FB',
 };
 const SECTION_H2 = {
-  fontFamily: "'Fraunces',serif", fontSize: 'clamp(24px,3vw,32px)',
+  fontFamily: "'Cormorant Garamond',serif", fontSize: 'clamp(24px,3vw,32px)',
   letterSpacing: '-.01em', fontWeight: '400', margin: '0 0 28px', color: '#1A172C',
 };
 
@@ -129,7 +132,7 @@ export default function Pricing({ v }) {
               Pricing
             </span>
           </div>
-          <h1 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(32px,4vw,46px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 14px", "color": "#1A172C"}}>
+          <h1 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(32px,4vw,46px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 14px", "color": "#1A172C"}}>
             Simple pricing that scales with you
           </h1>
           <p style={{"fontSize": "17px", "color": "#423F54", "margin": "0"}}>

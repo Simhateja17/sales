@@ -562,7 +562,7 @@ export default function Home({ v }) {
                 One platform, three engines
               </span>
             </div>
-            <h2 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(30px,3.6vw,44px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 16px", "color": "#1A172C"}}>
+            <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(30px,3.6vw,44px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 16px", "color": "#1A172C"}}>
               {"Everything you need to sell on "}
               <span style={{"fontStyle": "italic", "background": "linear-gradient(120deg,#471E86,#7447C8 52%,#C49E62)", "WebkitBackgroundClip": "text", "backgroundClip": "text", "WebkitTextFillColor": "transparent"}}>
                 autopilot
@@ -766,7 +766,7 @@ export default function Home({ v }) {
         </section>
         <section className="co-workflows" style={{"maxWidth": "1100px", "margin": "0 auto", "padding": "clamp(48px,6vw,88px) 24px", "display": "flex", "flexDirection": "column", "gap": "clamp(56px,7vw,96px)"}}>
           <div id="wf-lead" data-reveal style={{"scrollMarginTop": "100px"}}>
-            <h3 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(22px,2.6vw,28px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 14px", "color": "#1A172C"}}>
+            <h3 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(22px,2.6vw,28px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 14px", "color": "#1A172C"}}>
               {"How "}
               <span style={{"fontStyle": "italic", "background": "linear-gradient(120deg,#471E86,#7447C8 52%,#C49E62)", "WebkitBackgroundClip": "text", "backgroundClip": "text", "WebkitTextFillColor": "transparent"}}>
                 Lead Generation
@@ -855,7 +855,7 @@ export default function Home({ v }) {
             </div>
           </div>
           <div id="wf-voice" data-reveal style={{"scrollMarginTop": "100px"}}>
-            <h3 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(22px,2.6vw,28px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 14px", "color": "#1A172C"}}>
+            <h3 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(22px,2.6vw,28px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 14px", "color": "#1A172C"}}>
               {"How the "}
               <span style={{"fontStyle": "italic", "background": "linear-gradient(120deg,#471E86,#7447C8 52%,#C49E62)", "WebkitBackgroundClip": "text", "backgroundClip": "text", "WebkitTextFillColor": "transparent"}}>
                 Voice Agent
@@ -949,7 +949,7 @@ export default function Home({ v }) {
             </div>
           </div>
           <div id="wf-follow" data-reveal style={{"scrollMarginTop": "100px"}}>
-            <h3 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(22px,2.6vw,28px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 14px", "color": "#1A172C"}}>
+            <h3 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(22px,2.6vw,28px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 14px", "color": "#1A172C"}}>
               {"How "}
               <span style={{"fontStyle": "italic", "background": "linear-gradient(120deg,#471E86,#7447C8 52%,#C49E62)", "WebkitBackgroundClip": "text", "backgroundClip": "text", "WebkitTextFillColor": "transparent"}}>
                 Follow Up
@@ -1049,7 +1049,7 @@ export default function Home({ v }) {
                 Voice Library
               </span>
             </div>
-            <h3 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(24px,2.8vw,32px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 8px", "color": "#1A172C"}}>
+            <h3 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(24px,2.8vw,32px)", "letterSpacing": "-.01em", "fontWeight": "400", "margin": "0 0 8px", "color": "#1A172C"}}>
               {"Meet "}
               <span style={{"fontStyle": "italic", "background": "linear-gradient(120deg,#471E86,#7447C8 52%,#C49E62)", "WebkitBackgroundClip": "text", "backgroundClip": "text", "WebkitTextFillColor": "transparent"}}>
                 the voices
@@ -1067,7 +1067,7 @@ export default function Home({ v }) {
                       <div style={{"position": "absolute", "inset": "8px", "borderRadius": "50%", "background": "radial-gradient(circle at 38% 32%,rgba(255,255,255,.8),rgba(255,255,255,0) 60%)"}} />
                     </div>
                     <div>
-                      <div className="co-voice-name" style={{"fontFamily": "'Fraunces',serif", "fontSize": "19px", "color": "#1A172C"}}>
+                      <div className="co-voice-name" style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "19px", "color": "#1A172C"}}>
                         {v.name}
                       </div>
                       <div className="co-voice-tag" style={{"fontSize": "11px", "fontWeight": "600", "letterSpacing": ".06em", "color": "#716F82", "marginTop": "3px"}}>
@@ -1106,7 +1106,7 @@ export default function Home({ v }) {
                   </div>
                   <div className="co-voice-divider" style={{"height": "1px", "background": "#D8D5E2", "marginBottom": "16px"}} />
                   <div style={{"display": "flex", "alignItems": "center", "gap": "12px"}}>
-                    <span className="co-voice-meta" style={{"fontFamily": "'JetBrains Mono',monospace", "fontSize": "11px", "color": "#716F82", "flexShrink": "0"}}>
+                    <span className="co-voice-meta" style={{"fontFamily": "'DM Mono',monospace", "fontSize": "11px", "color": "#716F82", "flexShrink": "0"}}>
                       {v.lang}{" · "}{v.dur}
                     </span>
                     {' '}
@@ -1148,7 +1148,7 @@ export default function Home({ v }) {
                   Early Access
                 </span>
               </div>
-              <h2 style={{"fontFamily": "'Fraunces',serif", "fontSize": "clamp(28px,3.6vw,42px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 14px"}}>
+              <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(28px,3.6vw,42px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 14px"}}>
                 Join the CircleOn Waitlist
               </h2>
               <p style={{"fontSize": "16.5px", "color": "#9E9CAD", "lineHeight": "1.6", "margin": "0 0 40px"}}>
@@ -1157,7 +1157,7 @@ export default function Home({ v }) {
               {v.submitted ? (
                 <>
                 <div style={{"border": "1px solid rgba(196,158,98,.5)", "padding": "38px 28px"}}>
-                  <div style={{"fontFamily": "'Fraunces',serif", "fontSize": "32px", "color": "#C49E62", "marginBottom": "10px"}}>
+                  <div style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "32px", "color": "#C49E62", "marginBottom": "10px"}}>
                     ✓
                   </div>
                   <div style={{"fontSize": "19px", "fontWeight": "600", "color": "#fff", "marginBottom": "6px"}}>
