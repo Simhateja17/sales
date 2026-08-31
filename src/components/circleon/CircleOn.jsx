@@ -60,7 +60,7 @@ const PAGES = {
 
 class CircleOnShell extends React.Component {
 
-  state = { mounted: false, theme: 'light', resourcesOpen: false, form: { name: '', email: '', company: '' }, submitted: false, activeSolution: 'voice-agent', billing: 'monthly', calcLead: true, calcVoice: true, calcFollow: false, calcMinutes: 500, starterPick: 'lead', openFaq: 0, diagramScale: 1, freeLeadsOpen: false, freeLeadsSubmitted: false, freeLeadsForm: { company: '', industry: '', icp: '', email: '' } };
+  state = { mounted: false, theme: 'light', resourcesOpen: false, form: { name: '', email: '', company: '' }, submitted: false, activeSolution: 'voice-agent', billing: 'monthly', calcLead: true, calcVoice: true, calcFollow: false, calcMinutes: 500, starterPick: 'lead', openFaq: 0, diagramScale: 1, freeLeadsOpen: false, freeLeadsSubmitted: false, freeLeadsSubmitting: false, freeLeadsError: '', freeLeadsForm: { company: '', product: '', titles: '', industry: '', region: '', companySize: '', email: '' } };
   toggleFaq = (i) => () => this.setState(s => ({ openFaq: s.openFaq === i ? -1 : i }));
   leadStepClick = (i) => () => {
     clearTimeout(this._leadPauseTimer);
@@ -159,27 +159,35 @@ class CircleOnShell extends React.Component {
   submit = (e) => {
     e.preventDefault();
     this.setState({ submitted: true, sendError: null });
-    this.send({ kind: 'waitlist', ...this.state.form });
+    this.send({ kind: 'waitlist', ...this.state.form }).catch(() => this.setState({ sendError: true }));
   };
-  send = (payload) => {
-    fetch('/api/enquiry', {
+  send = async (payload) => {
+    const response = await fetch('/api/enquiry', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-    })
-      .then((r) => { if (!r.ok) throw new Error(String(r.status)); })
-      .catch(() => this.setState({ sendError: true }));
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+    return data;
   };
 
   openFreeLeads = () => this.setState({ freeLeadsOpen: true });
   closeFreeLeads = () => this.setState({ freeLeadsOpen: false });
   onFreeLeadField = (k) => (e) => { const v = e.target.value; this.setState(s => ({ freeLeadsForm: { ...s.freeLeadsForm, [k]: v } })); };
-  submitFreeLeads = (e) => {
+  submitFreeLeads = async (e) => {
     e.preventDefault();
-    this.setState({ freeLeadsSubmitted: true, sendError: null });
-    this.send({ kind: 'free-leads', ...this.state.freeLeadsForm });
+    this.setState({ freeLeadsSubmitting: true, freeLeadsError: '' });
+    try {
+      await this.send({ kind: 'free-leads', ...this.state.freeLeadsForm });
+      this.setState({ freeLeadsSubmitted: true, freeLeadsError: '' });
+    } catch (error) {
+      this.setState({ freeLeadsError: error instanceof Error ? error.message : 'Could not start the preview right now.' });
+    } finally {
+      this.setState({ freeLeadsSubmitting: false });
+    }
   };
-  resetFreeLeads = () => this.setState({ freeLeadsSubmitted: false, freeLeadsForm: { company: '', industry: '', icp: '', email: '' } });
+  resetFreeLeads = () => this.setState({ freeLeadsSubmitted: false, freeLeadsSubmitting: false, freeLeadsError: '', freeLeadsForm: { company: '', product: '', titles: '', industry: '', region: '', companySize: '', email: '' } });
 
   num(arr) { return arr.map((label, i) => ({ n: i + 1, n2: String(i + 1).padStart(2, '0'), label, left: i % 2 === 0, notLeft: i % 2 !== 0 })); }
   voicesData() {
@@ -789,16 +797,21 @@ class CircleOnShell extends React.Component {
       closeFreeLeads: this.closeFreeLeads,
       freeLeadsForm: this.state.freeLeadsForm,
       onFreeLeadCompany: this.onFreeLeadField('company'),
+      onFreeLeadProduct: this.onFreeLeadField('product'),
+      onFreeLeadTitles: this.onFreeLeadField('titles'),
       onFreeLeadIndustry: this.onFreeLeadField('industry'),
-      onFreeLeadIcp: this.onFreeLeadField('icp'),
+      onFreeLeadRegion: this.onFreeLeadField('region'),
+      onFreeLeadCompanySize: this.onFreeLeadField('companySize'),
       onFreeLeadEmail: this.onFreeLeadField('email'),
       submitFreeLeads: this.submitFreeLeads,
       resetFreeLeads: this.resetFreeLeads,
       freeLeadsSubmitted: this.state.freeLeadsSubmitted,
       freeLeadsNotSubmitted: !this.state.freeLeadsSubmitted,
+      freeLeadsSubmitting: this.state.freeLeadsSubmitting,
+      freeLeadsError: this.state.freeLeadsError,
       freeLeadsResults: this.freeLeadsResultData(),
       freeLeadsEmail: this.state.freeLeadsForm.email,
-      freeLeadsHeadline: this.state.freeLeadsForm.company ? ('Matched to ' + this.state.freeLeadsForm.company) : 'Matched to your ideal customer profile',
+      freeLeadsHeadline: this.state.freeLeadsForm.company ? ('Preparing a preview for ' + this.state.freeLeadsForm.company) : 'Preparing a preview for your ideal customer profile',
       team: team,
       safety: [
         { title: 'Human in control', desc: 'Every agent operates within guardrails you define, with human handoff always available.' },

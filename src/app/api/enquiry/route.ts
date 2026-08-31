@@ -1,11 +1,12 @@
-// Receives the public marketing forms (waitlist + "3 free leads") and forwards
-// them to email.
+// Receives the public marketing forms. Waitlist submissions are forwarded to
+// email; the free-lead preview is handed to the backend's asynchronous Apollo
+// workflow so the public page never receives provider credentials.
 //
 // The design export discarded both submissions — the handlers only flipped a
 // "submitted" flag — so anyone filling them in was silently lost. This runs
 // server-side so the destination address never appears in the page source.
 //
-// FormSubmit needs no account: the first message to a new address triggers a
+// FormSubmit needs no account: the first waitlist message to a new address triggers a
 // one-time confirmation email that must be clicked before delivery starts.
 //
 // The destination lives in FORWARD_TO rather than in this file — the repository
@@ -13,6 +14,7 @@
 // for development and in the hosting provider's environment for production.
 
 const FORWARD_TO = process.env.FORWARD_TO;
+const BACKEND_API_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL;
 const ENDPOINT = process.env.FORM_ENDPOINT
   || (FORWARD_TO ? `https://formsubmit.co/ajax/${FORWARD_TO}` : null);
 
@@ -20,7 +22,7 @@ type Kind = 'waitlist' | 'free-leads';
 
 const FIELDS: Record<Kind, readonly string[]> = {
   'waitlist': ['name', 'email', 'company'],
-  'free-leads': ['company', 'industry', 'icp', 'email'],
+  'free-leads': ['company', 'product', 'titles', 'industry', 'region', 'companySize', 'email'],
 };
 
 const SUBJECTS: Record<Kind, string> = {
@@ -50,6 +52,31 @@ export async function POST(request: Request) {
 
   if (!fields.email || !fields.email.includes('@')) {
     return Response.json({ ok: false, error: 'A valid email is required.' }, { status: 400 });
+  }
+
+  if (kind === 'free-leads') {
+    if (!BACKEND_API_URL) {
+      console.error('[enquiry] BACKEND_API_URL is not set — free lead preview not queued');
+      return Response.json({ ok: false, error: 'Could not start the preview right now.' }, { status: 503 });
+    }
+
+    try {
+      const forwardedFor = request.headers.get('x-forwarded-for');
+      const res = await fetch(`${BACKEND_API_URL.replace(/\/$/, '')}/api/free-lead-preview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(forwardedFor ? { 'x-forwarded-for': forwardedFor } : {}),
+        },
+        cache: 'no-store',
+        body: JSON.stringify(fields),
+      });
+      const responsePayload = await res.json().catch(() => ({ ok: false, error: 'Could not start the preview right now.' }));
+      return Response.json(responsePayload, { status: res.status });
+    } catch (error) {
+      console.error('[enquiry] free lead preview forwarding failed', error);
+      return Response.json({ ok: false, error: 'Could not start the preview right now.' }, { status: 502 });
+    }
   }
 
   if (!ENDPOINT) {

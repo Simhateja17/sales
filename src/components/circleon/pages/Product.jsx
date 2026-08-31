@@ -146,23 +146,30 @@ export default function Product({ v }) {
                       Tell us about your business, get 3 free leads
                     </h2>
                     <p style={{"fontSize": "15.5px", "color": "#9E9CAD", "lineHeight": "1.6", "margin": "0 0 34px"}}>
-                      We'll match 3 real prospects to your ideal customer profile. No credit card required.
+                      Answer five quick questions and we'll email you up to 3 enriched prospects matched to your audience. No credit card required.
                     </p>
-                    <form onSubmit={v.submitFreeLeads} style={{"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "22px 20px", "textAlign": "left"}}>
-                      <input value={v.freeLeadsForm.company} onChange={v.onFreeLeadCompany} placeholder="Company name" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
+                    <form onSubmit={v.submitFreeLeads} className="co-free-leads-form" style={{"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "22px 20px", "textAlign": "left"}}>
+                      <input value={v.freeLeadsForm.company} onChange={v.onFreeLeadCompany} aria-label="Company name" placeholder="Company name" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
                       {' '}
-                      <input value={v.freeLeadsForm.industry} onChange={v.onFreeLeadIndustry} placeholder="Industry" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
+                      <input value={v.freeLeadsForm.industry} onChange={v.onFreeLeadIndustry} aria-label="Which industry should we target?" placeholder="Which industry should we target?" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
                       {' '}
-                      <input value={v.freeLeadsForm.icp} onChange={v.onFreeLeadIcp} placeholder="Who do you sell to? (e.g. VP Sales at mid-market SaaS)" style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none", "gridColumn": "1/-1"}} />
+                      <input value={v.freeLeadsForm.product} onChange={v.onFreeLeadProduct} aria-label="What do you sell?" placeholder="What do you sell?" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none", "gridColumn": "1/-1"}} />
                       {' '}
-                      <input value={v.freeLeadsForm.email} onChange={v.onFreeLeadEmail} type="email" placeholder="Work email" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none", "gridColumn": "1/-1"}} />
+                      <input value={v.freeLeadsForm.titles} onChange={v.onFreeLeadTitles} aria-label="Who usually buys it?" placeholder="Who usually buys it? (e.g. VP Sales, Founder)" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none", "gridColumn": "1/-1"}} />
                       {' '}
-                      <button type="submit" style={{"gridColumn": "1/-1", "marginTop": "14px", "width": "100%", "padding": "16px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-pc6e9be co-on-gold">
-                        Show My 3 Free Leads →
+                      <input value={v.freeLeadsForm.region} onChange={v.onFreeLeadRegion} aria-label="Where are those prospects located?" placeholder="Where are those prospects located?" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
+                      {' '}
+                      <input value={v.freeLeadsForm.companySize} onChange={v.onFreeLeadCompanySize} aria-label="What company size is a good fit?" placeholder="What company size is a good fit?" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
+                      {' '}
+                      <input value={v.freeLeadsForm.email} onChange={v.onFreeLeadEmail} aria-label="Work email" type="email" placeholder="Work email" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none", "gridColumn": "1/-1"}} />
+                      {' '}
+                      {v.freeLeadsError ? <div role="alert" style={{"gridColumn": "1/-1", "fontSize": "13px", "lineHeight": "20px", "color": "#F3B6A5"}}>{v.freeLeadsError}</div> : null}
+                      <button type="submit" disabled={v.freeLeadsSubmitting} style={{"gridColumn": "1/-1", "marginTop": "14px", "width": "100%", "padding": "16px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": v.freeLeadsSubmitting ? "wait" : "pointer", "opacity": v.freeLeadsSubmitting ? ".7" : "1", "transition": "background .2s,color .2s"}} className="co-pc6e9be co-on-gold">
+                        {v.freeLeadsSubmitting ? 'Preparing your preview…' : 'Show My 3 Free Leads →'}
                       </button>
                       {' '}
                       <div style={{"gridColumn": "1/-1", "textAlign": "center", "fontSize": "13px", "color": "#716F82"}}>
-                        No spam. Just your 3 leads.
+                        No spam. No outreach to prospects.
                       </div>
                     </form>
                   </div>
@@ -179,10 +186,10 @@ export default function Product({ v }) {
                         matched to your ICP. The layout is kept; the claim now
                         matches what actually happens (the request is emailed). */}
                     <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(22px,2.8vw,30px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 8px"}}>
-                      Your 3 free leads are on the way
+                      Your lead preview is queued
                     </h2>
                     <p style={{"fontSize": "14.5px", "color": "#9E9CAD", "margin": "0 0 30px"}}>
-                      {v.freeLeadsHeadline}{". We'll email them to "}{v.freeLeadsEmail || 'you'}{" shortly."}
+                      {v.freeLeadsHeadline}{". We'll email up to 3 enriched matches to "}{v.freeLeadsEmail || 'you'}{" once the research is ready."}
                     </p>
                     <div style={{"display": "flex", "flexWrap": "wrap", "gap": "16px", "justifyContent": "center", "marginTop": "34px"}}>
                       <a onClick={v.gotoWaitlist} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "15px 28px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398 co-on-gold">

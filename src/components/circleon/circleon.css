@@ -490,6 +490,13 @@
 [data-co-theme="dark"] .co-dark-card .co-on-gold,
 [data-co-theme="dark"] .co-dark-card .co-on-gold *{color:#241A10!important;-webkit-text-fill-color:#241A10!important}
 
+/* The free-lead preview keeps its two-column desktop layout, then stacks the
+   five questions and email field on small screens so the long prompts remain
+   readable and tappable. */
+@media (max-width: 680px) {
+  .co-free-leads-form { grid-template-columns: 1fr !important; }
+}
+
 /* Voice-minutes slider. The export left it on the near-black default accent,
    which also rendered the unplayed part of the track in the browser's light
    UA colour — a white bar across a dark page. accent-color paints the fill and
