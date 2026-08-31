@@ -223,7 +223,7 @@ export default function Home({ v }) {
             </p>
           </section>
           <div className="co-actions">
-            <button className="co-button" onClick={v.gotoWaitlist}>
+            <button className="co-button" onClick={v.gotoSignup}>
               Book a demo
             </button>
             {' '}
@@ -756,7 +756,7 @@ export default function Home({ v }) {
               ) : null}
             </div>
             {' '}
-            <a onClick={v.gotoWaitlist} style={{"position": "absolute", "right": "clamp(20px,3vw,32px)", "bottom": "clamp(20px,3vw,28px)", "display": "inline-flex", "alignItems": "center", "gap": "12px", "padding": "6px 6px 6px 24px", "borderRadius": "999px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#fff", "background": "linear-gradient(135deg,#8B5CF6,#5B2A9E)", "boxShadow": "0 12px 24px -10px rgba(71,30,134,.55)", "cursor": "pointer", "transition": ".2s", "whiteSpace": "nowrap"}} className="co-p1066ae">
+            <a onClick={v.gotoSignup} style={{"position": "absolute", "right": "clamp(20px,3vw,32px)", "bottom": "clamp(20px,3vw,28px)", "display": "inline-flex", "alignItems": "center", "gap": "12px", "padding": "6px 6px 6px 24px", "borderRadius": "999px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#fff", "background": "linear-gradient(135deg,#8B5CF6,#5B2A9E)", "boxShadow": "0 12px 24px -10px rgba(71,30,134,.55)", "cursor": "pointer", "transition": ".2s", "whiteSpace": "nowrap"}} className="co-p1066ae">
               {"Sign up "}
               <span style={{"width": "32px", "height": "32px", "borderRadius": "50%", "background": "rgba(255,255,255,.22)", "display": "flex", "alignItems": "center", "justifyContent": "center", "fontSize": "15px"}}>
                 →
@@ -1140,54 +1140,23 @@ export default function Home({ v }) {
             </div>
           </div>
         </section>
-        <section id="waitlist" style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "clamp(40px,5vw,72px) 24px clamp(64px,8vw,110px)"}}>
+        <section id="signup-cta" style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "clamp(40px,5vw,72px) 24px clamp(64px,8vw,110px)"}}>
           <div className="co-waitlist-panel" data-reveal style={{"position": "relative", "overflow": "hidden", "background": "radial-gradient(85% 65% at 100% 0%, oklch(0.42 0.17 295 / 0.60), transparent 62%),radial-gradient(70% 60% at 0% 100%, oklch(0.5 0.09 82 / 0.14), transparent 60%),linear-gradient(155deg, oklch(0.21 0.05 292), oklch(0.155 0.045 292))", "border": "1px solid oklch(0.42 0.06 295 / 0.35)", "boxShadow": "0 40px 90px -40px oklch(0.36 0.16 295 / 0.55)", "padding": "clamp(48px,7vw,84px) clamp(24px,4vw,64px)", "borderRadius": "24px"}}>
             <div style={{"position": "relative", "maxWidth": "500px", "margin": "0 auto", "textAlign": "center"}}>
               <div style={{"display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "10px", "marginBottom": "20px"}}>
                 <span style={{"fontSize": "12px", "fontWeight": "500", "letterSpacing": ".16em", "textTransform": "uppercase", "color": "#C49E62"}}>
-                  Early Access
+                  Get Started
                 </span>
               </div>
               <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(28px,3.6vw,42px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 14px"}}>
-                Join the CircleOn Waitlist
+                Create your CircleOn account
               </h2>
               <p style={{"fontSize": "16.5px", "color": "#9E9CAD", "lineHeight": "1.6", "margin": "0 0 40px"}}>
-                Get early access to our AI platform before public launch.
+                Sign up in minutes and start building your sales agent today.
               </p>
-              {v.submitted ? (
-                <>
-                <div style={{"border": "1px solid rgba(196,158,98,.5)", "padding": "38px 28px"}}>
-                  <div style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "32px", "color": "#C49E62", "marginBottom": "10px"}}>
-                    ✓
-                  </div>
-                  <div style={{"fontSize": "19px", "fontWeight": "600", "color": "#fff", "marginBottom": "6px"}}>
-                    You're on the list
-                  </div>
-                  <div style={{"fontSize": "14.5px", "color": "#9E9CAD"}}>
-                    We'll email you the moment early access opens.
-                  </div>
-                </div>
-                </>
-              ) : null}
-              {v.notSubmitted ? (
-                <>
-                <form onSubmit={v.submit} style={{"display": "flex", "flexDirection": "column", "gap": "20px", "textAlign": "left"}}>
-                  <input value={v.form.name} onChange={v.onName} placeholder="Full name" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
-                  {' '}
-                  <input value={v.form.email} onChange={v.onEmail} type="email" placeholder="Email address" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
-                  {' '}
-                  <input value={v.form.company} onChange={v.onCompany} placeholder="Company name" style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
-                  {' '}
-                  <button type="submit" style={{"marginTop": "14px", "width": "100%", "padding": "16px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-pc6e9be co-on-gold">
-                    Join Waitlist
-                  </button>
-                  {' '}
-                  <div style={{"textAlign": "center", "fontSize": "13px", "color": "#716F82", "marginTop": "2px"}}>
-                    No spam. Early access only.
-                  </div>
-                </form>
-                </>
-              ) : null}
+              <a onClick={v.gotoSignup} style={{"display": "block", "textAlign": "center", "padding": "16px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-pc6e9be co-on-gold">
+                Sign Up →
+              </a>
             </div>
           </div>
         </section>

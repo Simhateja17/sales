@@ -495,7 +495,15 @@
    readable and tappable. */
 @media (max-width: 680px) {
   .co-free-leads-form { grid-template-columns: 1fr !important; }
+  .co-titles-grid { grid-template-columns: 1fr !important; }
 }
+
+/* The buyer-titles checklist reuses the native <details> disclosure widget for
+   its dropdown behaviour, so only the marker needs restyling to read as a
+   select rather than a generic expander. */
+.co-titles-select > summary { list-style: none; }
+.co-titles-select > summary::-webkit-details-marker { display: none; }
+.co-titles-select > summary::after { content: '⌄'; float: right; opacity: .6; }
 
 /* Voice-minutes slider. The export left it on the near-black default accent,
    which also rendered the unplayed part of the track in the browser's light

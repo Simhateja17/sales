@@ -5,9 +5,8 @@
 //  1. The export's only action was "Book a demo". The site it replaces showed
 //     "Dashboard" to signed-in visitors and "Sign Up" to everyone else, and
 //     dropping that would leave the product with no entry point, so the pill is
-//     auth-aware: "Dashboard" links to the app, "Sign Up" scrolls to the
-//     waitlist section like the "Sign up" pill on the solutions card. Styling
-//     is unchanged.
+//     auth-aware: "Dashboard" links to the app, "Sign Up" goes to the /signup
+//     page like the "Sign up" pill on the solutions card. Styling is unchanged.
 //  2. The export hid every nav link below 720px with nothing in its place, so a
 //     menu button and panel were added for small screens.
 //  3. Signed-out visitors also get a "Login" link beside the theme toggle; below
@@ -152,8 +151,8 @@ export default function Nav({ v }) {
             </Link>
           ) : (
             // Signed-out visitors get the same destination as the "Sign up" pill
-            // on the solutions card: the waitlist section, not the account form.
-            <a className="co-nav-demo co-p40d131" onClick={run(v.gotoWaitlist)} style={PILL_STYLE}>
+            // on the solutions card: the /signup account form.
+            <a className="co-nav-demo co-p40d131" onClick={run(v.gotoSignup)} style={PILL_STYLE}>
               {'Sign Up '}
               {PILL_ARROW}
             </a>

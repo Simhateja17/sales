@@ -180,7 +180,7 @@ export default function Pricing({ v }) {
                 <div>{v.calcMinutesNote}</div>
                 <div>Billed annually</div>
               </div>
-              <a onClick={v.gotoWaitlist} style={{"display": "block", "textAlign": "center", "padding": "15px", "borderRadius": "10px", "background": "#C49E62", "color": "#1A172C", "fontWeight": "600", "fontSize": "15px", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398 co-on-gold">
+              <a onClick={v.gotoSignup} style={{"display": "block", "textAlign": "center", "padding": "15px", "borderRadius": "10px", "background": "#C49E62", "color": "#1A172C", "fontWeight": "600", "fontSize": "15px", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398 co-on-gold">
                 Talk to us about this
               </a>
             </div>

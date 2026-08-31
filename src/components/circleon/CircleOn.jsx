@@ -60,7 +60,7 @@ const PAGES = {
 
 class CircleOnShell extends React.Component {
 
-  state = { mounted: false, theme: 'light', resourcesOpen: false, form: { name: '', email: '', company: '' }, submitted: false, activeSolution: 'voice-agent', billing: 'monthly', calcLead: true, calcVoice: true, calcFollow: false, calcMinutes: 500, starterPick: 'lead', openFaq: 0, diagramScale: 1, freeLeadsOpen: false, freeLeadsSubmitted: false, freeLeadsSubmitting: false, freeLeadsError: '', freeLeadsForm: { company: '', product: '', titles: '', industry: '', region: '', companySize: '', email: '' } };
+  state = { mounted: false, theme: 'light', resourcesOpen: false, activeSolution: 'voice-agent', billing: 'monthly', calcLead: true, calcVoice: true, calcFollow: false, calcMinutes: 500, starterPick: 'lead', openFaq: 0, diagramScale: 1, freeLeadsOpen: false, freeLeadsSubmitted: false, freeLeadsSubmitting: false, freeLeadsError: '', freeLeadsForm: { company: '', product: '', titles: '', industry: '', region: '', companySize: '', email: '' } };
   toggleFaq = (i) => () => this.setState(s => ({ openFaq: s.openFaq === i ? -1 : i }));
   leadStepClick = (i) => () => {
     clearTimeout(this._leadPauseTimer);
@@ -155,12 +155,6 @@ class CircleOnShell extends React.Component {
   };
   scrollTo = (id) => { const el = document.getElementById(id); if (!el) return; const top = el.getBoundingClientRect().top + window.scrollY - 84; window.scrollTo({ top, behavior: 'smooth' }); };
   toggleResources = () => this.setState(s => ({ resourcesOpen: !s.resourcesOpen }));
-  onField = (k) => (e) => { const v = e.target.value; this.setState(s => ({ form: { ...s.form, [k]: v } })); };
-  submit = (e) => {
-    e.preventDefault();
-    this.setState({ submitted: true, sendError: null });
-    this.send({ kind: 'waitlist', ...this.state.form }).catch(() => this.setState({ sendError: true }));
-  };
   send = async (payload) => {
     const response = await fetch('/api/enquiry', {
       method: 'POST',
@@ -177,6 +171,10 @@ class CircleOnShell extends React.Component {
   onFreeLeadField = (k) => (e) => { const v = e.target.value; this.setState(s => ({ freeLeadsForm: { ...s.freeLeadsForm, [k]: v } })); };
   submitFreeLeads = async (e) => {
     e.preventDefault();
+    if (!this.state.freeLeadsForm.titles.trim()) {
+      this.setState({ freeLeadsError: 'Select at least one buyer title.' });
+      return;
+    }
     this.setState({ freeLeadsSubmitting: true, freeLeadsError: '' });
     try {
       await this.send({ kind: 'free-leads', ...this.state.freeLeadsForm });
@@ -750,7 +748,7 @@ class CircleOnShell extends React.Component {
                   'Unlimited voice cloning', 'Dedicated solutions architect',
                   '99.99% uptime SLA', 'Custom data residency'],
           // Sovereign cannot be bought online, so this goes to the enquiry form.
-          cta: 'Talk to sales', onClick: this.gotoWaitlist,
+          cta: 'Talk to sales', onClick: this.gotoSignup,
         },
       ],
       resourcesOpen: this.state.resourcesOpen,
@@ -780,7 +778,7 @@ class CircleOnShell extends React.Component {
       goVoiceContent: () => this.gotoAndScroll('wf-voice'),
       goFollowContent: () => this.gotoAndScroll('wf-follow'),
       scrollSolutions: () => this.scrollTo('solutions'),
-      gotoWaitlist: () => this.gotoAndScroll('waitlist'),
+      gotoSignup: () => this.props.router.push('/signup'),
       homeLeadFlow: this.decorateLeadFlow(this.flowSketch([['Identify', 'Identify your target audience'], ['Discover', 'Find qualified prospects that match your ICP'], ['Enrich', 'Enrich contact data with verified details'], ['Score', 'AI lead scoring ranks by intent and fit'], ['Deliver', 'Send qualified leads straight to your CRM']])),
       homeVoiceFlow: this.decorateFlow(this.flowSketch([['Answer', 'Answers every incoming call instantly'], ['Understand', 'Understands customer intent from natural speech'], ['Retrieve', 'Retrieves business knowledge to inform the call'], ['Respond', 'Answers questions accurately and naturally'], ['Schedule', 'Schedules the appointment or executes the task'], ['Transfer', 'Transfers to a human when it truly matters']]), this.state.voiceStep ?? 0, this.voiceStepClick),
       homeFollowFlow: this.decorateFlow(this.flowSketch([['Capture', 'A new lead is captured the moment they show interest'], ['Wait', 'AI waits based on smart, behavior-driven timing'], ['Email', 'Sends a personalized email tailored to the lead'], ['Remind', 'Follows up with an SMS or WhatsApp reminder'], ['Confirm', 'Confirms the meeting automatically'], ['Convert', 'Turns the conversation into a paying customer']]), this.state.followStep ?? 0, this.followStepClick),
@@ -789,9 +787,6 @@ class CircleOnShell extends React.Component {
       followFlow: this.numHoriz(['Lead Captured', 'AI Waits Based on Smart Timing', 'Personalized Email', 'SMS or WhatsApp Reminder', 'Meeting Confirmation', 'Customer Conversion']),
       voices: this.voicesData(),
       leadSamples: this.leadSamplesData(dark),
-      form: this.state.form,
-      onName: this.onField('name'), onEmail: this.onField('email'), onCompany: this.onField('company'),
-      submit: this.submit, submitted: this.state.submitted, notSubmitted: !this.state.submitted,
       freeLeadsOpen: this.state.freeLeadsOpen,
       openFreeLeads: this.openFreeLeads,
       closeFreeLeads: this.closeFreeLeads,

@@ -3,7 +3,21 @@
 import { Fragment } from 'react';
 import { cssToObj } from '../cssToObj';
 
+const INDUSTRY_OPTIONS = ['SaaS & Software', 'E-commerce & Retail', 'Financial Services', 'Healthcare & Life Sciences', 'Real Estate', 'Professional Services', 'Manufacturing & Industrial', 'Education', 'Hospitality & Travel', 'Other'];
+const COMPANY_SIZE_OPTIONS = ['1-10 employees', '11-50 employees', '51-200 employees', '201-500 employees', '501-1,000 employees', '1,000+ employees'];
+const REGION_OPTIONS = ['North America', 'Europe', 'Asia-Pacific', 'Latin America', 'Middle East & Africa', 'Global / no preference'];
+const TITLE_OPTIONS = ['Founder / CEO', 'VP Sales', 'Sales Director', 'Head of Marketing', 'VP Marketing', 'Head of Growth', 'Operations Manager', 'IT Director', 'Procurement Manager', 'HR Director', 'Other'];
+
+const SELECT_STYLE = { width: '100%', padding: '12px 2px', border: 'none', borderBottom: '1px solid rgba(255,255,255,.25)', background: 'transparent', fontSize: '15px', color: '#fff', outline: 'none', appearance: 'auto' };
+
 export default function Product({ v }) {
+  const selectedTitles = (v.freeLeadsForm?.titles || '').split(',').map((t) => t.trim()).filter(Boolean);
+  const toggleTitle = (title) => {
+    const next = selectedTitles.includes(title)
+      ? selectedTitles.filter((t) => t !== title)
+      : [...selectedTitles, title];
+    v.onFreeLeadTitles({ target: { value: next.join(', ') } });
+  };
   return (
     <>
       <div>
@@ -33,8 +47,8 @@ export default function Product({ v }) {
                 </>
               ) : null}
               {' '}
-              <a onClick={v.gotoWaitlist} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "16px 30px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#FAF9FF", "background": "#1A172C", "cursor": "pointer", "transition": "background .25s,transform .2s"}} className="co-pa7e2f4">
-                Join the Waitlist →
+              <a onClick={v.gotoSignup} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "16px 30px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#FAF9FF", "background": "#1A172C", "cursor": "pointer", "transition": "background .25s,transform .2s"}} className="co-pa7e2f4">
+                Sign Up →
               </a>
               {' '}
               <a onClick={v.gotoHome} style={{"display": "inline-flex", "alignItems": "center", "padding": "16px 4px", "fontWeight": "600", "fontSize": "15px", "color": "#1A172C", "cursor": "pointer", "borderBottom": "1px solid #1A172C", "transition": ".2s"}} className="co-p3c9245">
@@ -151,15 +165,36 @@ export default function Product({ v }) {
                     <form onSubmit={v.submitFreeLeads} className="co-free-leads-form" style={{"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "22px 20px", "textAlign": "left"}}>
                       <input value={v.freeLeadsForm.company} onChange={v.onFreeLeadCompany} aria-label="Company name" placeholder="Company name" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
                       {' '}
-                      <input value={v.freeLeadsForm.industry} onChange={v.onFreeLeadIndustry} aria-label="Which industry should we target?" placeholder="Which industry should we target?" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
+                      <select value={v.freeLeadsForm.industry} onChange={v.onFreeLeadIndustry} aria-label="Which industry should we target?" required style={SELECT_STYLE}>
+                        <option value="" disabled>Which industry should we target?</option>
+                        {INDUSTRY_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
                       {' '}
                       <input value={v.freeLeadsForm.product} onChange={v.onFreeLeadProduct} aria-label="What do you sell?" placeholder="What do you sell?" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none", "gridColumn": "1/-1"}} />
                       {' '}
-                      <input value={v.freeLeadsForm.titles} onChange={v.onFreeLeadTitles} aria-label="Who usually buys it?" placeholder="Who usually buys it? (e.g. VP Sales, Founder)" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none", "gridColumn": "1/-1"}} />
+                      <details className="co-titles-select" style={{"gridColumn": "1/-1", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "padding": "12px 2px"}}>
+                        <summary style={{"cursor": "pointer", "fontSize": "15px", "color": selectedTitles.length ? "#fff" : "rgba(255,255,255,.55)"}}>
+                          {selectedTitles.length ? selectedTitles.join(', ') : 'Who usually buys it?'}
+                        </summary>
+                        <div className="co-titles-grid" style={{"marginTop": "14px", "display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "10px 16px"}}>
+                          {TITLE_OPTIONS.map((title) => (
+                            <label key={title} style={{"display": "flex", "alignItems": "center", "gap": "8px", "fontSize": "13.5px", "color": "#D8D5E2", "cursor": "pointer"}}>
+                              <input type="checkbox" checked={selectedTitles.includes(title)} onChange={() => toggleTitle(title)} />
+                              {title}
+                            </label>
+                          ))}
+                        </div>
+                      </details>
                       {' '}
-                      <input value={v.freeLeadsForm.region} onChange={v.onFreeLeadRegion} aria-label="Where are those prospects located?" placeholder="Where are those prospects located?" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
+                      <select value={v.freeLeadsForm.region} onChange={v.onFreeLeadRegion} aria-label="Where are those prospects located?" required style={SELECT_STYLE}>
+                        <option value="" disabled>Where are those prospects located?</option>
+                        {REGION_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
                       {' '}
-                      <input value={v.freeLeadsForm.companySize} onChange={v.onFreeLeadCompanySize} aria-label="What company size is a good fit?" placeholder="What company size is a good fit?" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none"}} />
+                      <select value={v.freeLeadsForm.companySize} onChange={v.onFreeLeadCompanySize} aria-label="What company size is a good fit?" required style={SELECT_STYLE}>
+                        <option value="" disabled>What company size is a good fit?</option>
+                        {COMPANY_SIZE_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
                       {' '}
                       <input value={v.freeLeadsForm.email} onChange={v.onFreeLeadEmail} aria-label="Work email" type="email" placeholder="Work email" required style={{"width": "100%", "padding": "12px 2px", "border": "none", "borderBottom": "1px solid rgba(255,255,255,.25)", "background": "transparent", "fontSize": "15px", "color": "#fff", "outline": "none", "gridColumn": "1/-1"}} />
                       {' '}
@@ -192,7 +227,7 @@ export default function Product({ v }) {
                       {v.freeLeadsHeadline}{". We'll email up to 3 enriched matches to "}{v.freeLeadsEmail || 'you'}{" once the research is ready."}
                     </p>
                     <div style={{"display": "flex", "flexWrap": "wrap", "gap": "16px", "justifyContent": "center", "marginTop": "34px"}}>
-                      <a onClick={v.gotoWaitlist} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "15px 28px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398 co-on-gold">
+                      <a onClick={v.gotoSignup} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "15px 28px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398 co-on-gold">
                         Get unlimited leads →
                       </a>
                       {' '}
@@ -708,11 +743,11 @@ export default function Product({ v }) {
               Ready to get started?
             </h2>
             <p style={{"fontSize": "16.5px", "color": "#9E9CAD", "margin": "0 0 30px"}}>
-              Join the waitlist and be first in line for early access.
+              Sign up now and be first in line for early access.
             </p>
             {' '}
-            <a onClick={v.gotoWaitlist} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "16px 30px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-p1f1771">
-              Join the Waitlist →
+            <a onClick={v.gotoSignup} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "16px 30px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-p1f1771">
+              Sign Up →
             </a>
           </div>
         </section>
