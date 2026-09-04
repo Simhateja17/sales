@@ -1,7 +1,7 @@
 // One theme preference for the whole product.
 //
-// Two stylesheets key off two different attributes — barsha.css uses
-// `:root[data-theme="dark"]`, circleon.css uses `[data-co-theme="dark"]` — and
+// Two stylesheets key off two different attributes — the app's circleon.css uses
+// `:root[data-theme="dark"]`, the marketing circleon.css uses `[data-co-theme="dark"]` — and
 // they used to be driven by two separate localStorage keys, so choosing dark on
 // the marketing site left the login, onboarding, and dashboard pages light (and
 // the reverse). The preference is now single; both attributes are stamped on

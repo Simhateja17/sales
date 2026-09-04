@@ -62,7 +62,7 @@ export default function HomeOverview({
             <h2>{activeCampaign ? activeCampaign.name : 'Your next campaign begins with verified leads.'}</h2>
             <p>{activeCampaign
               ? `${activeCampaign.daily_send_cap} emails per day, sent only after your approval.`
-              : 'Build a short, reviewable sequence. Barsha keeps every send under your control.'}
+              : 'Build a short, reviewable sequence. CircleOn keeps every send under your control.'}
             </p>
           </div>
           <div className="home-feature-footer">

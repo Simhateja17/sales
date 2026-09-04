@@ -3,7 +3,7 @@
  *
  * Run the dev server with NEXT_PUBLIC_API_URL pointed here and the real
  * dashboard renders end to end against the fixtures in
- * (barsha)/dashboard/_lib/fixtures.ts — no login, no production backend:
+ * (circleon)/dashboard/_lib/fixtures.ts — no login, no production backend:
  *
  *   NEXT_PUBLIC_API_URL=http://localhost:3007/mock npm run dev -- -p 3007
  *
@@ -18,7 +18,7 @@ import {
   fixtureSentMail,
   fixtureSmtpAccount,
   fixtureWorkspace,
-} from '../../(barsha)/dashboard/_lib/fixtures';
+} from '../../(circleon)/dashboard/_lib/fixtures';
 
 const WS = fixtureWorkspace.id;
 

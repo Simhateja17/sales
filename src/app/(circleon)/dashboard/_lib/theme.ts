@@ -9,7 +9,7 @@ export type { Theme };
  * React binding over the shared theme preference in `@/lib/theme`.
  *
  * The attributes are already set before first paint by the bootstrap script in
- * (barsha)/layout.tsx, so this hook starts at 'light' to match what the server
+ * (circleon)/layout.tsx, so this hook starts at 'light' to match what the server
  * rendered and syncs to the real value in an effect. Doing it the other way
  * round — reading localStorage during render — would hydrate-mismatch.
  */

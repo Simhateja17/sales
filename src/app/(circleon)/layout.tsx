@@ -1,7 +1,7 @@
-import './barsha.css';
+import './circleon.css';
 import { THEME_BOOTSTRAP } from '@/lib/theme';
 
-export default function BarshaLayout({ children }: { children: React.ReactNode }) {
+export default function CircleOnLayout({ children }: { children: React.ReactNode }) {
   return (
     // THEME_BOOTSTRAP stamps data-theme on this element before React hydrates,
     // which React otherwise reports as a hydration mismatch on every load.

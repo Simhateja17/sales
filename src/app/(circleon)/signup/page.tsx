@@ -98,7 +98,7 @@ export default function SignupPage() {
       <div className="start-card">
         <div className="start-top">
           <div className="start-kicker"><span className="ob-cat-dot" />Account Setup</div>
-          <div className="start-title">Create your CircleOnworkspace</div>
+          <div className="start-title">Create your CircleOn AI workspace</div>
           <p className="start-sub">Set up your account so your team can start building and launching your sales agent.</p>
         </div>
         <div className="start-body">

@@ -21,7 +21,7 @@ type Detail = { kind: DetailKind; index: number };
 /** Preview has no navigation; every callback is inert. */
 const noop = () => {};
 
-/* Every token in barsha.css, so a theme change can be eyeballed in one place. */
+/* Every token in circleon.css, so a theme change can be eyeballed in one place. */
 const TOKEN_GROUPS: Array<[string, string[]]> = [
   ['Surfaces', ['--page-bg', '--surface', '--surface-sunken']],
   ['Lines', ['--border', '--border-soft', '--border-strong']],

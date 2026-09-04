@@ -185,8 +185,6 @@ class CircleOnShell extends React.Component {
       this.setState({ freeLeadsSubmitting: false });
     }
   };
-  resetFreeLeads = () => this.setState({ freeLeadsSubmitted: false, freeLeadsSubmitting: false, freeLeadsError: '', freeLeadsForm: { company: '', product: '', titles: '', industry: '', region: '', companySize: '', email: '' } });
-
   num(arr) { return arr.map((label, i) => ({ n: i + 1, n2: String(i + 1).padStart(2, '0'), label, left: i % 2 === 0, notLeft: i % 2 !== 0 })); }
   voicesData() {
     const raw = [
@@ -799,7 +797,6 @@ class CircleOnShell extends React.Component {
       onFreeLeadCompanySize: this.onFreeLeadField('companySize'),
       onFreeLeadEmail: this.onFreeLeadField('email'),
       submitFreeLeads: this.submitFreeLeads,
-      resetFreeLeads: this.resetFreeLeads,
       freeLeadsSubmitted: this.state.freeLeadsSubmitted,
       freeLeadsNotSubmitted: !this.state.freeLeadsSubmitted,
       freeLeadsSubmitting: this.state.freeLeadsSubmitting,

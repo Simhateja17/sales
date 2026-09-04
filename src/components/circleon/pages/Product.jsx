@@ -230,10 +230,6 @@ export default function Product({ v }) {
                       <a onClick={v.gotoSignup} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "15px 28px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398 co-on-gold">
                         Get unlimited leads →
                       </a>
-                      {' '}
-                      <a onClick={v.resetFreeLeads} style={{"display": "inline-flex", "alignItems": "center", "padding": "15px 4px", "fontWeight": "600", "fontSize": "14.5px", "color": "#fff", "cursor": "pointer", "borderBottom": "1px solid rgba(255,255,255,.4)", "transition": ".2s"}} className="co-p3c9245">
-                        Try another business
-                      </a>
                     </div>
                   </div>
                   </>

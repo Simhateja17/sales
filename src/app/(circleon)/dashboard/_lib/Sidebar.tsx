@@ -40,9 +40,9 @@ export default function Sidebar({
     <aside className={`sidebar${collapsed ? ' is-collapsed' : ''}`}>
       <div className="sb-brand">
         <div className="sb-logo">
-          <div className="sb-mark">B</div>
+          <div className="sb-mark">C</div>
           <div>
-            <div className="sb-name">Barsha</div>
+            <div className="sb-name">CircleOn AI</div>
             <div className="sb-sub">Email sales agent</div>
           </div>
         </div>

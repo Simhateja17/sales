@@ -224,7 +224,7 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
         {replyTarget || composerOpen ? <div className="conversation-composer">
           <div className="email-detail-label">{replyTarget ? `Reply to ${conversation.lead.full_name || conversation.lead.email}` : `Write to ${conversation.lead.full_name || conversation.lead.email}`}</div>
           <textarea value={draft} onChange={event => { setDraft(event.target.value); setDirty(true); }} placeholder="Write your reply here…" />
-          <div className="conversation-composer-actions"><button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>{busy === 'generate' ? 'Barsha is writing…' : 'Let Barsha Generate'}</button><button className="btn-primary" type="button" disabled={busy === 'approve' || !draft.trim()} onClick={handleApprove}>{busy === 'approve' ? 'Sending…' : 'Approve & send'}</button></div>
+          <div className="conversation-composer-actions"><button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>{busy === 'generate' ? 'CircleOn is writing…' : 'Let CircleOn Generate'}</button><button className="btn-primary" type="button" disabled={busy === 'approve' || !draft.trim()} onClick={handleApprove}>{busy === 'approve' ? 'Sending…' : 'Approve & send'}</button></div>
         </div> : <div className="conversation-closed-note"><span>This conversation has no reply awaiting approval.</span><button className="btn-outline" type="button" onClick={() => setComposerOpen(true)}>Write a reply</button></div>}
         </div>
       </aside>
@@ -343,7 +343,7 @@ function LeadResearchProfile({
       </section>
 
       <section className="lead-email-use">
-        <h5>What Barsha can use in email</h5>
+        <h5>What CircleOn can use in email</h5>
         <p>{researchFacts[0] || `The verified role, ${industry || 'company'} context, and available technology signals can anchor a specific first message.`}</p>
       </section>
       <div className="lead-profile-actions"><button className="btn-primary" type="button" disabled={!isCampaignEligibleLead(lead)} onClick={onAddToCampaign}>Add to campaign</button><button className="btn-outline" type="button" onClick={onDelete}>Delete lead</button><button className="btn-outline" type="button" onClick={onEdit}>Edit lead</button></div>
@@ -694,8 +694,8 @@ function DashboardContent() {
 
   useEffect(() => {
     const handleAuthenticationRequired = () => redirectForAuthentication();
-    window.addEventListener('barsha:authentication-required', handleAuthenticationRequired);
-    return () => window.removeEventListener('barsha:authentication-required', handleAuthenticationRequired);
+    window.addEventListener('circleon:authentication-required', handleAuthenticationRequired);
+    return () => window.removeEventListener('circleon:authentication-required', handleAuthenticationRequired);
   }, [router]);
 
   useEffect(() => {
@@ -961,7 +961,7 @@ function DashboardContent() {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `barsha-import-${lastCsvRun.id}-errors.csv`;
+      anchor.download = `circleon-import-${lastCsvRun.id}-errors.csv`;
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (error) {
@@ -1585,14 +1585,14 @@ function DashboardContent() {
                       <li>Turn on two-step verification for your Google account.</li>
                       <li>Create an app password for Mail and paste it into SMTP password.</li>
                       <li>Use your complete Gmail address as the SMTP username.</li>
-                      <li>Save the mailbox; Barsha will verify both sending and inbox access.</li>
+                      <li>Save the mailbox; CircleOn will verify both sending and inbox access.</li>
                     </ol>
                   ) : mailboxProvider === 'outlook' ? (
                     <ol className="sf-hint" style={{ lineHeight: 1.8, paddingLeft: 20 }}>
                       <li>Use your complete Microsoft 365 email as the SMTP username.</li>
                       <li>Use an app password if your organization requires multi-factor authentication and permits app passwords.</li>
                       <li>Ask your Microsoft 365 administrator to enable authenticated SMTP and IMAP for this mailbox if verification fails.</li>
-                      <li>Save the mailbox; Barsha will verify both protocols before marking it connected.</li>
+                      <li>Save the mailbox; CircleOn will verify both protocols before marking it connected.</li>
                     </ol>
                   ) : (
                     <ol className="sf-hint" style={{ lineHeight: 1.8, paddingLeft: 20 }}>
@@ -1678,7 +1678,7 @@ function DashboardContent() {
                     <Metric label="Suppression CSV" value="Available in Leads" />
                     <Metric label="Generic emails" value="Rejected during enrichment" />
                   </div>
-                  <div className="sf-hint" style={{ marginTop: 18 }}>Barsha stops future campaign selection after an unsubscribe or suppression match. Your organization remains responsible for its sending identity, lawful basis, audience, and regional requirements.</div>
+                  <div className="sf-hint" style={{ marginTop: 18 }}>CircleOn stops future campaign selection after an unsubscribe or suppression match. Your organization remains responsible for its sending identity, lawful basis, audience, and regional requirements.</div>
                   <div className="set-save">
                     <button className="btn-outline" type="button" onClick={() => setActivePage('leads')}>Manage suppressions</button>
                   </div>
@@ -1838,7 +1838,7 @@ function ApolloImportProgress({ run, elapsedSeconds }: { run: LeadImportRun; ela
       </div>
       {run.status === 'failed' ? <div className="import-progress-note">{run.error_message || 'The import failed. Check the backend log and retry.'}</div>
         : terminalImportStatuses.has(run.status) ? <div className="import-progress-note">Finished in {formatDuration(elapsedSeconds)}.</div>
-          : stalled ? <div className="import-progress-note">This stage is taking longer than usual. Barsha is still checking; you can leave this page and return later.</div>
+          : stalled ? <div className="import-progress-note">This stage is taking longer than usual. CircleOn is still checking; you can leave this page and return later.</div>
             : <div className="import-progress-note">{remainingSeconds > 5 ? `About ${formatDuration(remainingSeconds)} remaining` : 'Finishing this stage…'} · This is a live estimate.</div>}
     </div>
   );

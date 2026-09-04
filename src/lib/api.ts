@@ -602,7 +602,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   if (!res.ok) {
     const error = new ApiError(data.error || 'Request failed', res.status);
     if (res.status === 401 && typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('barsha:authentication-required'));
+      window.dispatchEvent(new CustomEvent('circleon:authentication-required'));
     }
     throw error;
   }

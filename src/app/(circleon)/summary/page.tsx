@@ -16,7 +16,7 @@ export default function SummaryPage() {
   const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('barsha_answers');
+    const saved = sessionStorage.getItem('circleon_answers') || sessionStorage.getItem('barsha_answers');
     if (saved) setAnswers(JSON.parse(saved));
 
     getWorkspace()
@@ -52,7 +52,8 @@ Only use prospects that fit these requirements. Do not import an existing or sup
     setSaving(true);
     try {
       await saveOnboarding(answers);
-      sessionStorage.setItem('barsha_answers', JSON.stringify(answers));
+      sessionStorage.setItem('circleon_answers', JSON.stringify(answers));
+      sessionStorage.removeItem('barsha_answers');
       router.push('/dashboard');
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Could not save your email preferences.');
@@ -66,7 +67,7 @@ Only use prospects that fit these requirements. Do not import an existing or sup
       <div className="sum-hdr">
         <div className="sum-icon">✦</div>
         <div className="sum-title">Your lead targeting is ready</div>
-        <p className="sum-sub">{loading ? 'Loading your saved setup...' : 'Review who Barsha should find before opening your workspace.'}</p>
+        <p className="sum-sub">{loading ? 'Loading your saved setup...' : 'Review who CircleOn should find before opening your workspace.'}</p>
       </div>
 
       <div className="toggle-bar">
@@ -97,13 +98,13 @@ Only use prospects that fit these requirements. Do not import an existing or sup
               </div>
             </div>
             <div className="sum-sec">
-              <div className="ss-lbl">How Barsha protects your credits</div>
+              <div className="ss-lbl">How CircleOn protects your credits</div>
               <div className="ss-full">
-                Existing and suppressed leads are removed before enrichment. Barsha enriches ten candidates at a time and stops once your requested number of email-ready leads is reached.
+                Existing and suppressed leads are removed before enrichment. CircleOn enriches ten candidates at a time and stops once your requested number of email-ready leads is reached.
               </div>
             </div>
             <div className="sum-sec">
-              <div className="ss-lbl">Optional: help Barsha write stronger emails</div>
+              <div className="ss-lbl">Optional: help CircleOn write stronger emails</div>
               <div className="ss-grid">
                 <OptionalChoice label="Problem customers want solved" value={get('customerProblem', '')} options={['Save time', 'Reduce costs', 'Increase sales', 'Reduce risk', 'Improve customer experience']} onChange={value => updateAnswer('customerProblem', value)} />
                 <OptionalChoice label="Result customers want" value={get('vp', '')} options={['A faster process', 'Lower costs', 'More revenue', 'Fewer errors', 'Better visibility']} onChange={value => updateAnswer('vp', value)} />

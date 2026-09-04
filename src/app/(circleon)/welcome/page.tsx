@@ -5,8 +5,8 @@ export default function WelcomePage() {
   return (
     <div className="screen active" id="welcome">
       <div className="wlc-inner">
-        <div className="wlc-mark">B</div>
-        <div className="wlc-tag">✦ AI Sales Assistant · Singapore</div>
+        <div className="wlc-mark">C</div>
+        <div className="wlc-tag">✦ CircleOn AI · Singapore</div>
         <h1 className="wlc-h1">
           Your business deserves a <em>brilliant</em> sales team.
         </h1>

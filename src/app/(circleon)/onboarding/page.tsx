@@ -95,7 +95,8 @@ export default function OnboardingPage() {
     if (isLast) {
       setSaving(true);
       try {
-        sessionStorage.setItem('barsha_answers', JSON.stringify(answers));
+        sessionStorage.setItem('circleon_answers', JSON.stringify(answers));
+        sessionStorage.removeItem('barsha_answers');
         await saveOnboarding(answers);
         router.push('/summary');
       } catch (error) {
@@ -266,7 +267,7 @@ export default function OnboardingPage() {
   return (
     <div className="screen active" id="onboarding">
       <div className="ob-header">
-        <div className="ob-logo">CircleOn<small>Singapore</small></div>
+        <div className="ob-logo">CircleOn AI<small>Singapore</small></div>
         <div className="prog-wrap">
           <div className="prog-lbl">
             <span>{current.cat}</span>

@@ -112,7 +112,7 @@ function LoginContent() {
       <div className="start-card" style={{ maxWidth: 560 }}>
         <div className="start-top">
           <div className="start-kicker"><span className="ob-cat-dot" />Welcome Back</div>
-          <div className="start-title">Log in to Barsha AI</div>
+          <div className="start-title">Log in to CircleOn AI</div>
           <p className="start-sub">Continue where you left off and manage your sales agents.</p>
         </div>
         <div className="start-body">
@@ -156,7 +156,7 @@ function LoginContent() {
             )}
           </div>
           <div className="start-foot">
-            New to Barsha AI?{' '}
+            New to CircleOn AI?{' '}
             <Link href="/signup">Create account</Link>
           </div>
         </div>
