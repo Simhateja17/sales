@@ -179,6 +179,7 @@ export default function OnboardingPage() {
           placeholder={s.placeholder}
           value={(val as string) || ''}
           onChange={e => setAnswer(s.key, e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); next(); } }}
         />
       );
     }
@@ -264,66 +265,66 @@ export default function OnboardingPage() {
     return null;
   }
 
+  const showEnterHint = current.type === 'text' || current.type === 'textarea';
+
   return (
     <div className="screen active" id="onboarding">
+      <div className="prog-track">
+        <div className="prog-fill" style={{ width: `${pct}%` }} />
+      </div>
       <div className="ob-header">
         <div className="ob-logo">CircleOn AI<small>Singapore</small></div>
-        <div className="prog-wrap">
-          <div className="prog-lbl">
-            <span>{current.cat}</span>
-            <span>{pct}%</span>
-          </div>
-          <div className="prog-bar">
-            <div className="prog-fill" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-        <div className="ob-cnt">Step {step + 1} of {STEPS.length}</div>
+        <div className="ob-cnt">Step {step + 1} of {STEPS.length} · {draftStatus || `${pct}%`}</div>
       </div>
       <div className="ob-body">
-        <div className="ob-card">
-          <div className="ob-top">
-            <div className="ob-cat-lbl"><span className="ob-cat-dot" />{current.cat}</div>
-            <div className="ob-q">{current.q}</div>
-            <div className="ob-hint">{current.hint}</div>
-          </div>
-          <div className="ob-body-area">
-            {error && (
-              <div style={{ background: 'var(--red-pale)', border: '1px solid var(--red-border)', color: 'var(--red-text)', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 14 }}>
-                {error}
-              </div>
-            )}
-            {renderInput()}
-          </div>
-          <div className="ob-nav">
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 80 }}>{draftStatus}</div>
-            <button
-              className="btn-back"
-              onClick={prev}
-              style={{ visibility: step === 0 ? 'hidden' : 'visible' }}
-            >
-              ← Back
-            </button>
-            <button className="btn-next" onClick={next} disabled={saving}>
-              {isLast ? (
-                <>
-                  {saving ? 'Saving Agent...' : 'Build My Agent'}{' '}
-                  {!saving && (
-                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
-                    </svg>
-                  )}
-                </>
-              ) : (
-                <>
-                  {saving ? 'Saving...' : 'Continue'}{' '}
-                  {!saving && (
-                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                  )}
-                </>
+        <div className="ob-card" key={step}>
+          <div className="ob-step">
+            <div className="ob-top">
+              <div className="ob-cat-lbl"><span className="ob-cat-dot" />{current.cat}</div>
+              <div className="ob-q">{current.q}</div>
+              <div className="ob-hint">{current.hint}</div>
+            </div>
+            <div className="ob-body-area">
+              {error && (
+                <div style={{ background: 'var(--red-pale)', border: '1px solid var(--red-border)', color: 'var(--red-text)', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 14 }}>
+                  {error}
+                </div>
               )}
-            </button>
+              {renderInput()}
+              {showEnterHint && (
+                <div className="ob-enter-hint">press <kbd>Enter ↵</kbd> to continue</div>
+              )}
+            </div>
+            <div className="ob-nav">
+              <button
+                className="btn-back"
+                onClick={prev}
+                style={{ visibility: step === 0 ? 'hidden' : 'visible' }}
+              >
+                ← Back
+              </button>
+              <button className="btn-next" onClick={next} disabled={saving}>
+                {isLast ? (
+                  <>
+                    {saving ? 'Saving Agent...' : 'Build My Agent'}{' '}
+                    {!saving && (
+                      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+                      </svg>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {saving ? 'Saving...' : 'Continue'}{' '}
+                    {!saving && (
+                      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    )}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
