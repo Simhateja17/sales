@@ -110,7 +110,7 @@ export default function HomeOverview({
           <span className="home-check-icon">{leadReady ? '✓' : '2'}</span>
           <span>
             <strong>{leadReady ? 'Verified leads are ready' : 'Find verified leads'}</strong>
-            <small>{leadReady ? `${emailLeads.length} leads with a verified work email.` : 'Search Apollo or add leads you already know.'}</small>
+            <small>{leadReady ? `${emailLeads.length} leads with a verified work email.` : 'Search our lead database or add leads you already know.'}</small>
           </span>
           <span className="home-check-action">{leadReady ? 'View leads' : 'Find leads'} →</span>
         </button>

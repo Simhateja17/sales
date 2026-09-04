@@ -26,7 +26,7 @@ const STEPS: Step[] = [
   { cat: 'Business', q: 'What is the name of your business?', hint: 'We use this as your workspace and sender identity.', type: 'text', placeholder: 'e.g. Apex Solutions Pte Ltd', key: 'company' },
   { cat: 'Find customers', q: 'What do you sell?', hint: 'Use everyday language. For example: accounting software for small companies.', type: 'textarea', placeholder: 'Describe your main product or service...', key: 'product' },
   { cat: 'Find customers', q: 'Who usually buys it?', hint: 'Choose common buyers and add your own role if needed.', type: 'tags', tags: ['Founder / CEO', 'Operations', 'Sales', 'Marketing', 'Finance', 'IT', 'Procurement', 'HR / People'], key: 'titles' },
-  { cat: 'Find customers', q: 'Which industry should we search?', hint: 'Choose an Apollo industry or type a more specific market. This helps your agent focus on the right companies.', type: 'text', placeholder: 'e.g. information technology & services', key: 'industry' },
+  { cat: 'Find customers', q: 'Which industry should we search?', hint: 'Choose an industry or type a more specific market. This helps your agent focus on the right companies.', type: 'text', placeholder: 'e.g. information technology & services', key: 'industry' },
   { cat: 'Find customers', q: 'Where are the customers you want to reach?', hint: 'Choose a common market or enter any city, region, or country.', type: 'choice', choices: [{ i: '🇸🇬', l: 'Singapore', s: 'Singapore only' }, { i: '🌏', l: 'Southeast Asia', s: 'Regional customers' }, { i: '🌍', l: 'Worldwide', s: 'No regional restriction' }, { i: '✎', l: 'Other', s: 'Add your own location' }], key: 'region' },
   { cat: 'Find customers', q: 'What size company is usually a good fit?', hint: 'Choose the closest option or add your own.', type: 'choice', choices: [{ i: '🌱', l: '1–20', s: 'Very small businesses' }, { i: '📈', l: '21–200', s: 'Growing companies' }, { i: '🏗️', l: '201–1000', s: 'Mid-market' }, { i: '🏦', l: '1000+', s: 'Enterprise' }, { i: '✎', l: 'Other', s: 'Add your own range' }], key: 'companySize' },
 ];
@@ -138,7 +138,7 @@ export default function OnboardingPage() {
       const data = await getTargetSuggestions({ product: String(answers.product || ''), buyer: String(answers.titlesCustom || '') });
       setSuggestedTitles(data.suggestions.titles);
       setSuggestionMessage(data.suggestions.consumer_warning
-        ? 'This looks consumer-focused. Apollo works best for business buyers such as partners, agencies, or corporate customers.'
+        ? 'This looks consumer-focused. CircleOn works best for business buyers such as partners, agencies, or corporate customers.'
         : data.suggestions.explanation);
     } catch (error) {
       setSuggestionMessage(error instanceof Error ? error.message : 'Could not suggest roles. You can still add your own.');
@@ -160,10 +160,10 @@ export default function OnboardingPage() {
             value={(val as string) || ''}
             onChange={e => setAnswer(s.key, e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') next(); }}
-            list={s.key === 'industry' ? 'apollo-onboarding-industry-options' : undefined}
+            list={s.key === 'industry' ? 'lead-onboarding-industry-options' : undefined}
           />
           {s.key === 'industry' ? (
-            <datalist id="apollo-onboarding-industry-options">
+            <datalist id="lead-onboarding-industry-options">
               {apolloIndustryOptions.map(industry => <option key={industry} value={industry} />)}
             </datalist>
           ) : null}

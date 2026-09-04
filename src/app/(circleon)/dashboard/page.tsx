@@ -797,7 +797,7 @@ function DashboardContent() {
       getMeetings(),
       getSmtpStatus(),
     ]);
-    console.log('[apollo:frontend:refresh_all]', {
+    console.log('[lead-search:frontend:refresh_all]', {
       leads: leadData.leads.length,
       leadsWithEmail: leadData.leads.filter(lead => Boolean(lead.email)).length,
       campaigns: campaignData.campaigns.length,
@@ -894,20 +894,20 @@ function DashboardContent() {
         setBusy('');
         const meta = importRun.raw_meta || {};
         setMessage(importRun.status === 'failed'
-          ? `Apollo import failed: ${importRun.error_message || 'Unknown provider error'}`
-          : `Apollo ${importRun.status}: ${String(meta.ready_count ?? 0)} ready leads from ${importRun.created_count} candidates.`);
+          ? `Lead search failed: ${importRun.error_message || 'Unknown search error'}`
+          : `Lead search ${importRun.status}: ${String(meta.ready_count ?? 0)} ready leads from ${importRun.created_count} candidates.`);
         return importRun;
       }
       const startedAt = new Date(importRun.started_at || (typeof importRun.raw_meta?.started_at === 'string' ? importRun.raw_meta.started_at : importRun.created_at)).getTime();
       if (Date.now() - startedAt >= 10 * 60 * 1000) {
         setBusy('');
-        setMessage('Apollo did not finish in time. Start a fresh import.');
+        setMessage('Lead search did not finish in time. Start a fresh search.');
         return null;
       }
       await new Promise(resolve => window.setTimeout(resolve, 2000));
     }
     setBusy('');
-    setMessage('Apollo is taking longer than expected. The import is still running in the background and this page will keep its latest progress.');
+    setMessage('Lead search is taking longer than expected. It is still running in the background and this page will keep its latest progress.');
     return null;
   }
 
@@ -972,18 +972,18 @@ function DashboardContent() {
   async function handleApolloImport() {
     setBusy('apollo');
     setMessage('');
-    console.log('[apollo:frontend:import_start]', apolloFilters);
+    console.log('[lead-search:frontend:import_start]', apolloFilters);
     try {
       const data = await importApolloLeads(apolloFilters);
-      console.log('[apollo:frontend:import_response]', {
+      console.log('[lead-search:frontend:import_response]', {
         importRun: data.importRun,
         sync: data.sync,
       });
       setActiveApolloRun(data.importRun);
       await monitorApolloImport(data.importRun.id);
     } catch (error) {
-      console.error('[apollo:frontend:import_failed]', error);
-      setMessage(error instanceof Error ? error.message : 'Could not import Apollo leads');
+      console.error('[lead-search:frontend:import_failed]', error);
+      setMessage(error instanceof Error ? error.message : 'Could not search for leads');
     } finally {
       if (!activeApolloRun || terminalImportStatuses.has(activeApolloRun.status)) setBusy('');
     }
@@ -992,12 +992,12 @@ function DashboardContent() {
   async function handleApolloSync() {
     setBusy('apollo-sync');
     setMessage('');
-    console.log('[apollo:frontend:sync_start]');
+    console.log('[lead-search:frontend:sync_start]');
     try {
       const data = await syncApolloEmails();
-      console.log('[apollo:frontend:sync_response]', data);
+      console.log('[lead-search:frontend:sync_response]', data);
       const leadData = await getLeads();
-      console.log('[apollo:frontend:leads_after_sync]', {
+      console.log('[lead-search:frontend:leads_after_sync]', {
         leads: leadData.leads.length,
         leadsWithEmail: leadData.leads.filter(lead => Boolean(lead.email)).length,
         sample: leadData.leads.slice(0, 5).map(lead => ({
@@ -1008,10 +1008,10 @@ function DashboardContent() {
         })),
       });
       setLeads(leadData.leads);
-      setMessage(`Apollo sync checked ${data.requestIds.length} requests: ${data.sync.updated} updated, ${data.sync.pending} pending.`);
+      setMessage(`Lead email sync checked ${data.requestIds.length} requests: ${data.sync.updated} updated, ${data.sync.pending} pending.`);
     } catch (error) {
-      console.error('[apollo:frontend:sync_failed]', error);
-      setMessage(error instanceof Error ? error.message : 'Could not sync Apollo emails');
+      console.error('[lead-search:frontend:sync_failed]', error);
+      setMessage(error instanceof Error ? error.message : 'Could not sync lead emails');
     } finally {
       setBusy('');
     }
@@ -1352,12 +1352,12 @@ function DashboardContent() {
                   <div className="lead-drawer-scroll lead-source-panel">
                     <p>Find candidates, enrich them, and retain returned work emails. These filters use your onboarding preferences.</p>
                     <label>Contact roles<input className="sf-inp" value={apolloFilters.titles.join(', ')} onChange={event => setApolloFilters({ ...apolloFilters, titles: event.target.value.split(',').map(item => item.trim()).filter(Boolean) })} placeholder="Founder, CEO, Head of Sales" /></label>
-                    <div className="lead-source-grid"><label>Region<input className="sf-inp" value={apolloFilters.region} onChange={event => setApolloFilters({ ...apolloFilters, region: event.target.value })} placeholder="Singapore" /></label><label>Industry<input className="sf-inp" value={apolloFilters.industry} onChange={event => setApolloFilters({ ...apolloFilters, industry: event.target.value })} placeholder="Industry" list="apollo-industry-options" /></label></div>
-                    <datalist id="apollo-industry-options">{apolloIndustryOptions.map(industry => <option key={industry} value={industry} />)}</datalist>
+                    <div className="lead-source-grid"><label>Region<input className="sf-inp" value={apolloFilters.region} onChange={event => setApolloFilters({ ...apolloFilters, region: event.target.value })} placeholder="Singapore" /></label><label>Industry<input className="sf-inp" value={apolloFilters.industry} onChange={event => setApolloFilters({ ...apolloFilters, industry: event.target.value })} placeholder="Industry" list="lead-industry-options" /></label></div>
+                    <datalist id="lead-industry-options">{apolloIndustryOptions.map(industry => <option key={industry} value={industry} />)}</datalist>
                     <div className="lead-source-grid"><label>Company size<input className="sf-inp" value={apolloFilters.companySize} onChange={event => setApolloFilters({ ...apolloFilters, companySize: event.target.value })} placeholder="11-50" /></label><label>Lead limit<input className="sf-inp" type="number" min={1} max={100} value={apolloFilters.limit} onChange={event => setApolloFilters({ ...apolloFilters, limit: Number(event.target.value) })} /></label></div>
-                    <button className="btn-primary lead-full-button" type="button" disabled={busy === 'apollo'} onClick={handleApolloImport}>{busy === 'apollo' ? 'Importing...' : 'Import from Apollo'}</button>
-                    <button className="btn-outline lead-full-button" type="button" disabled={busy === 'apollo-sync'} onClick={handleApolloSync}>{busy === 'apollo-sync' ? 'Syncing...' : 'Sync Apollo emails'}</button>
-                    {activeApolloRun ? <ApolloImportProgress run={activeApolloRun} elapsedSeconds={apolloElapsedSeconds} /> : <p className="lead-source-note">Most 25-lead imports take roughly 2–5 minutes. Apollo response time can vary.</p>}
+                    <button className="btn-primary lead-full-button" type="button" disabled={busy === 'apollo'} onClick={handleApolloImport}>{busy === 'apollo' ? 'Searching...' : 'Find leads'}</button>
+                    <button className="btn-outline lead-full-button" type="button" disabled={busy === 'apollo-sync'} onClick={handleApolloSync}>{busy === 'apollo-sync' ? 'Syncing...' : 'Sync email results'}</button>
+                    {activeApolloRun ? <ApolloImportProgress run={activeApolloRun} elapsedSeconds={apolloElapsedSeconds} /> : <p className="lead-source-note">Most 25-lead searches take roughly 2–5 minutes. Response time can vary.</p>}
                     <details className="lead-source-details"><summary>{editingLeadId ? 'Editing lead' : 'Add a lead manually'}</summary><form onSubmit={handleCreateLead}>{Object.keys(emptyLeadForm).map(key => <input key={key} className="sf-inp" value={leadForm[key as keyof typeof leadForm]} onChange={event => setLeadForm({ ...leadForm, [key]: event.target.value })} placeholder={key.replaceAll('_', ' ')} required={key === 'full_name' || key === 'email'} />)}{!editingLeadId ? <select className="sf-inp" value={manualCampaignId} onChange={event => setManualCampaignId(event.target.value)}><option value="">Keep in lead pool (no campaign)</option>{campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select> : null}<button className="btn-outline" type="submit" disabled={busy === 'lead'}>{busy === 'lead' ? 'Saving...' : editingLeadId ? 'Update lead' : 'Save lead'}</button>{editingLeadId ? <button className="card-action" type="button" onClick={cancelEditLead}>Cancel edit</button> : null}</form></details>
                     <details className="lead-source-details"><summary>Import a CSV</summary><input className="sf-inp" type="file" accept=".csv,text/csv" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; setCsvText(await file.text()); setCsvMappings([]); setCsvPreview([]); }} /><select className="sf-inp" value={csvMode} onChange={event => setCsvMode(event.target.value as 'import' | 'suppress')}><option value="import">Import leads</option><option value="suppress">Exclude from future searches</option></select>{csvMode === 'import' ? <select className="sf-inp" value={csvCampaignId} onChange={event => setCsvCampaignId(event.target.value)}><option value="">Keep imported leads in the lead pool</option>{campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select> : null}<button className="btn-outline" type="button" disabled={!csvText || busy === 'csv-preview'} onClick={handleCsvPreview}>{busy === 'csv-preview' ? 'Mapping...' : 'Map columns with AI'}</button>{csvMappings.length ? <div className="lead-csv-mapping">{csvMappings.map((mapping, index) => <label key={`${mapping.source}-${index}`}>{mapping.source}<select className="sf-inp" value={mapping.target} onChange={event => setCsvMappings(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, target: event.target.value } : item))}>{csvTargets.map(target => <option key={target} value={target}>{target}</option>)}</select></label>)}<button className="btn-primary" type="button" disabled={busy === 'csv'} onClick={handleCsvImport}>{busy === 'csv' ? 'Importing...' : `Confirm and ${csvMode === 'suppress' ? 'exclude' : 'import'}`}</button>{lastCsvRun && lastCsvRun.skipped_count > 0 ? <button className="btn-outline" type="button" onClick={handleDownloadCsvErrors}>Download skipped-row report</button> : null}</div> : null}</details>
                   </div>
@@ -1368,7 +1368,7 @@ function DashboardContent() {
                     onEdit={() => { beginEditLead(selectedLead); setLeadDrawerMode('source'); }}
                     onDelete={() => { closeLeadDrawer(); handleDeleteLeads([selectedLead.id]); }}
                   />
-                ) : <div className="lead-empty-profile"><p>Select a lead to review its context, or start a new Apollo search.</p><button className="btn-primary" type="button" onClick={openLeadSourcing}>Find leads</button></div>}
+                ) : <div className="lead-empty-profile"><p>Select a lead to review its context, or start a new lead search.</p><button className="btn-primary" type="button" onClick={openLeadSourcing}>Find leads</button></div>}
               </aside>
               </div> : null}
             </div>
@@ -1605,7 +1605,7 @@ function DashboardContent() {
               </form> : null}
               {settingsSection === 'autopilot' ? <div className="set-panel">
                 <div className="sf-lbl">Daily campaign autopilot</div>
-                <p className="sf-hint" style={{ marginTop: 8 }}>Autopilot finds Apollo leads, assigns each new lead to one launched campaign, generates the sequence, and schedules sending. Campaigns marked Requires your attention never run here.</p>
+                <p className="sf-hint" style={{ marginTop: 8 }}>Autopilot finds new leads, assigns each one to a launched campaign, generates the sequence, and schedules sending. Campaigns marked Requires your attention never run here.</p>
                 <div className="msl-list" style={{ marginTop: 18 }}>
                   <Metric label="Mailbox" value={autopilotReadiness?.mailbox_ready ? 'Verified' : 'Needs attention'} />
                   <Metric label="Launched campaigns" value={String(autopilotReadiness?.launched_campaigns || 0)} />

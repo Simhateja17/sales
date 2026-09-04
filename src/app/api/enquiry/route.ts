@@ -1,5 +1,5 @@
 // Receives the public marketing forms. The free-lead preview is handed to the
-// backend's asynchronous Apollo workflow so the public page never receives
+// backend's asynchronous lead-sourcing workflow so the public page never receives
 // provider credentials.
 //
 // The design export discarded the submission — the handler only flipped a

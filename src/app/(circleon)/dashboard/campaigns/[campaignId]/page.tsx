@@ -38,6 +38,19 @@ import Sidebar from '../../_lib/Sidebar';
 import { EmptyState, Metric, initials, statusBadge, type Page } from '../../_lib/ui';
 import { csvTargets, terminalImportStatuses } from '../../_lib/leadImport';
 
+function evidenceSourceLabel(sourceType?: string | null) {
+  const normalized = String(sourceType || '').toLowerCase();
+  if (normalized === 'apollo' || normalized === 'apollo_fallback') return 'CircleOn contact data';
+  if (normalized === 'apify') return 'Public web evidence';
+  return sourceType || 'CircleOn contact field';
+}
+
+function providerNeutralCopy(value?: string | null) {
+  return String(value || '')
+    .replace(/\bApollo\b/gi, 'CircleOn')
+    .replace(/\bApify\b/gi, 'public web research');
+}
+
 export default function CampaignDetailPage({ params }: { params: Promise<{ campaignId: string }> }) {
   const { campaignId } = use(params);
   const router = useRouter();
@@ -619,7 +632,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                   <div className="campaign-research-panel-head">
                     <div>
                       <div className="card-title">Evidence used for writing</div>
-                      <div className="sf-hint">Autopilot uses these public facts automatically. Apollo remains the contact source; Apify evidence is cached and shown here for traceability.</div>
+                      <div className="sf-hint">Autopilot uses these public facts automatically. CircleOn’s contact data remains the source; public evidence is cached and shown here for traceability.</div>
                     </div>
                     <span className="card-action">{researchEvidenceGroups.length} lead{researchEvidenceGroups.length === 1 ? '' : 's'}</span>
                   </div>
@@ -629,12 +642,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                         <div className="campaign-research-item-topline"><strong>{group.name}</strong><span>{group.company}</span><em>Score {group.score}/3 · {group.status}</em></div>
                         {group.evidence.length ? group.evidence.map((item, index) => (
                           <div className="campaign-research-evidence" key={`${group.leadId}-${index}`}>
-                            <span>{item.claim || item.fact || 'Evidence'}</span>
-                            <p>{item.excerpt || item.fact || 'No excerpt stored.'}</p>
-                            {item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Open source ↗</a> : <small>{item.source_type || 'Apollo field'}</small>}
+                            <span>{providerNeutralCopy(item.claim || item.fact || 'Evidence')}</span>
+                            <p>{providerNeutralCopy(item.excerpt || item.fact || 'No excerpt stored.')}</p>
+                            {item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Open source ↗</a> : <small>{evidenceSourceLabel(item.source_type)}</small>}
                           </div>
                         )) : <p className="campaign-research-empty">No source-backed evidence was available; this lead uses the safe fallback profile.</p>}
-                        {group.error ? <small className="campaign-research-error">Fallback note: {group.error}</small> : null}
+                        {group.error ? <small className="campaign-research-error">Fallback note: {providerNeutralCopy(group.error)}</small> : null}
                       </article>
                     ))}
                   </div>
