@@ -47,7 +47,7 @@ export default function Sidebar({
           </div>
         </div>
       </div>
-      <nav className="sb-nav">
+      <nav className="sb-nav" data-tour="nav">
         {navItems.map(item => (
           <button
             key={item.id}

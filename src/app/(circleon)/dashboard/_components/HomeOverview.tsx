@@ -1,4 +1,5 @@
 import type { Campaign, ConnectedAccount, EmailMessage, Lead, Meeting, Workspace } from '@/lib/api';
+import { TOUR_GATE_CAMPAIGN, TOUR_GATE_LEADS, TOUR_GATE_MAILBOX, deriveCompletion, primaryCampaign } from '../_lib/tour/completion';
 
 type HomeOverviewProps = {
   workspace: Workspace | null;
@@ -31,12 +32,15 @@ export default function HomeOverview({
   onOpenInbox,
   onOpenSettings,
 }: HomeOverviewProps) {
-  const activeCampaign = campaigns.find(campaign => campaign.status === 'active') || campaigns.find(campaign => campaign.status === 'ready') || campaigns[0] || null;
+  const activeCampaign = primaryCampaign(campaigns);
   const draftCount = countDrafts(inbox);
   const pendingReplies = inbox.filter(item => item.direction === 'inbound' && !item.intent_classification).length;
-  const mailboxReady = smtpAccount?.status === 'connected';
-  const leadReady = emailLeads.length > 0;
-  const campaignReady = Boolean(activeCampaign);
+  // Shared with the guided tour's gates, so the tour can never unlock a step
+  // this checklist still shows as outstanding, or hold one it has ticked.
+  const completion = deriveCompletion({ smtpAccount, leads: emailLeads, campaigns });
+  const mailboxReady = completion[TOUR_GATE_MAILBOX];
+  const leadReady = completion[TOUR_GATE_LEADS];
+  const campaignReady = completion[TOUR_GATE_CAMPAIGN];
 
   return (
     <section className="home-overview" aria-labelledby="home-title">

@@ -79,9 +79,9 @@ export function fmtDate(value?: string | null) {
   }).format(new Date(value));
 }
 
-export function KpiRow({ items }: { items: Array<[string, number, string]> }) {
+export function KpiRow({ items, dataTour }: { items: Array<[string, number, string]>; dataTour?: string }) {
   return (
-    <div className="kpi-row">
+    <div className="kpi-row" data-tour={dataTour}>
       {items.map(([label, value, marker]) => (
         <div className="kpi-card" key={label}>
           <div className="kpi-icon">{marker}</div>
