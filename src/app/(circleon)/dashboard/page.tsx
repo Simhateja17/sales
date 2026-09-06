@@ -63,12 +63,15 @@ import HomeOverview from './_components/HomeOverview';
 import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, intentBadge, navItems, statusBadge, type Page } from './_lib/ui';
 import { csvTargets, terminalImportStatuses } from './_lib/leadImport';
 import { useTheme } from './_lib/theme';
+import { useTour } from './_lib/tour/TourProvider';
+import { isCampaignEligibleLead } from './_lib/tour/completion';
 
 type SettingsSection = 'mailbox' | 'autopilot' | 'workspace' | 'compliance' | 'profile';
 type LeadView = 'all' | 'ready' | 'campaign' | 'attention';
 type LeadDrawerMode = 'profile' | 'source';
 
 const pageIds = new Set<string>(navItems.map(item => item.id));
+const settingsSectionIds = new Set<string>(['mailbox', 'autopilot', 'workspace', 'compliance', 'profile']);
 
 const emptyLeadForm = {
   full_name: '',
@@ -229,15 +232,6 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
         </div>
       </aside>
     </div>
-  );
-}
-
-function isCampaignEligibleLead(lead: Lead | undefined) {
-  return Boolean(
-    lead?.email
-    && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status || '')
-    && lead.lifecycle_status !== 'suppressed'
-    && lead.dnc_status !== 'blocked'
   );
 }
 
@@ -439,7 +433,7 @@ function MeetingsCalendar({ meetings }: { meetings: Meeting[] }) {
   }
 
   return (
-    <div className="mtg-grid">
+    <div className="mtg-grid" data-tour="meetings">
       <div className="card calendar-card">
         <div className="cal-hdr">
           <div>
@@ -510,6 +504,14 @@ function DashboardContent() {
   const requestedPage = searchParams.get('page');
   const activePage: Page = requestedPage === 'sent' ? 'inbox' : requestedPage && pageIds.has(requestedPage) ? requestedPage as Page : 'overview';
   const setActivePage = (page: Page) => router.push(page === 'overview' ? '/dashboard' : `/dashboard?page=${page}`);
+  // Settings sub-sections read from the URL the same way pages do, so they can
+  // be linked to directly — the guided tour needs to open one, and a support
+  // reply pointing at "the mailbox settings" now has a URL to point at.
+  const requestedSection = searchParams.get('section');
+  const settingsSection: SettingsSection = requestedSection && settingsSectionIds.has(requestedSection)
+    ? requestedSection as SettingsSection
+    : 'mailbox';
+  const setSettingsSection = (section: SettingsSection) => router.push(`/dashboard?page=settings&section=${section}`);
   const [today, setToday] = useState('');
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [billing, setBilling] = useState<WorkspaceBilling | null>(null);
@@ -542,8 +544,8 @@ function DashboardContent() {
   const [csvCampaignId, setCsvCampaignId] = useState('');
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [editingLeadId, setEditingLeadId] = useState('');
-  const [settingsSection, setSettingsSection] = useState<SettingsSection>('mailbox');
   const { theme, toggleTheme } = useTheme();
+  const tour = useTour();
   const [autopilotSettings, setAutopilotSettings] = useState<AutopilotSettings | null>(null);
   const [autopilotReadiness, setAutopilotReadiness] = useState<AutopilotReadiness | null>(null);
   const [autopilotRuns, setAutopilotRuns] = useState<AutopilotRun[]>([]);
@@ -1255,7 +1257,7 @@ function DashboardContent() {
                 <p className="page-sub">Build the audience and sequence together, review every generated email, then launch only what you approve.</p>
               </div>
               <div className="page-actions">
-                <button className="btn-primary" type="button" onClick={() => openCampaignBuilder()}>New campaign</button>
+                <button className="btn-primary" type="button" data-tour="create-campaign" onClick={() => openCampaignBuilder()}>New campaign</button>
               </div>
             </div>
             <div className="campaign-list-layout">
@@ -1294,7 +1296,7 @@ function DashboardContent() {
                 <p className="page-sub">Your verified audience</p>
               </div>
               <div className="page-actions">
-                <button className="btn-primary" type="button" onClick={openLeadSourcing}>Find leads</button>
+                <button className="btn-primary" type="button" data-tour="find-leads" onClick={openLeadSourcing}>Find leads</button>
               </div>
             </div>
 
@@ -1317,7 +1319,7 @@ function DashboardContent() {
                   ))}
                 </div>
                 <p className="lead-verification-note"><span aria-hidden="true">◇</span> Only leads with a verified work email appear here.</p>
-                <div className="lead-table-card">
+                <div className="lead-table-card" data-tour="leads-table">
                   <div className="lead-table-scroll"><table className="lead-table">
                     <thead>
                       <tr>
@@ -1384,7 +1386,7 @@ function DashboardContent() {
                 <p className="page-sub">Every reply keeps the lead and company context alongside an AI draft for your approval.</p>
               </div>
             </div>
-            <div className="inbox-workspace">
+            <div className="inbox-workspace" data-tour="inbox-workspace">
               <div className="card inbox-thread-panel">
                 <div className="card-head">
                   <div>
@@ -1495,6 +1497,7 @@ function DashboardContent() {
               </div>
             </div>
             <KpiRow
+              dataTour="analytics-kpis"
               items={[
                 ['Generated', preview.length, 'Ge'],
                 ['Sent', sentMessages, 'Se'],
@@ -1540,7 +1543,7 @@ function DashboardContent() {
                 <button type="button" className={`sn-item${settingsSection === 'compliance' ? ' active' : ''}`} onClick={() => setSettingsSection('compliance')}>Compliance</button>
                 <button type="button" className={`sn-item${settingsSection === 'profile' ? ' active' : ''}`} onClick={() => setSettingsSection('profile')}>Profile</button>
               </div>
-              {settingsSection === 'mailbox' ? <form className="set-panel" onSubmit={handleSmtpConnect}>
+              {settingsSection === 'mailbox' ? <form className="set-panel" data-tour="smtp-form" onSubmit={handleSmtpConnect}>
                 <div className="sf">
                   <div className="sf-lbl">Connected account</div>
                   <div className="sf-hint">{smtpAccount ? `${smtpAccount.from_email} · ${smtpAccount.status}` : 'No mailbox connected.'}</div>
@@ -1603,7 +1606,7 @@ function DashboardContent() {
                   )}
                 </div>
               </form> : null}
-              {settingsSection === 'autopilot' ? <div className="set-panel">
+              {settingsSection === 'autopilot' ? <div className="set-panel" data-tour="autopilot-panel">
                 <div className="sf-lbl">Daily campaign autopilot</div>
                 <p className="sf-hint" style={{ marginTop: 8 }}>Autopilot finds new leads, assigns each one to a launched campaign, generates the sequence, and schedules sending. Campaigns marked Requires your attention never run here.</p>
                 <div className="msl-list" style={{ marginTop: 18 }}>
@@ -1705,6 +1708,11 @@ function DashboardContent() {
                     ><span aria-hidden="true" /></button>
                   </div>
                   <div className="sf-hint" style={{ marginTop: 16 }}>The theme is stored on this device, so each browser you sign in from keeps its own choice.</div>
+                  <div className="sf-lbl" style={{ marginTop: 22 }}>Guided tour</div>
+                  <div className="pref-row" style={{ marginTop: 6 }}>
+                    <span className="pref-copy"><strong>Product tour</strong>Replay the walkthrough of Barsha, from mailbox to first campaign.</span>
+                    <button className="btn-outline" type="button" onClick={() => tour?.startTour({ restart: true })}>Restart tour</button>
+                  </div>
                 </div>
               ) : null}
             </div>

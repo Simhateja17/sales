@@ -620,6 +620,30 @@ export function getWorkspace() {
   return apiFetch<WorkspaceResponse>('/api/workspace/me');
 }
 
+/**
+ * Guided tour progress, stored per workspace. The keys are camelCase because
+ * this is a jsonb blob owned by the client rather than a set of columns; the
+ * backend validates its shape but never reads individual step ids.
+ */
+export interface TourStateRecord {
+  status: 'not_started' | 'in_progress' | 'completed' | 'skipped';
+  lastStepId: string | null;
+  lastStepIndex: number;
+  seenStepIds: string[];
+  updatedAt: string | null;
+}
+
+export function getTourState() {
+  return apiFetch<{ tour: TourStateRecord }>('/api/workspace/tour');
+}
+
+export function patchTourState(patch: Partial<TourStateRecord>) {
+  return apiFetch<{ tour: TourStateRecord }>('/api/workspace/tour', {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
 export function savePlan(plan: Workspace['plan']) {
   return apiFetch<{ workspace: Workspace }>('/api/workspace/plan', {
     method: 'POST',
