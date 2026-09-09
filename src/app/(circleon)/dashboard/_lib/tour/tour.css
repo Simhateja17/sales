@@ -1,0 +1,224 @@
+/* ---------------------------------------------------------------------------
+   Guided tour overlay.
+
+   Colours resolve through circleon.css's tokens, which are :root-scoped, so the
+   dark theme needs no override here beyond the two dimming values below —
+   the same wash that reads as "dimmed" on the light page is nearly black on
+   the dark one.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --tour-dim: rgba(26, 20, 32, .58);
+  --tour-ring: rgba(107, 79, 160, .28);
+}
+
+:root[data-theme="dark"] {
+  --tour-dim: rgba(8, 6, 12, .68);
+  --tour-ring: rgba(139, 111, 192, .34);
+}
+
+/* The wrapper MUST opt out of pointer events. It covers the whole viewport, so
+   even with the scrim and the spotlight set to none, an ancestor that still
+   accepts clicks intercepts every click across its entire box and swallows
+   them before they reach the page. Only the popover opts back in. */
+.tour-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1200; /* Above .modal-backdrop (300), the drawers (180), the sidebar (100). */
+  pointer-events: none;
+}
+
+/* Only an anchorless step dims through the scrim and takes click-to-skip.
+   Never stack a full-page backdrop-filter over a spotlit step: it blurs the
+   very control the step is asking the user to look at. */
+.tour-scrim {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.tour-scrim.is-dimmed {
+  background: var(--tour-dim);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+  animation: tourFade .22s ease both;
+}
+
+/* The dimming comes from the spotlight's own enormous shadow spread rather
+   than from a backdrop laid over the page. That is what keeps the highlighted
+   element unobscured and — crucially — still interactive: the user can
+   actually type into the field or click the button the step points at. */
+.tour-spotlight {
+  position: fixed;
+  border-radius: 12px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 9999px var(--tour-dim),
+    0 0 0 3px var(--purple-solid),
+    0 0 0 7px var(--tour-ring);
+  transition:
+    top .28s cubic-bezier(.2, .7, .2, 1),
+    left .28s cubic-bezier(.2, .7, .2, 1),
+    width .28s cubic-bezier(.2, .7, .2, 1),
+    height .28s cubic-bezier(.2, .7, .2, 1);
+}
+
+.tour-popover {
+  position: fixed;
+  pointer-events: auto;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  padding: 20px 22px 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 24px 60px -18px var(--shadow-lg);
+  animation: tourPop .2s cubic-bezier(.2, .7, .2, 1) both;
+}
+
+.tour-step-count {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+.tour-title {
+  margin-top: 6px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 25px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.tour-body {
+  margin-top: 9px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.tour-footnote {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--gold-border);
+  border-radius: 10px;
+  background: var(--gold-pale);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gold-text);
+}
+
+.tour-status {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.tour-locked {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--purple-dim);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--purple);
+}
+
+.tour-dots {
+  display: flex;
+  gap: 5px;
+  margin-top: 16px;
+}
+
+.tour-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  transition: width .2s ease, background .2s ease;
+}
+
+.tour-dot.is-done { background: var(--purple-l); }
+
+.tour-dot.is-active {
+  width: 16px;
+  border-radius: 3px;
+  background: var(--purple-solid);
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.tour-action-group {
+  display: flex;
+  gap: 8px;
+}
+
+.tour-end {
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--text-light);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tour-end:hover { color: var(--text-muted); }
+
+/* The shared button classes carry the design's sizing, which is built for page
+   actions and reads oversized inside a card this small. */
+.tour-popover .tour-btn {
+  padding: 8px 14px;
+  font-size: 12.5px;
+}
+
+.tour-popover .tour-btn:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+@keyframes tourFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tourPop {
+  from { opacity: 0; transform: translateY(6px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-spotlight { transition: none; }
+  .tour-popover,
+  .tour-scrim.is-dimmed { animation: none; }
+}
+
+@media (max-width: 768px) {
+  .tour-popover {
+    width: calc(100vw - 24px);
+    padding: 18px;
+  }
+
+  .tour-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .tour-action-group .tour-btn {
+    display: inline-flex;
+    flex: 1;
+    justify-content: center;
+  }
+}

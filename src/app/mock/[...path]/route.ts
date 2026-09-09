@@ -107,6 +107,19 @@ const responses: Record<string, unknown> = {
   'api/autopilot/runs': { runs: [] },
 };
 
+/**
+ * Guided tour progress, held in module memory for the life of the dev server.
+ * The tour is the one feature here that writes as well as reads, so a static
+ * response would make it restart on every step.
+ */
+let mockTourState = {
+  status: 'not_started',
+  lastStepId: null as string | null,
+  lastStepIndex: 0,
+  seenStepIds: [] as string[],
+  updatedAt: null as string | null,
+};
+
 function resolve(segments: string[]) {
   const key = segments.join('/');
   if (key in responses) return responses[key];
@@ -160,11 +173,24 @@ function resolve(segments: string[]) {
   return null;
 }
 
-async function handle(_request: Request, ctx: { params: Promise<{ path: string[] }> }) {
+async function handle(request: Request, ctx: { params: Promise<{ path: string[] }> }) {
   if (process.env.NODE_ENV === 'production') {
     return new Response('Not found', { status: 404 });
   }
   const { path } = await ctx.params;
+
+  if (path.join('/') === 'api/workspace/tour') {
+    if (request.method === 'PATCH') {
+      const patch = await request.json().catch(() => ({}));
+      const seen = patch.restart
+        ? (patch.seenStepIds ?? [])
+        : [...new Set([...mockTourState.seenStepIds, ...(patch.seenStepIds ?? [])])];
+      mockTourState = { ...mockTourState, ...patch, seenStepIds: seen, updatedAt: new Date().toISOString() };
+      delete (mockTourState as Record<string, unknown>).restart;
+    }
+    return Response.json({ tour: mockTourState });
+  }
+
   const body = resolve(path);
   if (body === null) {
     // Unmapped endpoints answer with an empty success rather than a 401, so an

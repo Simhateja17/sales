@@ -578,7 +578,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
               <button className="btn-outline" type="button" disabled={busy === 'generate' || generationBusy || !canEdit} onClick={handleGenerate}>
                 {busy === 'generate' || generationBusy ? 'Researching and writing...' : 'Generate emails'}
               </button>
-              <button className="btn-primary" type="button" disabled={busy === 'launch'} onClick={handleLaunch}>
+              <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch'} onClick={handleLaunch}>
                 {busy === 'launch' ? 'Launching...' : 'Launch'}
               </button>
               {campaign.status === 'active' || campaign.status === 'paused' ? (
@@ -599,7 +599,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         ) : campaign ? (
           <div className="campaign-review-layout">
             <div>
-              <div className="ptabs campaign-review-tabs">
+              <div className="ptabs campaign-review-tabs" data-tour="campaign-tabs">
                 <button type="button" className={`ptab${tab === 'emails' ? ' active' : ''}`} onClick={() => setTab('emails')}>
                   2. Review emails ({preview.length})
                 </button>
@@ -609,7 +609,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
               </div>
 
               {tab === 'emails' ? (
-            <div className="card campaign-review-panel">
+            <div className="card campaign-review-panel" data-tour="campaign-review">
               <div className="card-head">
                 <div>
                   <div className="card-title">Review generated emails</div>
