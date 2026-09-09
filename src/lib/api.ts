@@ -167,7 +167,7 @@ export interface PersonalizationProfile {
     website_pages?: Array<{ url?: string | null; title?: string | null; description?: string | null }>;
   };
   evidence?: ResearchEvidence[];
-  email_context?: Array<{ fact?: string; excerpt?: string; source?: string; source_url?: string | null; observed_at?: string | null }>;
+  email_context?: Array<{ fact?: string; excerpt?: string; source?: string; source_url?: string | null; observed_at?: string | null; page?: number; confidence?: number }>;
 }
 
 export interface ResearchEvidence {
@@ -560,6 +560,9 @@ export interface CsvMapping {
   reason: string;
 }
 
+export interface DocumentLeadCandidate { id:string; status:'review'|'approved'|'rejected'|'imported'; extracted_data:Record<string, unknown>; reviewed_data:Record<string, unknown>; conflicts:Array<{field:string;existing:unknown;extracted:unknown}>; }
+export interface DocumentImport { id:string; status:'pending'|'processing'|'review'|'completed'|'failed'; file_count:number; candidate_count:number; error_message?:string|null; document_lead_candidates?:DocumentLeadCandidate[]; document_import_files?:Array<{id:string;filename:string;status:string;summary?:string|null;error_message?:string|null}>; }
+
 export interface ApolloFilters {
   titles: string[];
   region: string;
@@ -711,6 +714,10 @@ export async function downloadCsvImportErrors(runId: string) {
 export function getLeadImport(runId: string) {
   return apiFetch<{ importRun: LeadImportRun }>(`/api/leads/imports/${runId}`);
 }
+
+export function startDocumentImport(files:Array<{filename:string;mime_type:string;size_bytes:number;content_base64:string}>){return apiFetch<{documentImport:DocumentImport}>('/api/documents/imports',{method:'POST',body:JSON.stringify({files})});}
+export function getDocumentImport(id:string){return apiFetch<{documentImport:DocumentImport}>(`/api/documents/imports/${id}`);}
+export function confirmDocumentImport(id:string,candidates:Array<{id:string;action:'approve'|'reject';data?:Record<string,unknown>}>){return apiFetch<{leads:Lead[]}>(`/api/documents/imports/${id}/confirm`,{method:'POST',body:JSON.stringify({candidates})});}
 
 export function getApolloFilters() {
   return apiFetch<ApolloFilterDefaults>('/api/apollo/filters');

@@ -11,6 +11,9 @@ import {
   createLead,
   deleteLead,
   downloadCsvImportErrors,
+  startDocumentImport,
+  getDocumentImport,
+  confirmDocumentImport,
   getCampaignLeads,
   getCampaignPreview,
   getCampaigns,
@@ -50,6 +53,7 @@ import {
   type ConnectedAccount,
   type EmailConversation,
   type CsvMapping,
+  type DocumentImport,
   type EmailMessage,
   type Lead,
   type LeadImportRun,
@@ -291,6 +295,7 @@ function LeadResearchProfile({
   const location = companyProfile.location || [company.city, company.state, company.country].filter(Boolean).join(', ') || lead.location;
   const technologies = company.technologies?.length ? company.technologies : (companyProfile.technologies || []);
   const researchFacts = profile.email_context?.map(item => item.fact).filter(Boolean) || [];
+  const contextEvidence = profile.email_context || [];
   const experience = person.relevant_experience || [];
 
   return (
@@ -311,6 +316,7 @@ function LeadResearchProfile({
           <span><b>Location</b>{person.location || lead.location || '—'}</span>
           <span><b>Department</b>{person.departments?.join(', ') || '—'}</span>
           <span><b>Email</b>{lead.email || '—'}</span>
+          <span><b>Phone</b>{lead.phone || '—'}</span>
         </div>
         {person.headline ? <p className="lead-detail-copy">{person.headline}</p> : null}
         {experience.length ? <div className="lead-experience"><b>Relevant experience</b>{experience.map((item, index) => <span key={`${item.organization}-${index}`}>{item.title || 'Role'} at {item.organization || 'company'}{item.current ? ' · current' : ''}</span>)}</div> : null}
@@ -346,6 +352,7 @@ function LeadResearchProfile({
         <h5>What CircleOn can use in email</h5>
         <p>{researchFacts[0] || `The verified role, ${industry || 'company'} context, and available technology signals can anchor a specific first message.`}</p>
       </section>
+      {profile.source === 'uploaded_document' && contextEvidence.length ? <section><h5>Invoice and report context</h5><div className="lead-research-facts">{contextEvidence.map((item,index)=><p key={`${item.fact}-${index}`}><strong>{item.fact}</strong>{item.source ? <small>Source: {item.source}{(item as {page?:number}).page ? ` · page ${(item as {page?:number}).page}` : ''}</small> : null}</p>)}</div></section> : null}
       <div className="lead-profile-actions"><button className="btn-primary" type="button" disabled={!isCampaignEligibleLead(lead)} onClick={onAddToCampaign}>Add to campaign</button><button className="btn-outline" type="button" onClick={onDelete}>Delete lead</button><button className="btn-outline" type="button" onClick={onEdit}>Edit lead</button></div>
     </div>
   );
@@ -540,6 +547,8 @@ function DashboardContent() {
   const [lastCsvRun, setLastCsvRun] = useState<LeadImportRun | null>(null);
   const [csvMode, setCsvMode] = useState<'import' | 'suppress'>('import');
   const [csvCampaignId, setCsvCampaignId] = useState('');
+  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
+  const [documentImport, setDocumentImport] = useState<DocumentImport | null>(null);
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [editingLeadId, setEditingLeadId] = useState('');
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('mailbox');
@@ -969,6 +978,24 @@ function DashboardContent() {
     }
   }
 
+  async function handleDocumentUpload() {
+    if (!documentFiles.length) return;
+    setBusy('documents'); setMessage('Uploading documents…');
+    try {
+      const encoded = await Promise.all(documentFiles.map(file => new Promise<{filename:string;mime_type:string;size_bytes:number;content_base64:string}>((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(new Error(`Could not read ${file.name}`));reader.onload=()=>resolve({filename:file.name,mime_type:file.type,size_bytes:file.size,content_base64:String(reader.result).split(',')[1]||''});reader.readAsDataURL(file);})));
+      const started=await startDocumentImport(encoded); let current=started.documentImport;
+      for(let attempt=0;attempt<150 && !['review','failed'].includes(current.status);attempt+=1){await new Promise(resolve=>window.setTimeout(resolve,2000));current=(await getDocumentImport(current.id)).documentImport;setMessage(`Reading ${current.file_count} document${current.file_count===1?'':'s'}…`);}
+      current=(await getDocumentImport(current.id)).documentImport;setDocumentImport(current);setMessage(current.status==='review'?`${current.candidate_count} lead candidate${current.candidate_count===1?'':'s'} extracted. Review before creating leads.`:current.error_message||'Document extraction did not complete.');
+    } catch(error){setMessage(error instanceof Error?error.message:'Could not process documents');} finally{setBusy('');}
+  }
+
+  async function handleDocumentConfirm() {
+    if(!documentImport)return;setBusy('documents-confirm');
+    try{const candidates=(documentImport.document_lead_candidates||[]).map(item=>({id:item.id,action:item.reviewed_data?._rejected?'reject' as const:'approve' as const,data:{...item.extracted_data,...item.reviewed_data}}));const result=await confirmDocumentImport(documentImport.id,candidates);const leadData=await getLeads();setLeads(leadData.leads);setDocumentFiles([]);setDocumentImport(null);setMessage(`${result.leads.length} reviewed lead${result.leads.length===1?'':'s'} created or updated.`);}catch(error){setMessage(error instanceof Error?error.message:'Could not confirm extracted leads');}finally{setBusy('');}
+  }
+
+  function updateDocumentCandidate(id:string,patch:Record<string,unknown>){setDocumentImport(current=>current?{...current,document_lead_candidates:(current.document_lead_candidates||[]).map(item=>item.id===id?{...item,reviewed_data:{...item.reviewed_data,...patch}}:item)}:current);}
+
   async function handleApolloImport() {
     setBusy('apollo');
     setMessage('');
@@ -1360,6 +1387,7 @@ function DashboardContent() {
                     {activeApolloRun ? <ApolloImportProgress run={activeApolloRun} elapsedSeconds={apolloElapsedSeconds} /> : <p className="lead-source-note">Most 25-lead searches take roughly 2–5 minutes. Response time can vary.</p>}
                     <details className="lead-source-details"><summary>{editingLeadId ? 'Editing lead' : 'Add a lead manually'}</summary><form onSubmit={handleCreateLead}>{Object.keys(emptyLeadForm).map(key => <input key={key} className="sf-inp" value={leadForm[key as keyof typeof leadForm]} onChange={event => setLeadForm({ ...leadForm, [key]: event.target.value })} placeholder={key.replaceAll('_', ' ')} required={key === 'full_name' || key === 'email'} />)}{!editingLeadId ? <select className="sf-inp" value={manualCampaignId} onChange={event => setManualCampaignId(event.target.value)}><option value="">Keep in lead pool (no campaign)</option>{campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select> : null}<button className="btn-outline" type="submit" disabled={busy === 'lead'}>{busy === 'lead' ? 'Saving...' : editingLeadId ? 'Update lead' : 'Save lead'}</button>{editingLeadId ? <button className="card-action" type="button" onClick={cancelEditLead}>Cancel edit</button> : null}</form></details>
                     <details className="lead-source-details"><summary>Import a CSV</summary><input className="sf-inp" type="file" accept=".csv,text/csv" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; setCsvText(await file.text()); setCsvMappings([]); setCsvPreview([]); }} /><select className="sf-inp" value={csvMode} onChange={event => setCsvMode(event.target.value as 'import' | 'suppress')}><option value="import">Import leads</option><option value="suppress">Exclude from future searches</option></select>{csvMode === 'import' ? <select className="sf-inp" value={csvCampaignId} onChange={event => setCsvCampaignId(event.target.value)}><option value="">Keep imported leads in the lead pool</option>{campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select> : null}<button className="btn-outline" type="button" disabled={!csvText || busy === 'csv-preview'} onClick={handleCsvPreview}>{busy === 'csv-preview' ? 'Mapping...' : 'Map columns with AI'}</button>{csvMappings.length ? <div className="lead-csv-mapping">{csvMappings.map((mapping, index) => <label key={`${mapping.source}-${index}`}>{mapping.source}<select className="sf-inp" value={mapping.target} onChange={event => setCsvMappings(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, target: event.target.value } : item))}>{csvTargets.map(target => <option key={target} value={target}>{target}</option>)}</select></label>)}<button className="btn-primary" type="button" disabled={busy === 'csv'} onClick={handleCsvImport}>{busy === 'csv' ? 'Importing...' : `Confirm and ${csvMode === 'suppress' ? 'exclude' : 'import'}`}</button>{lastCsvRun && lastCsvRun.skipped_count > 0 ? <button className="btn-outline" type="button" onClick={handleDownloadCsvErrors}>Download skipped-row report</button> : null}</div> : null}</details>
+                    <details className="lead-source-details" open={Boolean(documentImport)}><summary>Import invoices or reports</summary><p className="lead-source-note">Upload document images. CircleOn extracts staged leads; nothing is created until you review and confirm.</p><input className="sf-inp" type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={event=>{setDocumentFiles(Array.from(event.target.files||[]));setDocumentImport(null);}}/><button className="btn-outline lead-full-button" type="button" disabled={!documentFiles.length||busy==='documents'} onClick={handleDocumentUpload}>{busy==='documents'?'Reading documents…':`Extract leads from ${documentFiles.length||0} document${documentFiles.length===1?'':'s'}`}</button>{documentImport?.status==='review'?<div className="lead-csv-mapping">{(documentImport.document_lead_candidates||[]).map(candidate=>{const data={...candidate.extracted_data,...candidate.reviewed_data};return <article key={candidate.id} className="lead-picker-row" style={{display:'grid',gap:8}}><label><input type="checkbox" checked={!Boolean(candidate.reviewed_data?._rejected)} onChange={event=>updateDocumentCandidate(candidate.id,{_rejected:!event.target.checked})}/> Create or update this lead</label>{['full_name','company_name','title','email','phone','location'].map(field=><label key={field}>{field.replaceAll('_',' ')}<input className="sf-inp" value={String(data[field]||'')} onChange={event=>updateDocumentCandidate(candidate.id,{[field]:event.target.value})}/></label>)}<label>Extracted context<textarea className="sf-inp" value={String(data.context_summary||'')} onChange={event=>updateDocumentCandidate(candidate.id,{context_summary:event.target.value})}/></label>{candidate.conflicts?.map(conflict=><label key={conflict.field}>Conflict: {conflict.field}<select className="sf-inp" value={String((candidate.reviewed_data?.conflict_resolutions as Record<string,string>|undefined)?.[conflict.field]||'existing')} onChange={event=>updateDocumentCandidate(candidate.id,{conflict_resolutions:{...((candidate.reviewed_data?.conflict_resolutions as Record<string,string>)||{}),[conflict.field]:event.target.value}})}><option value="existing">Keep existing: {String(conflict.existing)}</option><option value="extracted">Use extracted: {String(conflict.extracted)}</option></select></label>)}</article>;})}<button className="btn-primary" type="button" disabled={busy==='documents-confirm'||!documentImport.candidate_count} onClick={handleDocumentConfirm}>{busy==='documents-confirm'?'Creating leads…':`Confirm reviewed leads`}</button></div>:null}</details>
                   </div>
                 ) : selectedLead ? (
                   <LeadResearchProfile
