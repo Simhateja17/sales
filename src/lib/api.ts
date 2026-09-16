@@ -83,6 +83,10 @@ export interface Lead {
   title: string | null;
   phone: string | null;
   phone_e164: string | null;
+  // Business lines are exempt from Singapore's Do Not Call provisions; personal
+  // numbers are not. This is what decides whether a lead needs a PDPC check.
+  phone_type: 'business' | 'personal' | 'unknown';
+  phone_type_source: string | null;
   email: string | null;
   email_status: 'unknown' | 'user_provided' | 'verified' | 'likely' | 'unverified' | 'invalid' | 'not_found';
   email_source: string | null;
@@ -223,6 +227,9 @@ export interface Campaign {
   active_days: number[];
   cadence_per_hour: number;
   lead_source: 'apollo' | 'csv' | 'manual';
+  channel: 'email' | 'voice';
+  max_call_attempts?: number;
+  retry_gap_hours?: number;
   auto_send_replies: boolean;
   require_approval: boolean;
   launched_at: string | null;
@@ -1074,4 +1081,224 @@ export function rejectInboxMessage(messageId: string) {
   return apiFetch<{ message: EmailMessage }>(`/api/inbox/messages/${messageId}/reject`, {
     method: 'POST',
   });
+}
+
+// ---------------------------------------------------------------------------
+// Voice campaigns
+// ---------------------------------------------------------------------------
+
+export type VoiceLanguage = 'en-US' | 'en-GB' | 'zh-CN';
+
+export interface VoiceScript {
+  id: string;
+  campaign_id: string;
+  language: VoiceLanguage;
+  opening_line: string | null;
+  objective: string | null;
+  offer: string | null;
+  qualifying_questions: string[];
+  objection_handling: string | null;
+  success_criteria: string | null;
+  custom_prompt: string | null;
+  status: 'draft' | 'approved';
+  attested_at: string | null;
+  generation_status: 'not_started' | 'pending' | 'completed' | 'failed';
+  generation_error: string | null;
+}
+
+export interface VoiceOption {
+  voice_id: string;
+  name: string;
+  provider: string | null;
+  gender: string | null;
+  accent: string | null;
+  preview_url: string | null;
+}
+
+export interface VoiceTelephony {
+  workspace_id: string;
+  from_number: string | null;
+  retell_phone_number: string | null;
+  phone_number_status: 'missing' | 'pending_verification' | 'attached' | 'verified' | 'error';
+  max_concurrent_calls: number;
+  recording_enabled: boolean;
+  pdpc_configured?: boolean;
+  number_imported_at: string | null;
+  last_error: string | null;
+}
+
+export interface CallabilityCoverage {
+  total: number;
+  withPhone: number;
+  business: number;
+  personal: number;
+  unknownType: number;
+  callableNow: number;
+  needsDncCheck: number;
+  blocked: number;
+}
+
+export interface VoiceCampaignState {
+  ready: boolean;
+  dialing: boolean;
+  state: string;
+  reason: string | null;
+  blockers: Array<{ key: string; label: string; reason: string; waiting?: boolean }>;
+}
+
+export interface VoiceCampaignStatus {
+  state: VoiceCampaignState;
+  window: { open: boolean; reason: string | null };
+  targets: { pending: number; in_flight: number; completed: number; exhausted: number; blocked: number };
+  next_attempt_at: string | null;
+  credits: { balance_cents: number; spent_on_campaign_cents: number };
+}
+
+export interface VoiceCall {
+  id: string;
+  lead_id: string | null;
+  status: string;
+  attempt_number: number;
+  to_number: string | null;
+  duration_seconds: number | null;
+  transcript: string | null;
+  recording_url: string | null;
+  summary: string | null;
+  sentiment: string | null;
+  credit_charged_cents: number | null;
+  created_at: string;
+  leads?: Pick<Lead, 'id' | 'full_name' | 'company_name' | 'title' | 'phone_e164' | 'phone_type'> | null;
+  call_outcomes?: Array<{ outcome_type: string; summary: string | null; confidence: string }>;
+}
+
+export function getVoiceLanguages() {
+  return apiFetch<{ languages: Array<{ code: VoiceLanguage; label: string }> }>('/api/voice/languages');
+}
+
+export function getVoices(language: VoiceLanguage) {
+  return apiFetch<{ voices: VoiceOption[] }>(`/api/voice/voices?language=${encodeURIComponent(language)}`);
+}
+
+export function getCallCredits() {
+  return apiFetch<{
+    credits: { balance_cents: number; lifetime_spent_cents: number };
+    entries: Array<{ id: string; delta_cents: number; reason: string; created_at: string }>;
+  }>('/api/voice/credits');
+}
+
+export function getVoiceTelephony() {
+  return apiFetch<{ telephony: VoiceTelephony | null }>('/api/voice/telephony');
+}
+
+export function attachVoiceNumber(input: {
+  from_number: string;
+  termination_uri: string;
+  sip_username?: string;
+  sip_password?: string;
+  twilio_account_sid?: string;
+}) {
+  return apiFetch<{ telephony: VoiceTelephony; verified: boolean }>('/api/voice/telephony', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function savePdpcCredentials(input: { account_id: string; api_key: string; api_url?: string }) {
+  return apiFetch<{ configured: boolean }>('/api/voice/telephony/pdpc', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getVoiceScript(campaignId: string) {
+  return apiFetch<{
+    script: VoiceScript | null;
+    voice_id: string | null;
+    agent_status: string;
+    requires_attestation: boolean;
+    opening_preview: string;
+  }>(`/api/voice/campaigns/${campaignId}/script`);
+}
+
+export function saveVoiceScript(campaignId: string, patch: Partial<VoiceScript> & { voice_id?: string }) {
+  return apiFetch<{ script: VoiceScript }>(`/api/voice/campaigns/${campaignId}/script`, {
+    method: 'PUT',
+    body: JSON.stringify(patch),
+  });
+}
+
+export function generateVoiceScript(campaignId: string, language: VoiceLanguage) {
+  return apiFetch<{ script: VoiceScript; suggested_opening_line: string }>(
+    `/api/voice/campaigns/${campaignId}/script/generate`,
+    { method: 'POST', body: JSON.stringify({ language }) },
+  );
+}
+
+export function approveVoiceScript(campaignId: string, attested?: boolean) {
+  return apiFetch<{ script: VoiceScript }>(`/api/voice/campaigns/${campaignId}/script/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ attested: Boolean(attested) }),
+  });
+}
+
+export interface UnclassifiedNumber {
+  id: string;
+  full_name: string;
+  company_name: string | null;
+  phone_e164: string | null;
+}
+
+export function getVoiceCoverage(campaignId: string) {
+  return apiFetch<{
+    coverage: CallabilityCoverage;
+    company_warnings: Array<{ company_domain: string; company_name: string | null; created_at: string }>;
+    unclassified: UnclassifiedNumber[];
+  }>(`/api/voice/campaigns/${campaignId}/coverage`);
+}
+
+export function getVoiceCampaignStatus(campaignId: string) {
+  return apiFetch<VoiceCampaignStatus>(`/api/voice/campaigns/${campaignId}/state`);
+}
+
+export function getVoiceCalls(campaignId: string) {
+  return apiFetch<{ calls: VoiceCall[] }>(`/api/voice/campaigns/${campaignId}/calls`);
+}
+
+export function runCampaignDncCheck(campaignId: string) {
+  return apiFetch<{ checked: number; blocked: number; message?: string }>(
+    `/api/voice/campaigns/${campaignId}/dnc-check`,
+    { method: 'POST' },
+  );
+}
+
+export function setLeadPhoneType(leadId: string, phoneType: Lead['phone_type']) {
+  return apiFetch<{ lead: Lead }>(`/api/voice/leads/${leadId}/phone-type`, {
+    method: 'PATCH',
+    body: JSON.stringify({ phone_type: phoneType }),
+  });
+}
+
+export interface CalendarConnection {
+  workspace_id: string;
+  provider: 'google_calendar';
+  account_email: string | null;
+  calendar_id: string;
+  slot_minutes: number;
+  booking_hours_start: string;
+  booking_hours_end: string;
+  timezone: string;
+  status: 'connected' | 'error' | 'disconnected';
+  last_error: string | null;
+}
+
+export function getCalendarConnection() {
+  return apiFetch<{ calendar: CalendarConnection | null }>('/api/voice/calendar');
+}
+
+export function startCalendarConnect() {
+  return apiFetch<{ url: string }>('/api/voice/calendar/connect', { method: 'POST' });
+}
+
+export function disconnectCalendar() {
+  return apiFetch<{ disconnected: boolean }>('/api/voice/calendar', { method: 'DELETE' });
 }

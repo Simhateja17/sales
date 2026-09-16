@@ -5,6 +5,9 @@ import type { AgentConfig, CampaignBrief, CampaignSequenceStep, ConnectedAccount
 
 type CampaignDraft = {
   name: string;
+  channel: 'email' | 'voice';
+  max_call_attempts: number;
+  retry_gap_hours: number;
   daily_send_cap: number;
   sending_hours_start: string;
   sending_hours_end: string;
@@ -25,9 +28,34 @@ type DesignerStep = {
 };
 
 const initialCampaign: CampaignDraft = {
-  name: '', daily_send_cap: 40, sending_hours_start: '09:00', sending_hours_end: '17:30',
+  name: '', channel: 'email', max_call_attempts: 3, retry_gap_hours: 24,
+  daily_send_cap: 40, sending_hours_start: '09:00', sending_hours_end: '17:30',
   timezone: 'Asia/Singapore', cadence_per_hour: 25, active_days: [1, 2, 3, 4, 5], lead_source: 'apollo',
 };
+
+// A lead can join an email campaign if we can email it, and a voice campaign if
+// we can legally call it. Those are different lists, and a list that makes a
+// good email campaign is often half unusable for voice.
+function isLeadEligible(lead: Lead, channel: 'email' | 'voice') {
+  if (lead.lifecycle_status === 'suppressed' || lead.dnc_status === 'blocked') return false;
+  if (channel === 'voice') return Boolean(lead.phone_e164 || lead.phone);
+  return Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status);
+}
+
+// Business lines are outside Singapore's Do Not Call provisions. Personal
+// numbers need a PDPC check before the first call, so the user should see the
+// split before they launch rather than discover it afterwards.
+function callableCoverage(leads: Lead[]) {
+  const withPhone = leads.filter(lead => Boolean(lead.phone_e164 || lead.phone));
+  const business = withPhone.filter(lead => lead.phone_type === 'business');
+  const personal = withPhone.filter(lead => lead.phone_type !== 'business');
+  const cleared = personal.filter(lead => lead.dnc_status === 'clear' || lead.voice_consent_status === 'consented');
+  return {
+    withPhone: withPhone.length,
+    callableNow: business.length + cleared.length,
+    needsCheck: personal.length - cleared.length,
+  };
+}
 
 const FALLBACK_TIMEZONES = ['Asia/Singapore', 'Asia/Kolkata', 'Australia/Sydney', 'Europe/London', 'Europe/Paris', 'America/Los_Angeles', 'America/Chicago', 'America/New_York', 'Pacific/Auckland'];
 const TIMEZONES = typeof Intl !== 'undefined' && typeof (Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf === 'function'
@@ -118,7 +146,7 @@ export default function CampaignBuilderModal({
 
   useEffect(() => {
     if (!open) return;
-    const eligibleIds = new Set(leads.filter(lead => Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status) && lead.lifecycle_status !== 'suppressed' && lead.dnc_status !== 'blocked').map(lead => lead.id));
+    const eligibleIds = new Set(leads.filter(lead => isLeadEligible(lead, 'email')).map(lead => lead.id));
     setCampaign(initialCampaign);
     setSteps(defaultSteps(3));
     const mailboxSignature = [mailboxAccount?.from_name, mailboxAccount?.from_email].filter(Boolean).join('\n');
@@ -133,10 +161,16 @@ export default function CampaignBuilderModal({
 
   const visibleLeads = useMemo(() => {
     const query = leadFilter.trim().toLowerCase();
-    const eligible = leads.filter(lead => Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status) && lead.lifecycle_status !== 'suppressed' && lead.dnc_status !== 'blocked');
+    const eligible = leads.filter(lead => isLeadEligible(lead, campaign.channel));
     if (!query) return eligible;
-    return eligible.filter(lead => [lead.full_name, lead.company_name, lead.title, lead.email].filter(Boolean).join(' ').toLowerCase().includes(query));
-  }, [leadFilter, leads]);
+    return eligible.filter(lead => [lead.full_name, lead.company_name, lead.title, lead.email, lead.phone_e164].filter(Boolean).join(' ').toLowerCase().includes(query));
+  }, [campaign.channel, leadFilter, leads]);
+
+  const isVoice = campaign.channel === 'voice';
+  const coverage = useMemo(
+    () => callableCoverage(leads.filter(lead => selectedLeadIds.includes(lead.id))),
+    [leads, selectedLeadIds],
+  );
   const allVisibleSelected = Boolean(visibleLeads.length) && visibleLeads.every(lead => selectedLeadIds.includes(lead.id));
   const visibleTimezones = useMemo(() => {
     const query = timezoneSearch.trim().toLowerCase();
@@ -206,17 +240,37 @@ export default function CampaignBuilderModal({
     <div className="modal-backdrop campaign-builder-backdrop" role="presentation" onMouseDown={() => !isSubmitting && onClose()}>
       <section className="campaign-builder" role="dialog" aria-modal="true" aria-labelledby="campaign-builder-title" onMouseDown={event => event.stopPropagation()}>
         <header className="campaign-builder-head">
-          <div><p>NEW CAMPAIGN</p><h2 id="campaign-builder-title">Build a considered outreach sequence.</h2></div>
+          <div><p>NEW CAMPAIGN</p><h2 id="campaign-builder-title">{isVoice ? 'Build a call worth answering.' : 'Build a considered outreach sequence.'}</h2></div>
           <button className="campaign-builder-close" type="button" onClick={onClose} disabled={isSubmitting} aria-label="Close campaign builder">×</button>
         </header>
 
         <div className="campaign-builder-body">
           <section className="campaign-builder-section campaign-builder-basics">
             <div className="campaign-builder-section-head"><span>01</span><div><h3>Campaign details</h3><p>Set practical sending rules once.</p></div></div>
+            <div className="campaign-channel-picker" role="radiogroup" aria-label="Campaign channel">
+              {([
+                { value: 'email' as const, title: 'Email campaign', copy: 'A written sequence, drafted per lead.' },
+                { value: 'voice' as const, title: 'Voice campaign', copy: 'An AI agent calls and books meetings.' },
+              ]).map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={campaign.channel === option.value}
+                  className={campaign.channel === option.value ? 'is-selected' : ''}
+                  onClick={() => { setCampaign(current => ({ ...current, channel: option.value })); setSelectedLeadIds([]); }}
+                >
+                  <strong>{option.title}</strong>
+                  <small>{option.copy}</small>
+                </button>
+              ))}
+            </div>
             <label className="campaign-builder-field campaign-builder-field-wide"><span>Campaign name</span><input autoFocus value={campaign.name} onChange={event => setCampaign(current => ({ ...current, name: event.target.value }))} placeholder="Q3 founder outreach" /></label>
             <div className="campaign-builder-grid">
-              <label className="campaign-builder-field"><span>Daily send cap</span><input type="number" min="1" max="300" value={campaign.daily_send_cap} onChange={event => setCampaign(current => ({ ...current, daily_send_cap: Number(event.target.value) }))} /></label>
-              <label className="campaign-builder-field"><span>Emails per hour</span><input type="number" min="1" max="100" value={campaign.cadence_per_hour} onChange={event => setCampaign(current => ({ ...current, cadence_per_hour: Number(event.target.value) }))} /></label>
+              <label className="campaign-builder-field"><span>{isVoice ? 'Daily call cap' : 'Daily send cap'}</span><input type="number" min="1" max="300" value={campaign.daily_send_cap} onChange={event => setCampaign(current => ({ ...current, daily_send_cap: Number(event.target.value) }))} /></label>
+              {isVoice
+                ? <label className="campaign-builder-field"><span>Attempts per lead</span><input type="number" min="1" max="10" value={campaign.max_call_attempts} onChange={event => setCampaign(current => ({ ...current, max_call_attempts: Number(event.target.value) }))} /></label>
+                : <label className="campaign-builder-field"><span>Emails per hour</span><input type="number" min="1" max="100" value={campaign.cadence_per_hour} onChange={event => setCampaign(current => ({ ...current, cadence_per_hour: Number(event.target.value) }))} /></label>}
               <label className="campaign-builder-field"><span>Start</span><input type="time" value={campaign.sending_hours_start} onChange={event => setCampaign(current => ({ ...current, sending_hours_start: event.target.value }))} /></label>
               <label className="campaign-builder-field"><span>End</span><input type="time" value={campaign.sending_hours_end} onChange={event => setCampaign(current => ({ ...current, sending_hours_end: event.target.value }))} /></label>
             </div>
@@ -235,18 +289,44 @@ export default function CampaignBuilderModal({
           </section>
 
           <section className="campaign-builder-section">
-            <div className="campaign-builder-section-head"><span>02</span><div><h3>Verified leads</h3><p>Only work-email leads can enter a campaign.</p></div><strong>{selectedLeadIds.length} selected</strong></div>
+            <div className="campaign-builder-section-head"><span>02</span><div><h3>{isVoice ? 'Callable leads' : 'Verified leads'}</h3><p>{isVoice ? 'Only leads with a phone number can enter a voice campaign.' : 'Only work-email leads can enter a campaign.'}</p></div><strong>{selectedLeadIds.length} selected</strong></div>
+            {isVoice && selectedLeadIds.length ? (
+              <p className="campaign-coverage-note">
+                <strong>{coverage.callableNow}</strong> of {selectedLeadIds.length} selected can be called right away.
+                {coverage.needsCheck > 0
+                  ? ` ${coverage.needsCheck} ${coverage.needsCheck === 1 ? 'is a personal number that needs' : 'are personal numbers that need'} a Do Not Call check first.`
+                  : ' Business lines are exempt from the Do Not Call register.'}
+                {selectedLeadIds.length - coverage.withPhone > 0 ? ` ${selectedLeadIds.length - coverage.withPhone} have no phone number.` : ''}
+              </p>
+            ) : null}
             <div className="campaign-lead-controls"><input aria-label="Search verified leads" value={leadFilter} onChange={event => setLeadFilter(event.target.value)} placeholder="Search name, company, title…" /><button type="button" onClick={toggleAllVisibleLeads}>{allVisibleSelected ? 'Clear visible' : 'Select visible'}</button></div>
             <div className="campaign-builder-leads">
               {visibleLeads.map(lead => <label key={lead.id} className="campaign-builder-lead-row">
                 <input type="checkbox" checked={selectedLeadIds.includes(lead.id)} onChange={() => setSelectedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} />
                 <span className="campaign-builder-avatar">{lead.full_name.split(' ').map(part => part[0]).slice(0, 2).join('')}</span>
-                <span><strong>{lead.full_name}</strong><small>{lead.title ? `${lead.title} · ` : ''}{lead.company_name || 'Company unavailable'} · {lead.email}</small></span><em>Fit {lead.fit_score || 0}</em>
+                <span><strong>{lead.full_name}</strong><small>{lead.title ? `${lead.title} · ` : ''}{lead.company_name || 'Company unavailable'} · {isVoice ? (lead.phone_e164 || lead.phone) : lead.email}</small></span>
+                {isVoice
+                  ? <em className={`phone-type-tag is-${lead.phone_type || 'unknown'}`}>{lead.phone_type === 'business' ? 'Business' : lead.phone_type === 'personal' ? 'Personal' : 'Unclassified'}</em>
+                  : <em>Fit {lead.fit_score || 0}</em>}
               </label>)}
-              {!visibleLeads.length ? <p className="campaign-builder-empty">No verified work-email leads match this search.</p> : null}
+              {!visibleLeads.length ? <p className="campaign-builder-empty">{isVoice ? 'No leads with a phone number match this search.' : 'No verified work-email leads match this search.'}</p> : null}
             </div>
           </section>
 
+          {isVoice ? (
+          <section className="campaign-builder-section">
+            <div className="campaign-builder-section-head"><span>03</span><div><h3>The call</h3><p>Write the script on the next screen, where you can review every line before anything is dialled.</p></div></div>
+            <div className="campaign-voice-explainer">
+              <p>Your agent opens by saying it is an AI calling on behalf of {agentConfig?.company_name || 'your company'}, and that the call is recorded. That part is fixed and cannot be edited away.</p>
+              <p>It then gives a short pitch, offers real times from your calendar, and books the meeting. It does not sell, negotiate, or work objections, and calls stay under two minutes.</p>
+              <ul>
+                <li><strong>You write the opening line.</strong> It is the sentence the call lives or dies on, so we draft a suggestion and you decide.</li>
+                <li><strong>Attempts are spread across the day.</strong> {campaign.max_call_attempts} tries, at least a business day apart, at different times so you sample their day.</li>
+                <li><strong>Calling starts when your Singapore number clears.</strong> Build everything now; nothing dials until the number is verified.</li>
+              </ul>
+            </div>
+          </section>
+          ) : (
           <section className="campaign-builder-section">
             <div className="campaign-builder-section-head"><span>03</span><div><h3>Email sequence</h3><p>CircleOn creates a distinct draft for every lead and every step. You can edit all drafts before launch.</p></div></div>
             <div className="campaign-sequence-controls"><label className="campaign-builder-field"><span>Emails in this sequence</span><select value={steps.length} onChange={event => setStepCount(Number(event.target.value))}>{[1, 2, 3, 4, 5, 6].map(count => <option key={count} value={count}>{count} email{count === 1 ? '' : 's'}</option>)}</select></label><p>Changing the structure regenerates the recommended plan. Drag cards to set the sending order.</p></div>
@@ -264,9 +344,38 @@ export default function CampaignBuilderModal({
             </div>
             <button className="campaign-add-step" type="button" disabled={steps.length >= 6} onClick={addStep}>+ Add a custom follow-up</button>
           </section>
+          )}
         </div>
 
-        <footer className="campaign-builder-footer"><p>Attachments are sent to every lead in their sequence step. When a launched campaign is included in Autopilot, CircleOn can research, write, and send automatically within its safeguards.</p><div><button className="btn-outline" type="button" onClick={onClose} disabled={isSubmitting}>Cancel</button><button className="btn-primary" type="button" disabled={isSubmitting || !campaign.name.trim() || !selectedLeadIds.length || !steps.every(step => step.name.trim()) || steps.some(step => step.attachment && step.attachment.size > 10 * 1024 * 1024)} onClick={() => onSubmit({ campaign, brief, leadIds: selectedLeadIds, steps: toSequenceSteps(steps), attachments: steps.flatMap((step, index) => step.attachment ? [{ stepNumber: index + 1, file: step.attachment }] : []) })}>{isSubmitting ? 'Creating…' : `Create campaign with ${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'}`}</button></div></footer>
+        <footer className="campaign-builder-footer">
+          <p>{isVoice
+            ? 'Nothing is dialled until you approve the script and your Singapore number is verified. Every call is recorded and transcribed.'
+            : 'Attachments are sent to every lead in their sequence step. When a launched campaign is included in Autopilot, CircleOn can research, write, and send automatically within its safeguards.'}</p>
+          <div>
+            <button className="btn-outline" type="button" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+            <button
+              className="btn-primary"
+              type="button"
+              disabled={isSubmitting
+                || !campaign.name.trim()
+                || !selectedLeadIds.length
+                || (isVoice ? !coverage.withPhone : (!steps.every(step => step.name.trim()) || steps.some(step => step.attachment && step.attachment.size > 10 * 1024 * 1024)))}
+              onClick={() => onSubmit({
+                campaign,
+                brief,
+                leadIds: selectedLeadIds,
+                steps: isVoice ? [] : toSequenceSteps(steps),
+                attachments: isVoice ? [] : steps.flatMap((step, index) => step.attachment ? [{ stepNumber: index + 1, file: step.attachment }] : []),
+              })}
+            >
+              {isSubmitting
+                ? 'Creating…'
+                : isVoice
+                  ? `Create voice campaign with ${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'}`
+                  : `Create campaign with ${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'}`}
+            </button>
+          </div>
+        </footer>
       </section>
     </div>
   );

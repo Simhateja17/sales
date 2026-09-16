@@ -35,6 +35,7 @@ import {
   type Workspace,
 } from '@/lib/api';
 import Sidebar from '../../_lib/Sidebar';
+import VoiceCampaignPanel from './VoiceCampaignPanel';
 import { EmptyState, Metric, initials, statusBadge, type Page } from '../../_lib/ui';
 import { csvTargets, terminalImportStatuses } from '../../_lib/leadImport';
 
@@ -569,15 +570,17 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
             </button>
             <h1 className="dash-greeting">{campaign?.name || (loading ? 'Loading campaign...' : 'Campaign')}</h1>
             <p className="dash-date">
-              {campaign ? `${campaign.daily_send_cap}/day · ${campaign.sending_hours_start || '09:00'}–${campaign.sending_hours_end || '18:00'} · ${campaign.timezone || 'Asia/Singapore'}` : ''}
+              {campaign ? `${campaign.daily_send_cap} ${campaign.channel === 'voice' ? 'calls' : 'emails'}/day · ${campaign.sending_hours_start || '09:00'}–${campaign.sending_hours_end || '18:00'} · ${campaign.timezone || 'Asia/Singapore'}` : ''}
             </p>
             {campaign?.attention_required ? <p className="sf-hint" style={{ marginTop: 8 }}>Requires your attention: {campaign.attention_reason || 'Review the campaign settings, then launch when you are happy with them.'}</p> : null}
           </div>
           {campaign ? (
             <div className="page-actions">
-              <button className="btn-outline" type="button" disabled={busy === 'generate' || generationBusy || !canEdit} onClick={handleGenerate}>
-                {busy === 'generate' || generationBusy ? 'Researching and writing...' : 'Generate emails'}
-              </button>
+              {campaign.channel === 'voice' ? null : (
+                <button className="btn-outline" type="button" disabled={busy === 'generate' || generationBusy || !canEdit} onClick={handleGenerate}>
+                  {busy === 'generate' || generationBusy ? 'Researching and writing...' : 'Generate emails'}
+                </button>
+              )}
               <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch'} onClick={handleLaunch}>
                 {busy === 'launch' ? 'Launching...' : 'Launch'}
               </button>
@@ -596,6 +599,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
           <div className="card"><EmptyState text="This campaign could not be loaded." /></div>
         ) : loading ? (
           <div className="card"><EmptyState text="Loading campaign..." /></div>
+        ) : campaign && campaign.channel === 'voice' ? (
+          <VoiceCampaignPanel campaign={campaign} />
         ) : campaign ? (
           <div className="campaign-review-layout">
             <div>

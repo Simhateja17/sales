@@ -63,6 +63,7 @@ import {
 } from '@/lib/api';
 import Sidebar from './_lib/Sidebar';
 import CampaignBuilderModal, { type CampaignBuilderSubmission } from './_components/CampaignBuilderModal';
+import VoiceSettingsPanel from './_components/VoiceSettingsPanel';
 import HomeOverview from './_components/HomeOverview';
 import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, intentBadge, navItems, statusBadge, type Page } from './_lib/ui';
 import { csvTargets, terminalImportStatuses } from './_lib/leadImport';
@@ -70,12 +71,12 @@ import { useTheme } from './_lib/theme';
 import { useTour } from './_lib/tour/TourProvider';
 import { isCampaignEligibleLead } from './_lib/tour/completion';
 
-type SettingsSection = 'mailbox' | 'autopilot' | 'workspace' | 'compliance' | 'profile';
+type SettingsSection = 'mailbox' | 'voice' | 'autopilot' | 'workspace' | 'compliance' | 'profile';
 type LeadView = 'all' | 'ready' | 'campaign' | 'attention';
 type LeadDrawerMode = 'profile' | 'source';
 
 const pageIds = new Set<string>(navItems.map(item => item.id));
-const settingsSectionIds = new Set<string>(['mailbox', 'autopilot', 'workspace', 'compliance', 'profile']);
+const settingsSectionIds = new Set<string>(['mailbox', 'voice', 'autopilot', 'workspace', 'compliance', 'profile']);
 
 const emptyLeadForm = {
   full_name: '',
@@ -1059,12 +1060,14 @@ function DashboardContent() {
         ...campaign,
         brief,
       });
-      await Promise.all([
-        replaceCampaignLeads(data.campaign.id, leadIds),
-        replaceCampaignSequence(data.campaign.id, steps),
-      ]);
-      for (const item of attachments) {
-        await uploadCampaignSequenceAttachment(data.campaign.id, item.stepNumber, item.file);
+      // A voice campaign has a script, not a sequence, and it is written on the
+      // campaign page rather than in the builder.
+      await replaceCampaignLeads(data.campaign.id, leadIds);
+      if (campaign.channel !== 'voice') {
+        await replaceCampaignSequence(data.campaign.id, steps);
+        for (const item of attachments) {
+          await uploadCampaignSequenceAttachment(data.campaign.id, item.stepNumber, item.file);
+        }
       }
       setCampaigns(current => [data.campaign, ...current]);
       setSelectedCampaignId(data.campaign.id);
@@ -1566,6 +1569,7 @@ function DashboardContent() {
             <div className="set-grid">
               <div className="set-nav">
                 <button type="button" className={`sn-item${settingsSection === 'mailbox' ? ' active' : ''}`} onClick={() => setSettingsSection('mailbox')}>SMTP and IMAP</button>
+                <button type="button" className={`sn-item${settingsSection === 'voice' ? ' active' : ''}`} onClick={() => setSettingsSection('voice')}>Calling</button>
                 <button type="button" className={`sn-item${settingsSection === 'autopilot' ? ' active' : ''}`} onClick={() => setSettingsSection('autopilot')}>Autopilot</button>
                 <button type="button" className={`sn-item${settingsSection === 'workspace' ? ' active' : ''}`} onClick={() => setSettingsSection('workspace')}>Workspace</button>
                 <button type="button" className={`sn-item${settingsSection === 'compliance' ? ' active' : ''}`} onClick={() => setSettingsSection('compliance')}>Compliance</button>
@@ -1698,6 +1702,7 @@ function DashboardContent() {
                   </div>
                 </div>
               ) : null}
+              {settingsSection === 'voice' ? <VoiceSettingsPanel onMessage={setMessage} /> : null}
               {settingsSection === 'compliance' ? (
                 <div className="set-panel">
                   <div className="sf-lbl">Email compliance</div>
