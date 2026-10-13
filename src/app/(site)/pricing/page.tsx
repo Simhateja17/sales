@@ -4,7 +4,7 @@ import CircleOn from '@/components/circleon/CircleOn';
 export const metadata: Metadata = {
   title: 'Pricing — CircleOn.ai',
   description:
-    'Atelier, Maison and Sovereign. Billed annually, with voice minutes included and pay-as-you-go overage.',
+    'Monthly SGD plans for AI email outreach and voice calls. Compare Starter, Growth and Pro.',
 };
 
 export default function Page() {

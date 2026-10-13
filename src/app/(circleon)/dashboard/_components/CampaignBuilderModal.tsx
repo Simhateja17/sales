@@ -123,19 +123,20 @@ export type CampaignBuilderSubmission = {
 };
 
 export default function CampaignBuilderModal({
-  open, leads, agentConfig, mailboxAccount, initialLeadIds = [], isSubmitting, onClose, onSubmit,
+  open, leads, agentConfig, mailboxAccount, initialLeadIds = [], maxSteps = 6, isSubmitting, onClose, onSubmit,
 }: {
   open: boolean;
   leads: Lead[];
   agentConfig: AgentConfig | null;
   mailboxAccount: Pick<ConnectedAccount, 'from_name' | 'from_email'> | null;
   initialLeadIds?: string[];
+  maxSteps?: number;
   isSubmitting: boolean;
   onClose: () => void;
   onSubmit: (submission: CampaignBuilderSubmission) => void;
 }) {
   const [campaign, setCampaign] = useState<CampaignDraft>(initialCampaign);
-  const [steps, setSteps] = useState<DesignerStep[]>(() => defaultSteps(3));
+  const [steps, setSteps] = useState<DesignerStep[]>(() => defaultSteps(maxSteps===4?4:3));
   const [brief, setBrief] = useState<Pick<CampaignBrief, 'campaign_angle' | 'cta' | 'tone' | 'proof' | 'language' | 'signature' | 'sector'>>({ campaign_angle: '', cta: '', tone: '', proof: '', language: 'English', signature: '', sector: '' });
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [leadFilter, setLeadFilter] = useState('');
@@ -148,7 +149,7 @@ export default function CampaignBuilderModal({
     if (!open) return;
     const eligibleIds = new Set(leads.filter(lead => isLeadEligible(lead, 'email')).map(lead => lead.id));
     setCampaign(initialCampaign);
-    setSteps(defaultSteps(3));
+    setSteps(defaultSteps(maxSteps===4?4:3));
     const mailboxSignature = [mailboxAccount?.from_name, mailboxAccount?.from_email].filter(Boolean).join('\n');
     setBrief({ campaign_angle: '', cta: agentConfig?.booking_link || '', tone: agentConfig?.tone || '', proof: '', language: 'English', signature: mailboxSignature, sector: '' });
     setSelectedLeadIds(initialLeadIds.filter(id => eligibleIds.has(id)));
@@ -329,7 +330,7 @@ export default function CampaignBuilderModal({
           ) : (
           <section className="campaign-builder-section">
             <div className="campaign-builder-section-head"><span>03</span><div><h3>Email sequence</h3><p>CircleOn creates a distinct draft for every lead and every step. You can edit all drafts before launch.</p></div></div>
-            <div className="campaign-sequence-controls"><label className="campaign-builder-field"><span>Emails in this sequence</span><select value={steps.length} onChange={event => setStepCount(Number(event.target.value))}>{[1, 2, 3, 4, 5, 6].map(count => <option key={count} value={count}>{count} email{count === 1 ? '' : 's'}</option>)}</select></label><p>Changing the structure regenerates the recommended plan. Drag cards to set the sending order.</p></div>
+            <div className="campaign-sequence-controls"><label className="campaign-builder-field"><span>Emails in this sequence</span><select value={steps.length} onChange={event => setStepCount(Number(event.target.value))}>{Array.from({length:maxSteps},(_,i)=>i+1).map(count => <option key={count} value={count}>{count} email{count === 1 ? '' : 's'}</option>)}</select></label><p>Changing the structure regenerates the recommended plan. Drag cards to set the sending order.</p></div>
             <div className="campaign-steps">
               {steps.map((step, index) => <article key={step.id} draggable className={`campaign-step${draggedStepIndex === index ? ' is-dragging' : ''}${dropTargetIndex === index && draggedStepIndex !== index ? ' is-drop-target' : ''}`} onDragStart={event => handleStepDragStart(event, index)} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; if (draggedStepIndex !== index) setDropTargetIndex(index); }} onDrop={event => handleStepDrop(event, index)} onDragEnd={() => { setDraggedStepIndex(null); setDropTargetIndex(null); }}>
                 <div className="campaign-step-number">{String(index + 1).padStart(2, '0')}</div>
@@ -342,7 +343,7 @@ export default function CampaignBuilderModal({
                 </div>
               </article>)}
             </div>
-            <button className="campaign-add-step" type="button" disabled={steps.length >= 6} onClick={addStep}>+ Add a custom follow-up</button>
+            <button className="campaign-add-step" type="button" disabled={steps.length >= maxSteps} onClick={addStep}>+ Add a custom follow-up</button>
           </section>
           )}
         </div>

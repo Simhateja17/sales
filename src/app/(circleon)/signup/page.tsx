@@ -13,7 +13,7 @@ export default function SignupPage() {
   const [otp, setOtp] = useState('');
   const [otpRequested, setOtpRequested] = useState(false);
   const [phone, setPhone] = useState('');
-  const [agreed, setAgreed] = useState(true);
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
@@ -80,7 +80,7 @@ export default function SignupPage() {
       if (!res.ok) {
         setError(data.error || 'The code is invalid or expired.');
       } else {
-        router.push('/plan-select');
+        router.push('/plan-select' + window.location.search);
       }
     } catch {
       setError('Network error. Please try again.');
@@ -154,7 +154,7 @@ export default function SignupPage() {
           </div>
           <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <input type="checkbox" className="cb" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 2 }} />
-            <span>I agree to the Terms and Privacy Policy, and I consent to communication regarding account setup.</span>
+            <span>I agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>, and I consent to communication regarding account setup.</span>
           </div>
           <div className="start-foot">
             {otpRequested ? (

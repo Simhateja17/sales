@@ -53,7 +53,7 @@ export default function Footer({ v }) {
           ))}
         </div>
         <div className="co-footer-legal" style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "20px 24px 40px", "borderTop": "1px solid #F1EEFD", "fontSize": "13.5px", "color": "#716F82"}}>
-          © 2026 CircleOn. All Rights Reserved.
+          © 2026 CIRCLEON PTE. LTD. · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a>
         </div>
       </footer>
     </>

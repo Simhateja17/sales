@@ -618,8 +618,8 @@ class CircleOnShell extends React.Component {
       { title: 'Company', links: [
         { label: 'Contact', onClick: () => goto('help') },
         { label: 'Careers', onClick: () => goto('about') },
-        { label: 'Privacy Policy', onClick: () => goto('safety') },
-        { label: 'Terms of Service', onClick: () => goto('safety') },
+        { label: 'Privacy Policy', onClick: () => this.props.router.push('/privacy') },
+        { label: 'Terms of Service', onClick: () => this.props.router.push('/terms') },
       ] },
     ];
 

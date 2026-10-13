@@ -1,6 +1,7 @@
 // Ported from the CircleOn design export. Structure and styling are a
 // faithful copy; see components/circleon/CircleOn.jsx for the state behind `v`.
 import { Fragment } from 'react';
+import { FoundingBanner } from '@/components/pricing/PricingPlans';
 import { cssToObj } from '../cssToObj';
 
 export default function Home({ v }) {
@@ -205,32 +206,30 @@ export default function Home({ v }) {
               99%
             </span>
           </div>
+          <FoundingBanner />
           <section className="co-intro">
             <div className="co-eyebrow">
               <b />
               SYSTEM ONLINE · ONE TEAM, THREE ENGINES
             </div>
             <h1>
-              Every lead gets a call.
+              Your AI sales team finds leads,
               <br />
-              {"Every gap gets "}
+
               <em>
-                followed up.
+                follows up and answers calls.
               </em>
             </h1>
             <p>
-              A living AI team that sources opportunities, speaks with them, and keeps moving until the work is done. Choose one service, or let the whole crew run together.
+              CircleOn finds prospects, sends personalised emails and up to three follow-ups, and helps book meetings. Add an AI voice agent for inbound and outbound calls.
             </p>
           </section>
           <div className="co-actions">
-            <button className="co-button" onClick={v.gotoSignup}>
-              Book a demo
-            </button>
+            <a className="co-button" href="/pricing?plan=allinone">Start 7-day free trial</a>
             {' '}
-            <span className="co-see" onClick={v.scrollSolutions}>
-              See the flow
-            </span>
+            <a className="co-see" href="/pricing">See pricing</a>
           </div>
+          <p style={{textAlign:"center",fontSize:13,position:"relative"}}>Card required. Cancel before day 7. Prices excl. GST.</p>
           <section className="co-world">
             <div className="co-path" />
             <div className="co-hub">

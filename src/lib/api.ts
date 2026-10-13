@@ -1,3 +1,5 @@
+export type MonthlyPlanId = `${'followup' | 'voice' | 'allinone'}_${'starter' | 'growth' | 'pro'}`;
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
 type ApiOptions = RequestInit & {
@@ -24,7 +26,7 @@ export interface Workspace {
   id: string;
   owner_id: string;
   name: string;
-  plan: 'atelier' | 'maison' | 'sovereign' | null;
+  plan: MonthlyPlanId | 'atelier' | 'maison' | 'sovereign' | null;
   onboarding_step: number;
   onboarding_completed: boolean;
 }
@@ -33,7 +35,18 @@ export interface WorkspaceBilling {
   workspace_id: string;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
-  plan: 'atelier' | 'maison' | null;
+  plan: MonthlyPlanId | 'atelier' | 'maison' | null;
+  trial_start?: string | null;
+  trial_end?: string | null;
+  founder_until?: string | null;
+  founding?: boolean;
+  payment_failed?: boolean;
+  voice_ready?: boolean;
+  voice_approved?: boolean;
+  trial_extended?: boolean;
+  lead_overage_cap_cents?: number;
+  voice_overage_cap_cents?: number;
+  pending_plan?: string | null;
   subscription_status: string;
   current_period_end: string | null;
   cancel_at_period_end: boolean;
@@ -661,15 +674,15 @@ export function savePlan(plan: Workspace['plan']) {
   });
 }
 
-export function startCheckout(plan: 'atelier' | 'maison') {
+export function startCheckout(plan: MonthlyPlanId, startPaid = false) {
   return apiFetch<{ url: string }>('/api/billing/checkout', {
     method: 'POST',
-    body: JSON.stringify({ plan }),
+    body: JSON.stringify({ plan, start_paid: startPaid }),
   });
 }
 
 export function getBillingStatus() {
-  return apiFetch<{ billing: WorkspaceBilling | null; active: boolean }>('/api/billing/status');
+  return apiFetch<{ billing: WorkspaceBilling | null; active: boolean; usage: BillingUsage | null }>('/api/billing/status');
 }
 
 export function openBillingPortal() {
@@ -1302,3 +1315,6 @@ export function startCalendarConnect() {
 export function disconnectCalendar() {
   return apiFetch<{ disconnected: boolean }>('/api/voice/calendar', { method: 'DELETE' });
 }
+
+export interface BillingUsage { used: {leads:number;emails:number;minutes:number}; limits: {leads:number;emails:number;minutes:number;seats:number;campaigns:number|null;concurrency:number}; overage: {leadsCents:number;voiceCents:number}; periodEnd:string|null; periodStart:string|null }
+export function billingAction<T = Record<string, unknown>>(path:string, method='POST', data?:unknown) { return apiFetch<T>('/api/billing'+path,{method,...(data===undefined?{}:{body:JSON.stringify(data)})}); }

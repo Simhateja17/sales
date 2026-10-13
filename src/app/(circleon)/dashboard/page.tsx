@@ -1,5 +1,6 @@
 'use client';
 
+import BillingPanel from '@/components/pricing/BillingPanel';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -653,7 +654,7 @@ function DashboardContent() {
         setWorkspace(data.workspace);
         setBilling(data.billing);
         setAgentConfig(data.agentConfig);
-        if (!data.workspace.plan || !data.subscriptionActive) {
+        if (!data.workspace.plan) {
           router.push('/plan-select');
         } else if (!data.workspace.onboarding_completed) {
           router.push('/onboarding');
@@ -1752,33 +1753,7 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {activePage === 'billing' ? (
-          <section>
-            <div className="page-header">
-              <div>
-                <div className="page-kicker">Plan and usage</div>
-                <h2 className="page-title">Keep the sending plan in view</h2>
-                <p className="page-sub">Current plan, mailbox connection, and daily sending allowance.</p>
-              </div>
-            </div>
-            <div className="bill-grid">
-              <div className="plan-card">
-                <div className="plan-tag">{workspace?.plan || 'No plan'}</div>
-                <div className="plan-name">Email automation</div>
-                <div className="plan-price">{billing?.subscription_status === 'active' ? 'Active' : 'Payment required'} <small>{billing?.current_period_end ? `renews ${fmtDate(billing.current_period_end)}` : 'annual subscription'}</small></div>
-                <div style={{ marginTop: 18 }}>
-                  <Metric label="Daily cap across active campaign" value={selectedCampaign?.daily_send_cap?.toString() || '0'} />
-                  <Metric label="Mailbox" value={smtpAccount?.from_email || 'missing'} />
-                </div>
-              </div>
-              <div className="up-card">
-                <div className="up-title">Stripe</div>
-                <div className="up-sub">Manage your plan, payment method, invoices, upgrades, or cancellation securely through Stripe.</div>
-                <div className="set-save"><button className="btn-primary" type="button" disabled={!billing?.stripe_customer_id || billingBusy} onClick={manageBilling}>{billingBusy ? 'Opening Stripe...' : 'Manage billing'}</button></div>
-              </div>
-            </div>
-          </section>
-        ) : null}
+        {activePage === 'billing' ? <BillingPanel /> : null}
 
         {activePage === 'support' ? (
           <section>
@@ -1814,6 +1789,7 @@ function DashboardContent() {
       </main>
       <CampaignBuilderModal
         open={showCampaignForm}
+        maxSteps={/^(followup|allinone)_/.test(workspace?.plan||'')?4:6}
         leads={emailLeads}
         agentConfig={agentConfig}
         mailboxAccount={smtpAccount}
