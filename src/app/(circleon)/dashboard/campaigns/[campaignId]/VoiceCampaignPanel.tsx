@@ -253,7 +253,7 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
           {status ? (
             <dl className="voice-status-credits">
               <div><dt>Spent</dt><dd>{money(status.credits.spent_on_campaign_cents)}</dd></div>
-              <div><dt>Credits left</dt><dd>{money(status.credits.balance_cents)}</dd></div>
+              {status.monthly ? null : <div><dt>Credits left</dt><dd>{money(status.credits.balance_cents)}</dd></div>}
             </dl>
           ) : null}
         </div>

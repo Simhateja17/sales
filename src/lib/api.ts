@@ -1136,6 +1136,11 @@ export interface VoiceTelephony {
   max_concurrent_calls: number;
   recording_enabled: boolean;
   pdpc_configured?: boolean;
+  twilio_connected?: boolean;
+  twilio_account_sid: string | null;
+  twilio_phone_number_sid: string | null;
+  termination_uri: string | null;
+  retell_registered_at: string | null;
   number_imported_at: string | null;
   last_error: string | null;
 }
@@ -1165,6 +1170,7 @@ export interface VoiceCampaignStatus {
   targets: { pending: number; in_flight: number; completed: number; exhausted: number; blocked: number };
   next_attempt_at: string | null;
   credits: { balance_cents: number; spent_on_campaign_cents: number };
+  monthly?: boolean;
 }
 
 export interface VoiceCall {
@@ -1200,7 +1206,33 @@ export function getCallCredits() {
 }
 
 export function getVoiceTelephony() {
-  return apiFetch<{ telephony: VoiceTelephony | null }>('/api/voice/telephony');
+  return apiFetch<{ telephony: VoiceTelephony | null; is_owner: boolean }>('/api/voice/telephony');
+}
+
+export interface TwilioNumber {
+  sid: string;
+  phone_number: string;
+  friendly_name: string | null;
+  trunk_sid: string | null;
+  voice_url: string | null;
+}
+
+export function connectTwilioAccount(input: { account_sid: string; auth_token: string }) {
+  return apiFetch<{ telephony: VoiceTelephony; account: { friendly_name: string; type: string } }>('/api/voice/telephony/twilio', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getTwilioNumbers() {
+  return apiFetch<{ numbers: TwilioNumber[] }>('/api/voice/telephony/twilio/numbers');
+}
+
+export function connectTwilioNumber(phoneNumberSid: string) {
+  return apiFetch<{ telephony: VoiceTelephony; registered: boolean }>('/api/voice/telephony/twilio/number', {
+    method: 'POST',
+    body: JSON.stringify({ phone_number_sid: phoneNumberSid }),
+  });
 }
 
 export function attachVoiceNumber(input: {
@@ -1208,9 +1240,8 @@ export function attachVoiceNumber(input: {
   termination_uri: string;
   sip_username?: string;
   sip_password?: string;
-  twilio_account_sid?: string;
 }) {
-  return apiFetch<{ telephony: VoiceTelephony; verified: boolean }>('/api/voice/telephony', {
+  return apiFetch<{ telephony: VoiceTelephony; registered: boolean }>('/api/voice/telephony', {
     method: 'POST',
     body: JSON.stringify(input),
   });
