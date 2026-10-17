@@ -1,9 +1,74 @@
 'use client';
-import {useEffect,useState} from 'react';
-import {billingAction} from '@/lib/api';
-import '@/components/pricing/pricing.css';
-type Customer={workspace_id:string;plan:string;subscription_status:string;voice_ready:boolean;voice_approved:boolean;trial_approved:boolean;fallback_number:string|null;company_trial_key?:string|null;workspaces:{name:string}};
-type AdminData={settings:Record<string,boolean|string|null>;customers:Customer[];demos:{id:string;name:string;company:string;email:string;message:string}[]};
-export default function Admin(){const [data,setData]=useState<AdminData|null>(null),[message,setMessage]=useState('');async function load(){setData(await billingAction<AdminData>('/admin','GET'));}useEffect(()=>{load().catch(e=>setMessage(e.message));},[]);async function save(path:string,patch:unknown){try{await billingAction(path,'PATCH',patch);await load();setMessage('Saved.');}catch(e){setMessage(e instanceof Error?e.message:'Request failed.');}}
-return <main className="cp" style={{maxWidth:1100,margin:'40px auto',padding:24}}><a href="/dashboard">← Dashboard</a><h1>CircleOn launch controls</h1><p><a href="/admin/provider-credits">Apollo credit monitoring →</a></p><p role="status">{message}</p>{data&&<><section className="cp-section"><h2>Offer and launch settings</h2>{['founding_offer_active','gst_registered','legal_ready','pdpa_verified','dnc_verified'].map(key=><label key={key}><input style={{width:'auto'}} type="checkbox" checked={Boolean(data.settings[key])} onChange={e=>save('/admin/settings',{[key]:e.target.checked})}/>{key.replaceAll('_',' ')}</label>)}<p>Enable legal readiness only after reviewing Terms, Privacy Policy, and Stripe checkout consent. Enable GST only after registration is confirmed. Compliance claims require completed verification.</p><form onSubmit={e=>{e.preventDefault();save('/admin/settings',{demo_url:new FormData(e.currentTarget).get('url')});}}><label>Demo booking URL<input type="url" name="url" defaultValue={String(data.settings.demo_url||'')}/></label><button>Save booking URL</button></form></section><h2>Customers</h2>{data.customers.map(c=><section className="cp-section" key={c.workspace_id}><h3>{c.workspaces?.name||c.workspace_id}</h3><p>{c.plan||'No plan'} · {c.subscription_status} · {c.workspace_id}</p>{(['trial_approved','voice_approved','voice_ready'] as const).map(key=><label key={key}><input style={{width:'auto'}} type="checkbox" checked={c[key]} onChange={e=>save('/admin/customers/'+c.workspace_id,{[key]:e.target.checked})}/>{key.replaceAll('_',' ')}</label>)}<form onSubmit={e=>{e.preventDefault();save('/admin/customers/'+c.workspace_id,{company_trial_key:new FormData(e.currentTarget).get('domain')});}}><label>Actual company domain for approved personal-email trials<input name="domain" defaultValue={c.company_trial_key||''} placeholder="company.com"/></label><button>Save company identity</button></form><form onSubmit={e=>{e.preventDefault();save('/admin/customers/'+c.workspace_id,{fallback_number:new FormData(e.currentTarget).get('fallback')});}}><label>Inbound fallback number<input name="fallback" placeholder="+65…" defaultValue={c.fallback_number||''}/></label><button>Save fallback</button></form></section>)}<h2>Demo requests</h2>{data.demos.map(d=><section className="cp-section" key={d.id}><strong>{d.name} · {d.company}</strong><p>{d.email}</p><p>{d.message}</p></section>)}</>}</main>;
+
+import Link from 'next/link';
+
+import { formatDate, formatMoney, humanize, type AuditEntry, type Metrics, type Ticket } from '@/lib/adminApi';
+import { Header, LoadState, useAdmin } from './_components/ui';
+
+type Overview = { metrics: Metrics; recent: AuditEntry[]; tickets: Ticket[] };
+
+export default function AdminOverview() {
+  const { data, error, loading } = useAdmin<Overview>('/overview');
+  const m = data?.metrics;
+
+  return (
+    <>
+      <Header title="Overview" />
+      <LoadState loading={loading && !data} error={error} />
+      {m ? (
+        <>
+          <section className="adm-stats">
+            <Stat label="MRR" value={formatMoney(m.mrr_cents)} hint="Active, paid, not suspended" />
+            <Stat label="Paying" value={m.paying} />
+            <Stat label="Trialing" value={m.trialing} />
+            <Stat label="Organizations" value={m.workspaces} hint={`${m.signups_7d} new this week · ${m.signups_30d} in 30 days`} />
+            <Stat label="Active campaigns" value={m.active_campaigns} />
+            <Stat label="Emails sent (30d)" value={m.emails_sent_30d.toLocaleString()} />
+            <Stat label="Voice minutes (30d)" value={m.voice_minutes_30d.toLocaleString()} />
+            <Stat label="Open tickets" value={m.open_tickets} href="/admin/support" />
+          </section>
+          {m.payment_failed || m.suspended ? (
+            <p className="adm-callout">
+              {m.payment_failed ? `${m.payment_failed} with a failed payment. ` : ''}
+              {m.suspended ? `${m.suspended} suspended.` : ''}
+            </p>
+          ) : null}
+          <div className="adm-grid2">
+            <section className="adm-card">
+              <h2>Waiting on a reply</h2>
+              {data.tickets.length ? (
+                <ul className="adm-list">
+                  {data.tickets.map(t => (
+                    <li key={t.id}>
+                      <Link href={`/admin/support/${t.id}`}>{t.subject}</Link>
+                      <span className="adm-muted adm-small">{t.workspaces?.name} · {formatDate(t.last_message_at, true)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="adm-muted">No open tickets.</p>}
+            </section>
+            <section className="adm-card">
+              <h2>Recent admin activity</h2>
+              {data.recent.length ? (
+                <ul className="adm-list">
+                  {data.recent.map(e => (
+                    <li key={e.id}>
+                      <span>{humanize(e.action)}</span>
+                      <span className="adm-muted adm-small">{formatDate(e.created_at, true)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="adm-muted">Nothing yet.</p>}
+              <Link className="adm-link adm-small" href="/admin/audit">Full audit log</Link>
+            </section>
+          </div>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function Stat({ label, value, hint, href }: { label: string; value: React.ReactNode; hint?: string; href?: string }) {
+  const body = <><span className="adm-stat-label">{label}</span><span className="adm-stat-value">{value}</span>{hint ? <span className="adm-small adm-muted">{hint}</span> : null}</>;
+  return href ? <Link href={href} className="adm-stat">{body}</Link> : <div className="adm-stat">{body}</div>;
 }

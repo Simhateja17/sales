@@ -87,12 +87,15 @@ function LoginContent() {
           return;
         }
 
-        if (!state.workspace.plan || !state.subscriptionActive) {
+        const returnTo = searchParams.get('returnTo');
+        // Admin access does not depend on the founder's own workspace being set up.
+        if (returnTo?.startsWith('/admin')) {
+          router.push(returnTo);
+        } else if (!state.workspace.plan || !state.subscriptionActive) {
           router.push('/plan-select');
         } else if (!state.workspace.onboarding_completed) {
           router.push('/onboarding');
         } else {
-          const returnTo = searchParams.get('returnTo');
           router.push(returnTo && returnTo.startsWith('/') ? returnTo : '/dashboard');
         }
       }

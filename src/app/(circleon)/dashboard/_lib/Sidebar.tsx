@@ -71,6 +71,10 @@ export default function Sidebar({
           </div>
         </div>
       </div>
+      <button type="button" className="nav-item" onClick={() => router.push('/support')}>
+        <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>Su</span>
+        <span className="nav-label">Support</span>
+      </button>
       <button
         type="button"
         className="nav-item sb-logout"
