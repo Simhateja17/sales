@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PricingPlans, { type Plan, type PlanNotice } from '@/components/pricing/PricingPlans';
 import SignOutButton from '@/components/circleon/SignOutButton';
-import { apiFetch, getWorkspace, startCheckout, type MonthlyPlanId, type WorkspaceBilling } from '@/lib/api';
+import { ApiError, apiFetch, getWorkspace, startCheckout, type MonthlyPlanId, type WorkspaceBilling } from '@/lib/api';
 
 function ApprovalRequest({ plan }: { plan: Plan }) {
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
@@ -27,7 +27,7 @@ export default function PlanSelectPage() {
     let stopped=false, timer:ReturnType<typeof setTimeout>; let attempts=0;
     const checkout=new URLSearchParams(window.location.search).get('checkout');
     if(checkout==='cancelled') setError('Checkout was cancelled. Your trial has not started.');
-    async function check() { try { const state=await getWorkspace(); if(stopped)return; setBilling(state.billing); if(state.subscriptionActive) {router.replace(state.workspace.onboarding_completed?'/dashboard':'/onboarding');return;} if(checkout==='success' && attempts++<15) timer=setTimeout(check,2000); else if(checkout==='success') setError('Your checkout is still being confirmed. Refresh in a moment.'); } catch(e) {if(!stopped)setError(e instanceof Error?e.message:'Could not load account.');} }
+    async function check() { try { const state=await getWorkspace(); if(stopped)return; setBilling(state.billing); if(state.subscriptionActive) {router.replace(state.workspace.onboarding_completed?'/dashboard':'/onboarding');return;} if(checkout==='success' && attempts++<15) timer=setTimeout(check,2000); else if(checkout==='success') setError('Your checkout is still being confirmed. Refresh in a moment.'); } catch(e) {if(stopped)return; if(e instanceof ApiError&&e.status===401){router.replace('/login?returnTo=%2Fplan-select');return;} setError(e instanceof Error?e.message:'Could not load account.');} }
     check(); return()=>{stopped=true;clearTimeout(timer);};
   },[router]);
   async function select(plan:Plan) {
