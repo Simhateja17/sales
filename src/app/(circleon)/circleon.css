@@ -1297,3 +1297,5 @@ html[data-theme=dark] .co-signout{background:rgba(37,27,48,.85);}
 .ps-paid{display:flex!important;gap:10px;align-items:flex-start;justify-content:center;max-width:640px;margin:20px auto 0!important;font-size:13px;opacity:.75;text-align:left}
 .ps-paid input{width:auto!important;margin-top:3px}
 @media(max-width:600px){.ps-title{font-size:34px}}
+.consent-btn{font:600 11px 'DM Sans',sans-serif;padding:4px 10px;border-radius:99px;border:1px solid var(--purple-l);background:transparent;color:var(--purple);cursor:pointer;white-space:nowrap}
+.consent-btn:disabled{opacity:.6;cursor:wait}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
-import type { AgentConfig, CampaignBrief, CampaignSequenceStep, ConnectedAccount, Lead } from '@/lib/api';
+import { setLeadVoiceConsent, type AgentConfig, type CampaignBrief, type CampaignSequenceStep, type ConnectedAccount, type Lead } from '@/lib/api';
 
 type CampaignDraft = {
   name: string;
@@ -144,6 +144,23 @@ export default function CampaignBuilderModal({
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
   const [timezoneOpen, setTimezoneOpen] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState('');
+  // Consent recorded here is saved on the lead, but the parent list only refreshes
+  // after the modal closes, so overlay it locally for the coverage count.
+  const [consents, setConsents] = useState<Record<string, Lead['voice_consent_status']>>({});
+  const [consentBusy, setConsentBusy] = useState<string | null>(null);
+  const [consentError, setConsentError] = useState('');
+  const effectiveLeads = useMemo(() => leads.map(lead => consents[lead.id] ? { ...lead, voice_consent_status: consents[lead.id] } : lead), [consents, leads]);
+
+  async function recordConsent(lead: Lead) {
+    if (!window.confirm(`Has ${lead.full_name} agreed to receive calls from your business at ${lead.phone_e164 || lead.phone}? Only confirm if you hold that consent; you are responsible for keeping a record of it.`)) return;
+    setConsentBusy(lead.id); setConsentError('');
+    try {
+      const { lead: saved } = await setLeadVoiceConsent(lead.id, 'consented');
+      setConsents(current => ({ ...current, [lead.id]: saved.voice_consent_status }));
+    } catch (error) {
+      setConsentError(error instanceof Error ? error.message : 'Could not record consent.');
+    } finally { setConsentBusy(null); }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -162,15 +179,15 @@ export default function CampaignBuilderModal({
 
   const visibleLeads = useMemo(() => {
     const query = leadFilter.trim().toLowerCase();
-    const eligible = leads.filter(lead => isLeadEligible(lead, campaign.channel));
+    const eligible = effectiveLeads.filter(lead => isLeadEligible(lead, campaign.channel));
     if (!query) return eligible;
     return eligible.filter(lead => [lead.full_name, lead.company_name, lead.title, lead.email, lead.phone_e164].filter(Boolean).join(' ').toLowerCase().includes(query));
-  }, [campaign.channel, leadFilter, leads]);
+  }, [campaign.channel, leadFilter, effectiveLeads]);
 
   const isVoice = campaign.channel === 'voice';
   const coverage = useMemo(
-    () => callableCoverage(leads.filter(lead => selectedLeadIds.includes(lead.id))),
-    [leads, selectedLeadIds],
+    () => callableCoverage(effectiveLeads.filter(lead => selectedLeadIds.includes(lead.id))),
+    [effectiveLeads, selectedLeadIds],
   );
   const allVisibleSelected = Boolean(visibleLeads.length) && visibleLeads.every(lead => selectedLeadIds.includes(lead.id));
   const visibleTimezones = useMemo(() => {
@@ -295,17 +312,23 @@ export default function CampaignBuilderModal({
               <p className="campaign-coverage-note">
                 <strong>{coverage.callableNow}</strong> of {selectedLeadIds.length} selected can be called right away.
                 {coverage.needsCheck > 0
-                  ? ` ${coverage.needsCheck} ${coverage.needsCheck === 1 ? 'is a personal number that needs' : 'are personal numbers that need'} a Do Not Call check first.`
+                  ? ` ${coverage.needsCheck} ${coverage.needsCheck === 1 ? 'is a personal number that needs' : 'are personal numbers that need'} a Do Not Call check or recorded consent first.`
                   : ' Business lines are exempt from the Do Not Call register.'}
                 {selectedLeadIds.length - coverage.withPhone > 0 ? ` ${selectedLeadIds.length - coverage.withPhone} have no phone number.` : ''}
               </p>
             ) : null}
+            {consentError ? <p className="campaign-coverage-note" role="alert">{consentError}</p> : null}
             <div className="campaign-lead-controls"><input aria-label="Search verified leads" value={leadFilter} onChange={event => setLeadFilter(event.target.value)} placeholder="Search name, company, title…" /><button type="button" onClick={toggleAllVisibleLeads}>{allVisibleSelected ? 'Clear visible' : 'Select visible'}</button></div>
             <div className="campaign-builder-leads">
               {visibleLeads.map(lead => <label key={lead.id} className="campaign-builder-lead-row">
                 <input type="checkbox" checked={selectedLeadIds.includes(lead.id)} onChange={() => setSelectedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} />
                 <span className="campaign-builder-avatar">{lead.full_name.split(' ').map(part => part[0]).slice(0, 2).join('')}</span>
                 <span><strong>{lead.full_name}</strong><small>{lead.title ? `${lead.title} · ` : ''}{lead.company_name || 'Company unavailable'} · {isVoice ? (lead.phone_e164 || lead.phone) : lead.email}</small></span>
+                {isVoice && lead.phone_type !== 'business' && lead.dnc_status !== 'clear' ? (
+                  lead.voice_consent_status === 'consented'
+                    ? <em className="phone-type-tag is-business">Consented</em>
+                    : <button type="button" className="consent-btn" disabled={consentBusy === lead.id} onClick={event => { event.preventDefault(); recordConsent(lead); }}>{consentBusy === lead.id ? 'Saving…' : 'Record consent'}</button>
+                ) : null}
                 {isVoice
                   ? <em className={`phone-type-tag is-${lead.phone_type || 'unknown'}`}>{lead.phone_type === 'business' ? 'Business' : lead.phone_type === 'personal' ? 'Personal' : 'Unclassified'}</em>
                   : <em>Fit {lead.fit_score || 0}</em>}
