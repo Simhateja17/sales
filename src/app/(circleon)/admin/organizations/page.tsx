@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { planLabel } from '@/lib/planLabel';
 import Link from 'next/link';
 
 import { formatDate, type Organization, type Paged } from '@/lib/adminApi';
@@ -31,7 +32,7 @@ export default function Organizations() {
                   <tr key={o.id}>
                     <td><Link href={`/admin/organizations/${o.id}`}>{o.name}</Link></td>
                     <td>{o.owner_email || '—'}</td>
-                    <td>{o.billing?.plan || '—'}</td>
+                    <td>{planLabel(o.billing?.plan, '—')}</td>
                     <td>
                       <Badge tone={subscriptionTone(o.billing?.subscription_status, o.billing?.suspended_at)}>
                         {o.billing?.suspended_at ? 'suspended' : o.billing?.subscription_status || 'no plan'}

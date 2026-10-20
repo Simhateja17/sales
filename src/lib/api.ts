@@ -795,16 +795,7 @@ export function updateFollowUp(followUpId: string, patch: Partial<FollowUp>) {
   });
 }
 
-export function getCallingStatus() {
-  return apiFetch<CallingStatus>('/api/calling/status');
-}
 
-export function attachTelephony(fromNumber: string) {
-  return apiFetch<{ workspaceTelephony: WorkspaceTelephony }>('/api/calling/telephony', {
-    method: 'POST',
-    body: JSON.stringify({ from_number: fromNumber }),
-  });
-}
 
 export function provisionVoiceAgent(voiceId?: string) {
   return apiFetch<{ job: AIJob }>('/api/ai/agent-launch', {
@@ -817,12 +808,6 @@ export function getAgentLaunchJob(jobId: string) {
   return apiFetch<{ job: AIJob }>(`/api/ai/jobs/${jobId}`);
 }
 
-export function setCallingLaunch(enabled: boolean) {
-  return apiFetch<{ workspaceTelephony: WorkspaceTelephony; readiness: CallingStatus['readiness'] }>('/api/calling/launch', {
-    method: 'POST',
-    body: JSON.stringify({ enabled }),
-  });
-}
 
 export function setLeadVoiceConsent(leadId: string, voiceConsentStatus: Lead['voice_consent_status']) {
   return apiFetch<{ lead: Lead }>(`/api/calling/leads/${leadId}/voice-consent`, {
@@ -831,16 +816,6 @@ export function setLeadVoiceConsent(leadId: string, voiceConsentStatus: Lead['vo
   });
 }
 
-export function setLeadDncStatus(lead: Lead, status: Lead['dnc_status']) {
-  return apiFetch<{ lead: Lead }>('/api/calling/dnc/check', {
-    method: 'POST',
-    body: JSON.stringify({
-      lead_id: lead.id,
-      phone: lead.phone_e164 || lead.phone,
-      status,
-    }),
-  });
-}
 
 export function approveFollowUp(followUpId: string, dueAt?: string | null) {
   return apiFetch<{ followUp: FollowUp }>(`/api/calling/follow-ups/${followUpId}/approve`, {
@@ -1170,6 +1145,7 @@ export interface VoiceCampaignStatus {
   targets: { pending: number; in_flight: number; completed: number; exhausted: number; blocked: number };
   next_attempt_at: string | null;
   credits: { balance_cents: number; spent_on_campaign_cents: number };
+  calling_allowed?: { ok: boolean; reason: string | null };
   monthly?: boolean;
 }
 

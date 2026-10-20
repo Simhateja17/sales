@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { logout, type ConnectedAccount, type Workspace } from '@/lib/api';
+import NavIcon from './NavIcon';
 import { navItems, type Page } from './ui';
 
 export default function Sidebar({
@@ -55,7 +56,7 @@ export default function Sidebar({
             className={`nav-item ${activePage === item.id ? 'active' : ''}`}
             onClick={() => (item.id === 'support' ? router.push('/support') : onNavigate(item.id))}
           >
-            <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>{item.marker}</span>
+            <NavIcon name={item.id} />
             <span className="nav-label">{item.label}</span>
             {item.id === 'inbox' && pendingReplies > 0 ? <span className="nav-badge">{pendingReplies}</span> : null}
           </button>
@@ -77,7 +78,7 @@ export default function Sidebar({
         onClick={handleLogout}
         disabled={loggingOut}
       >
-        <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>Lo</span>
+        <NavIcon name="logout" />
         <span className="nav-label">{loggingOut ? 'Logging out...' : 'Log out'}</span>
       </button>
     </aside>

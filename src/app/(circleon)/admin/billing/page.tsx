@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { planLabel } from '@/lib/planLabel';
 
 import { type Customer, type Paged } from '@/lib/adminApi';
 import { Badge, Header, LoadState, Pager, Status, subscriptionTone, useAction, useAdmin } from '../_components/ui';
@@ -42,7 +43,7 @@ function CustomerCard({ customer: c, onSaved }: { customer: Customer; onSaved: (
         <h2>{c.name}</h2>
         <Badge tone={subscriptionTone(c.subscription_status, c.suspended_at)}>{c.suspended_at ? 'suspended' : c.subscription_status || 'no plan'}</Badge>
       </div>
-      <p className="adm-small adm-muted">{c.plan || 'No plan'} · <code>{c.workspace_id}</code></p>
+      <p className="adm-small adm-muted">{planLabel(c.plan)} · <code>{c.workspace_id}</code></p>
       <div className="adm-row">
         {FLAGS.map(key => (
           <label key={key} className="adm-check">

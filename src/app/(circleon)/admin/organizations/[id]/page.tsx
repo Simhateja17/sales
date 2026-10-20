@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { planLabel } from '@/lib/planLabel';
 import { useParams } from 'next/navigation';
 
 import { formatDate, humanize, type OrganizationDetail } from '@/lib/adminApi';
@@ -10,6 +11,7 @@ export default function OrganizationPage() {
   const { id } = useParams<{ id: string }>();
   const { data, error, loading, reload } = useAdmin<OrganizationDetail>(`/organizations/${id}`);
   const action = useAction(reload);
+  const voice = useAction(reload);
 
   if (!data) return <><Link className="adm-link adm-small" href="/admin/organizations">← Organizations</Link><LoadState loading={loading} error={error} /></>;
   const { workspace, billing } = data;
@@ -30,7 +32,7 @@ export default function OrganizationPage() {
             <dt>Owner</dt><dd>{workspace.owner_email || '—'}</dd>
             <dt>Created</dt><dd>{formatDate(workspace.created_at)}</dd>
             <dt>Onboarded</dt><dd>{workspace.onboarding_completed ? 'Yes' : 'No'}</dd>
-            <dt>Plan</dt><dd>{billing?.plan || '—'}</dd>
+            <dt>Plan</dt><dd>{planLabel(billing?.plan, '—')}</dd>
             <dt>Trial ends</dt><dd>{formatDate(billing?.trial_end)}</dd>
             <dt>Leads</dt><dd>{data.counts.leads.toLocaleString()}</dd>
             <dt>Emails sent</dt><dd>{data.counts.emails_sent.toLocaleString()}</dd>
@@ -48,6 +50,29 @@ export default function OrganizationPage() {
           ) : <p className="adm-muted">No metered usage yet.</p>}
         </section>
       </div>
+
+      <section className="adm-card">
+        <h2>Calling</h2>
+        <dl className="adm-dl">
+          <dt>Number</dt><dd>{data.telephony?.from_number || 'Not connected'}</dd>
+          <dt>Status</dt><dd>{data.telephony ? humanize(data.telephony.phone_number_status) : '—'}{data.telephony?.last_error ? ` · ${data.telephony.last_error}` : ''}</dd>
+          <dt>Call credit</dt><dd>S${((data.call_credits?.balance_cents || 0) / 100).toFixed(2)}</dd>
+        </dl>
+        {data.telephony?.phone_number_status === 'attached' ? (
+          <button className="adm-btn" disabled={voice.busy} onClick={() => voice.run(`/organizations/${workspace.id}/telephony/verify`, 'POST', {}, 'Number marked verified.')}>Mark number verified after a successful test call</button>
+        ) : null}
+        <form className="adm-form adm-inline-form" onSubmit={event => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          voice.run(`/organizations/${workspace.id}/call-credits`, 'POST', { amount_sgd: Number(form.get('amount')), note: form.get('note') }, 'Call credit updated.')
+            .then(ok => { if (ok) (event.target as HTMLFormElement).reset(); });
+        }}>
+          <label>Adjust call credit (S$, negative to remove)<input name="amount" type="number" step="0.01" min="-1000" max="1000" required /></label>
+          <label>Note (kept in the audit log)<input name="note" minLength={5} required /></label>
+          <button className="adm-btn" disabled={voice.busy}>Apply</button>
+        </form>
+        <Status message={voice.message} />
+      </section>
 
       <section className="adm-card">
         <h2>Campaigns</h2>

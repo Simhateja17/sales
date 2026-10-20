@@ -38,8 +38,14 @@ const initialCampaign: CampaignDraft = {
 // good email campaign is often half unusable for voice.
 function isLeadEligible(lead: Lead, channel: 'email' | 'voice') {
   if (lead.lifecycle_status === 'suppressed' || lead.dnc_status === 'blocked') return false;
-  if (channel === 'voice') return Boolean(lead.phone_e164 || lead.phone);
+  if (channel === 'voice') return Boolean(lead.phone_e164 || lead.phone) || needsPhoneLookup(lead);
   return Boolean(lead.email) && ['ready', 'selected_for_campaign'].includes(lead.lifecycle_status);
+}
+
+// Apollo leads come with an email only; adding one to a voice campaign asks
+// Apollo for its phone number, which arrives a little later.
+function needsPhoneLookup(lead: Lead) {
+  return !lead.phone_e164 && !lead.phone && lead.source === 'apollo' && Boolean(lead.external_id);
 }
 
 // Business lines are outside Singapore's Do Not Call provisions. Personal
@@ -51,6 +57,7 @@ function callableCoverage(leads: Lead[]) {
   const personal = withPhone.filter(lead => lead.phone_type !== 'business');
   const cleared = personal.filter(lead => lead.dnc_status === 'clear' || lead.voice_consent_status === 'consented');
   return {
+    lookups: leads.filter(needsPhoneLookup).length,
     withPhone: withPhone.length,
     callableNow: business.length + cleared.length,
     needsCheck: personal.length - cleared.length,
@@ -307,14 +314,15 @@ export default function CampaignBuilderModal({
           </section>
 
           <section className="campaign-builder-section">
-            <div className="campaign-builder-section-head"><span>02</span><div><h3>{isVoice ? 'Callable leads' : 'Verified leads'}</h3><p>{isVoice ? 'Only leads with a phone number can enter a voice campaign.' : 'Only work-email leads can enter a campaign.'}</p></div><strong>{selectedLeadIds.length} selected</strong></div>
+            <div className="campaign-builder-section-head"><span>02</span><div><h3>{isVoice ? 'Callable leads' : 'Verified leads'}</h3><p>{isVoice ? 'Leads with a phone number, plus Apollo leads whose number we can look up.' : 'Only work-email leads can enter a campaign.'}</p></div><strong>{selectedLeadIds.length} selected</strong></div>
             {isVoice && selectedLeadIds.length ? (
               <p className="campaign-coverage-note">
                 <strong>{coverage.callableNow}</strong> of {selectedLeadIds.length} selected can be called right away.
                 {coverage.needsCheck > 0
                   ? ` ${coverage.needsCheck} ${coverage.needsCheck === 1 ? 'is a personal number that needs' : 'are personal numbers that need'} a Do Not Call check or recorded consent first.`
                   : ' Business lines are exempt from the Do Not Call register.'}
-                {selectedLeadIds.length - coverage.withPhone > 0 ? ` ${selectedLeadIds.length - coverage.withPhone} have no phone number.` : ''}
+                {coverage.lookups > 0 ? ` We will look up ${coverage.lookups === 1 ? 'a phone number' : `${coverage.lookups} phone numbers`} with Apollo; they appear on the campaign within a few minutes.` : ''}
+                {selectedLeadIds.length - coverage.withPhone - coverage.lookups > 0 ? ` ${selectedLeadIds.length - coverage.withPhone - coverage.lookups} have no phone number.` : ''}
               </p>
             ) : null}
             {consentError ? <p className="campaign-coverage-note" role="alert">{consentError}</p> : null}
@@ -323,8 +331,8 @@ export default function CampaignBuilderModal({
               {visibleLeads.map(lead => <label key={lead.id} className="campaign-builder-lead-row">
                 <input type="checkbox" checked={selectedLeadIds.includes(lead.id)} onChange={() => setSelectedLeadIds(current => current.includes(lead.id) ? current.filter(id => id !== lead.id) : [...current, lead.id])} />
                 <span className="campaign-builder-avatar">{lead.full_name.split(' ').map(part => part[0]).slice(0, 2).join('')}</span>
-                <span><strong>{lead.full_name}</strong><small>{lead.title ? `${lead.title} · ` : ''}{lead.company_name || 'Company unavailable'} · {isVoice ? (lead.phone_e164 || lead.phone) : lead.email}</small></span>
-                {isVoice && lead.phone_type !== 'business' && lead.dnc_status !== 'clear' ? (
+                <span><strong>{lead.full_name}</strong><small>{lead.title ? `${lead.title} · ` : ''}{lead.company_name || 'Company unavailable'} · {isVoice ? (lead.phone_e164 || lead.phone || 'Phone lookup') : lead.email}</small></span>
+                {isVoice && !needsPhoneLookup(lead) && lead.phone_type !== 'business' && lead.dnc_status !== 'clear' ? (
                   lead.voice_consent_status === 'consented'
                     ? <em className="phone-type-tag is-business">Consented</em>
                     : <button type="button" className="consent-btn" disabled={consentBusy === lead.id} onClick={event => { event.preventDefault(); recordConsent(lead); }}>{consentBusy === lead.id ? 'Saving…' : 'Record consent'}</button>

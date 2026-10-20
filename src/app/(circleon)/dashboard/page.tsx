@@ -1,6 +1,7 @@
 'use client';
 
 import BillingPanel from '@/components/pricing/BillingPanel';
+import { planLabel } from '@/lib/planLabel';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -611,6 +612,24 @@ function DashboardContent() {
     () => filteredLeads.find(lead => lead.id === selectedLeadId) || null,
     [filteredLeads, selectedLeadId]
   );
+  // A connected mailbox used to show an empty form, which read as disconnected.
+  // Prefill everything except the passwords, which are never sent back.
+  useEffect(() => {
+    if (!smtpAccount) return;
+    setSmtpForm(current => current.from_email ? current : {
+      ...current,
+      from_email: smtpAccount.from_email,
+      from_name: smtpAccount.from_name || '',
+      reply_to_email: smtpAccount.reply_to_email || '',
+      smtp_host: smtpAccount.smtp_host,
+      smtp_port: smtpAccount.smtp_port,
+      smtp_username: smtpAccount.smtp_username,
+      imap_host: smtpAccount.imap_host || '',
+      imap_port: smtpAccount.imap_port || 993,
+      imap_username: smtpAccount.imap_username,
+    });
+  }, [smtpAccount]);
+
   const pendingReplies = useMemo(
     () => inbox.filter(item => item.direction === 'inbound' || item.status === 'pending_approval'),
     [inbox]
@@ -1481,7 +1500,7 @@ function DashboardContent() {
                   {/* Three rows, matching the design. "Needs review" is the
                       queue this page exists to clear: replies with a draft
                       waiting on you. */}
-                  <Metric label="Needs review" value={conversations.filter(item => item.draft_ready).length.toString()} />
+                  <Metric label="Needs review" value={pendingReplies.length.toString()} />
                   <Metric label="Positive intent" value={conversations.filter(item => item.positive_intent).length.toString()} />
                   <Metric label="Meetings booked" value={meetings.length.toString()} />
                 </div>
@@ -1567,8 +1586,8 @@ function DashboardContent() {
             <div className="page-header">
               <div>
                 <div className="page-kicker">Workspace controls</div>
-                <h2 className="page-title">Set the right sending foundation</h2>
-                <p className="page-sub">Connect the sender mailbox used by campaigns and inbox polling, then keep targeting and safeguards current.</p>
+                <h2 className="page-title">Workspace settings</h2>
+                <p className="page-sub">Your sending mailbox, calling number, autopilot and safeguards, all in one place.</p>
               </div>
             </div>
             <div className="set-grid">
@@ -1696,7 +1715,7 @@ function DashboardContent() {
                   <div className="sf-lbl">Workspace</div>
                   <div className="msl-list" style={{ marginTop: 14 }}>
                     <Metric label="Name" value={workspace?.name || 'Workspace'} />
-                    <Metric label="Plan" value={workspace?.plan || 'Not selected'} />
+                    <Metric label="Plan" value={planLabel(workspace?.plan, 'Not selected')} />
                     <Metric label="Onboarding" value={workspace?.onboarding_completed ? 'Complete' : 'Incomplete'} />
                     <Metric label="Visible leads" value={visibleLeads.length.toString()} />
                   </div>
@@ -1731,7 +1750,7 @@ function DashboardContent() {
                   <div className="msl-list" style={{ marginTop: 14 }}>
                     <Metric label="Signed-in mailbox" value={smtpAccount?.from_email || 'Not connected'} />
                     <Metric label="Workspace" value={workspace?.name || 'Workspace'} />
-                    <Metric label="Plan" value={workspace?.plan || 'Not selected'} />
+                    <Metric label="Plan" value={planLabel(workspace?.plan, 'Not selected')} />
                   </div>
                   <div className="sf-lbl" style={{ marginTop: 22 }}>Appearance</div>
                   <div className="pref-row" style={{ marginTop: 6 }}>
