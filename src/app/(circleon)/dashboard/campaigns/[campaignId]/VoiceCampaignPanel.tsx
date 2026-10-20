@@ -33,7 +33,7 @@ const LANGUAGES: Array<{ code: VoiceLanguage; label: string }> = [
 ];
 
 function money(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
+  return `S$${(cents / 100).toFixed(2)}`;
 }
 
 function duration(seconds: number | null) {
@@ -148,7 +148,8 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
     setError(null);
     try {
       await saveVoiceScript(campaign.id, patch);
-      await loadScript();
+      // The status panel lists missing script pieces, so refresh it with the script.
+      await Promise.all([loadScript(), loadStatus()]);
       setAttested(false);
     } catch (saveError) {
       setError((saveError as Error).message);
@@ -178,7 +179,7 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
     try {
       await approveVoiceScript(campaign.id, attested);
       await Promise.all([loadScript(), loadStatus()]);
-      setNotice('Script approved. Your agent is ready.');
+      setNotice('Script approved.');
     } catch (approveError) {
       setError((approveError as Error).message);
     } finally {
@@ -266,6 +267,10 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
             <li><strong>{status.targets.exhausted}</strong><span>No answer</span></li>
             <li><strong>{status.targets.blocked}</strong><span>Blocked</span></li>
           </ul>
+        ) : null}
+
+        {status?.calling_allowed && !status.calling_allowed.ok ? (
+          <p className="voice-next-call voice-calling-blocked" role="alert">Calls are on hold: {status.calling_allowed.reason || 'calling is not available for this workspace.'}</p>
         ) : null}
 
         {status?.next_attempt_at ? (

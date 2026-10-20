@@ -1299,3 +1299,8 @@ html[data-theme=dark] .co-signout{background:rgba(37,27,48,.85);}
 @media(max-width:600px){.ps-title{font-size:34px}}
 .consent-btn{font:600 11px 'DM Sans',sans-serif;padding:4px 10px;border-radius:99px;border:1px solid var(--purple-l);background:transparent;color:var(--purple);cursor:pointer;white-space:nowrap}
 .consent-btn:disabled{opacity:.6;cursor:wait}
+.voice-calling-blocked{color:#a12d32;font-weight:500}
+/* Voice rows can carry a consent button as well as the phone type tag. */
+.campaign-builder-lead-row:has(.consent-btn),.campaign-builder-lead-row:has(.phone-type-tag + .phone-type-tag){grid-template-columns:auto auto minmax(0,1fr) auto auto;}
+.nav-icon{width:18px;height:18px;flex-shrink:0;opacity:.75}.nav-item.active .nav-icon{opacity:1}
+.signup-email-note{grid-column:1/-1;margin:-4px 0 4px;font-size:13px;color:var(--gold-text,#7a5a1e)}

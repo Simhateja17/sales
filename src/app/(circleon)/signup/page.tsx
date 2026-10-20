@@ -136,6 +136,9 @@ export default function SignupPage() {
             <input className="ob-inp" type="text" placeholder="Your full name" value={fullName} disabled={otpRequested} onChange={(e) => setFullName(e.target.value)} />
             <input className="ob-inp" type="text" placeholder="Business name" value={businessName} disabled={otpRequested} onChange={(e) => setBusinessName(e.target.value)} />
             <input className="ob-inp" type="email" autoComplete="email" placeholder="Work email" value={email} disabled={otpRequested} onChange={(e) => setEmail(e.target.value)} />
+            {isPersonalEmail(email) && !otpRequested ? (
+              <p className="signup-email-note">Free trials need a company email. You can still sign up with this address, but the trial will wait for a quick manual approval.</p>
+            ) : null}
             {otpRequested && (
               <input
                 className="ob-inp"
@@ -180,4 +183,12 @@ export default function SignupPage() {
       </div>
     </div>
   );
+}
+
+// Same list as WEBMAIL in backend/lib/pricing.js; the
+// backend makes the real decision at checkout.
+const PERSONAL_DOMAINS = new Set(['gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com', 'yahoo.com', 'yahoo.co.uk', 'icloud.com', 'me.com', 'aol.com', 'proton.me', 'protonmail.com', 'mail.com']);
+function isPersonalEmail(email: string) {
+  const domain = email.trim().toLowerCase().split('@')[1];
+  return Boolean(domain && PERSONAL_DOMAINS.has(domain));
 }

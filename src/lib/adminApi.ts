@@ -40,7 +40,7 @@ export type AdminMe = {
 
 export type Metrics = {
   workspaces: number; signups_7d: number; signups_30d: number;
-  paying: number; trialing: number; suspended: number; payment_failed: number;
+  paying: number; legacy?: number; trialing: number; suspended: number; payment_failed: number;
   mrr_cents: number; active_campaigns: number; emails_sent_30d: number;
   voice_minutes_30d: number; open_tickets: number;
 };
@@ -70,6 +70,8 @@ export type OrganizationDetail = {
   usage: { period_start: string; leads: number; emails: number; voice_seconds: number }[];
   tickets: Ticket[];
   history: AuditEntry[];
+  telephony?: { from_number: string | null; phone_number_status: string; last_error: string | null } | null;
+  call_credits?: { balance_cents: number };
 };
 
 export type Customer = {

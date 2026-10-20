@@ -34,7 +34,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
       setGate(!data.mfa.enrolled ? 'enroll' : data.mfa.fresh ? 'ready' : 'verify');
     } catch (e) {
       if (e instanceof AdminError && e.status === 401) {
-        router.replace(`/login?returnTo=${encodeURIComponent(pathname || '/admin')}`);
+        router.replace(`/admin/login?returnTo=${encodeURIComponent(pathname || '/admin')}`);
       } else if (e instanceof AdminError && e.status === 403) {
         setGate('denied');
       } else {
@@ -44,7 +44,8 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, router]);
 
-  useEffect(() => { check(); }, [check]);
+  const isLogin = pathname === '/admin/login';
+  useEffect(() => { if (!isLogin) check(); }, [check, isLogin]);
 
   // Any page call that hits an expired two-factor session drops back to the gate.
   useEffect(() => {
@@ -55,9 +56,10 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     await logout().catch(() => undefined);
-    router.replace('/login');
+    router.replace('/admin/login');
   }
 
+  if (isLogin) return <>{children}</>;
   if (gate === 'loading') return <div className="adm-center"><p className="adm-muted">Checking access…</p></div>;
   if (gate === 'denied') return (
     <div className="adm-center">

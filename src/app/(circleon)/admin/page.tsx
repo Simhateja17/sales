@@ -19,7 +19,7 @@ export default function AdminOverview() {
         <>
           <section className="adm-stats">
             <Stat label="MRR" value={formatMoney(m.mrr_cents)} hint="Active, paid, not suspended" />
-            <Stat label="Paying" value={m.paying} />
+            <Stat label="Paying" value={m.paying} hint={m.legacy ? `${m.legacy} more on legacy plans` : undefined} />
             <Stat label="Trialing" value={m.trialing} />
             <Stat label="Organizations" value={m.workspaces} hint={`${m.signups_7d} new this week · ${m.signups_30d} in 30 days`} />
             <Stat label="Active campaigns" value={m.active_campaigns} />

@@ -15,7 +15,7 @@ import {
 } from '@/lib/api';
 
 function money(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
+  return `S$${(cents / 100).toFixed(2)}`;
 }
 
 // Retell accepting the number is not proof that real calls work, so a
@@ -291,24 +291,24 @@ export default function VoiceSettingsPanel({ onMessage }: { onMessage: (message:
           </div>
           <p className="voice-settings-copy">
             AI voice minutes come from your monthly plan allowance, within the spending cap you set in Billing. New
-            calls stop at the cap; a call already connected is allowed to finish. Twilio bills you directly for the
-            number and carrier minutes.
+            calls stop at the cap; a call already connected is allowed to finish. If you use up the allowance, prepaid
+            call credit covers further calls. Twilio bills you directly for the number and carrier minutes.
           </p>
         </section>
       ) : (
         <section>
           <div className="voice-settings-head">
             <h3>Call credits</h3>
-            {credits ? <span className="voice-pill is-ok">{money(credits.balance_cents)} left</span> : null}
+            {credits ? <span className={`voice-pill is-${credits.balance_cents <= 0 ? 'bad' : credits.balance_cents < 500 ? 'waiting' : 'ok'}`}>{money(credits.balance_cents)} left</span> : null}
           </div>
           <p className="voice-settings-copy">
-            Calls are paid from prepaid credit, so a campaign pauses when the balance runs out rather than running up a
+            Your plan has no included AI minutes, so calls are paid from prepaid credit. A campaign pauses when the balance runs out rather than running up a
             bill. Telephony is billed by Twilio directly to your own account; credits cover the AI agent.
             {credits ? ` You have spent ${money(credits.lifetime_spent_cents)} so far.` : ''}
           </p>
           {/* Purchasing runs through the existing billing flow. Until that is
               wired up, credits are granted manually so demos and pilots work. */}
-          <p className="voice-settings-note">Contact us to top up while self-serve purchasing is being finished.</p>
+          <p className="voice-settings-note">Self-serve top-ups are coming soon. <a href="/support">Ask us to add credit</a> and we will do it within one business day.</p>
         </section>
       )}
     </div>

@@ -111,3 +111,5 @@ a.adm-stat:hover { border-color: var(--purple-l); }
   .adm-main { padding: 20px 16px 48px; }
   .adm-msg { max-width: 100%; }
 }
+.adm-inline-form{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-top:16px}.adm-inline-form label{flex:1 1 200px}
+.adm-credit-row{padding:12px 0;border-top:1px solid var(--border)}.adm-credit-row progress{width:100%}
