@@ -96,6 +96,8 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [agentStatus, setAgentStatus] = useState<string | null>(null);
+  const [approveError, setApproveError] = useState<string | null>(null);
 
   const loadScript = useCallback(async () => {
     const result = await getVoiceScript(campaign.id);
@@ -103,6 +105,7 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
     setOpeningPreview(result.opening_preview);
     setRequiresAttestation(result.requires_attestation);
     setVoiceId(result.voice_id);
+    setAgentStatus(result.agent_status);
   }, [campaign.id]);
 
   const loadStatus = useCallback(async () => {
@@ -142,6 +145,7 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
   }, [script?.language]);
 
   const copy = useMemo(() => stateCopy(status), [status]);
+  const agentFailed = agentStatus === 'error' || Boolean(approveError);
 
   async function patchScript(patch: Partial<VoiceScript> & { voice_id?: string }) {
     setBusy('save');
@@ -176,12 +180,16 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
   async function approve() {
     setBusy('approve');
     setError(null);
+    setApproveError(null);
     try {
       await approveVoiceScript(campaign.id, attested);
       await Promise.all([loadScript(), loadStatus()]);
       setNotice('Script approved.');
-    } catch (approveError) {
-      setError((approveError as Error).message);
+    } catch (failure) {
+      // The script can be approved even when the voice agent could not be
+      // prepared, so reload both and show the reason beside the button.
+      setApproveError((failure as Error).message);
+      await Promise.all([loadScript(), loadStatus()]).catch(() => undefined);
     } finally {
       setBusy(null);
     }
@@ -474,16 +482,20 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
         ) : null}
 
         <div className="voice-script-footer">
-          <p className={script?.status === 'approved' ? 'is-approved' : ''}>
-            {script?.status === 'approved' ? 'Approved and ready to dial.' : 'Not yet approved. Nothing will be called.'}
+          <p className={script?.status === 'approved' && !agentFailed ? 'is-approved' : ''} role={approveError ? 'alert' : undefined}>
+            {script?.status !== 'approved'
+              ? 'Not yet approved. Nothing will be called.'
+              : agentFailed
+                ? `Approved, but the voice agent could not be prepared${approveError ? `: ${approveError}` : '.'} Try again, or contact support if this keeps happening.`
+                : 'Approved and ready to dial.'}
           </p>
           <button
             className="btn-primary"
             type="button"
-            disabled={busy === 'approve' || !script?.opening_line || (requiresAttestation && !attested) || script?.status === 'approved'}
+            disabled={busy === 'approve' || !script?.opening_line || (requiresAttestation && !attested) || (script?.status === 'approved' && !agentFailed)}
             onClick={approve}
           >
-            {busy === 'approve' ? 'Approving…' : 'Approve script'}
+            {busy === 'approve' ? 'Approving…' : agentFailed ? 'Try again' : 'Approve script'}
           </button>
         </div>
       </section>

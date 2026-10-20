@@ -281,7 +281,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
       const data = await launchCampaign(campaign.id);
       setCampaign(data.campaign);
       await reloadPreview();
-      setMessage(data.queued ? `${data.queued} emails queued.` : 'Campaign launched. It is now eligible for Autopilot.');
+      if (data.campaign.channel === 'voice') setMessage('Campaign launched. Calls are placed during its calling hours.');
+      else setMessage(data.queued ? `${data.queued} ${data.queued === 1 ? 'email' : 'emails'} queued.` : 'Campaign launched. It is now eligible for Autopilot.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not launch campaign');
     } finally {
