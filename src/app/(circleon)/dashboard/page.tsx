@@ -536,6 +536,8 @@ function DashboardContent() {
   const [conversationSearch, setConversationSearch] = useState('');
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [smtpAccount, setSmtpAccount] = useState<ConnectedAccount | null>(null);
+  // Pages render their empty states until the first load finishes, which reads as lost data.
+  const [loaded, setLoaded] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
   const [preview, setPreview] = useState<EmailMessage[]>([]);
   const [message, setMessage] = useState('');
@@ -712,7 +714,7 @@ function DashboardContent() {
   }, [router]);
 
   useEffect(() => {
-    refreshAll().catch(error => setMessage(error.message));
+    refreshAll().catch(error => { setLoaded(true); setMessage(error.message); });
     Promise.all([getAutopilotSettings(), getAutopilotRuns()])
       .then(([settingsData, runsData]) => {
         setAutopilotSettings(settingsData.settings);
@@ -823,6 +825,7 @@ function DashboardContent() {
     setConversations(conversationData.conversations || []);
     setMeetings(meetingData.meetings);
     setSmtpAccount(smtpData.account);
+    setLoaded(true);
     if (!selectedCampaignId && campaignData.campaigns[0]) {
       setSelectedCampaignId(campaignData.campaigns[0].id);
     }
@@ -1259,8 +1262,9 @@ function DashboardContent() {
             moved into the per-page header actions below. */}
 
         {message ? <div className="pdpa-banner">{message}</div> : null}
+        {!loaded ? <div className="card"><EmptyState text="Loading your workspace…" /></div> : null}
 
-        {activePage === 'overview' ? (
+        {loaded && activePage === 'overview' ? (
           <HomeOverview
             workspace={workspace}
             campaigns={campaigns}
@@ -1279,7 +1283,7 @@ function DashboardContent() {
           />
         ) : null}
 
-        {activePage === 'campaigns' ? (
+        {loaded && activePage === 'campaigns' ? (
           <section>
             <div className="page-header">
               <div>
@@ -1319,7 +1323,7 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {activePage === 'leads' ? (
+        {loaded && activePage === 'leads' ? (
           <section className="leads-page">
             <div className="page-header">
               <div>
@@ -1409,7 +1413,7 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {activePage === 'inbox' ? (
+        {loaded && activePage === 'inbox' ? (
           <section>
             <div className="page-header">
               <div>
@@ -1487,7 +1491,7 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {activePage === 'meetings' ? (
+        {loaded && activePage === 'meetings' ? (
           <section>
             <div className="page-header">
               <div>
@@ -1519,7 +1523,7 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {activePage === 'analytics' ? (
+        {loaded && activePage === 'analytics' ? (
           <section>
             <div className="page-header">
               <div>
@@ -1542,7 +1546,7 @@ function DashboardContent() {
                 <div className="card-head"><div className="card-title">Campaign status</div></div>
                 <div className="chart-wrap">
                   {['draft', 'ready', 'active', 'paused', 'completed'].map(status => (
-                    <Metric key={status} label={status} value={campaigns.filter(c => c.status === status).length.toString()} />
+                    <Metric key={status} label={humanize(status)} value={campaigns.filter(c => c.status === status).length.toString()} />
                   ))}
                 </div>
               </div>
@@ -1550,7 +1554,7 @@ function DashboardContent() {
                 <div className="card-head"><div className="card-title">Reply intent</div></div>
                 <div className="chart-wrap">
                   {['positive', 'pricing', 'not_interested', 'dnc_request', 'auto_reply'].map(intent => (
-                    <Metric key={intent} label={intent} value={inbox.filter(item => item.intent_classification === intent).length.toString()} />
+                    <Metric key={intent} label={humanize(intent)} value={inbox.filter(item => item.intent_classification === intent).length.toString()} />
                   ))}
                 </div>
               </div>
@@ -1558,7 +1562,7 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {activePage === 'settings' ? (
+        {loaded && activePage === 'settings' ? (
           <section>
             <div className="page-header">
               <div>
@@ -1744,7 +1748,7 @@ function DashboardContent() {
                   <div className="sf-hint" style={{ marginTop: 16 }}>The theme is stored on this device, so each browser you sign in from keeps its own choice.</div>
                   <div className="sf-lbl" style={{ marginTop: 22 }}>Guided tour</div>
                   <div className="pref-row" style={{ marginTop: 6 }}>
-                    <span className="pref-copy"><strong>Product tour</strong>Replay the walkthrough of Barsha, from mailbox to first campaign.</span>
+                    <span className="pref-copy"><strong>Product tour</strong>Replay the walkthrough of CircleOn, from mailbox to first campaign.</span>
                     <button className="btn-outline" type="button" onClick={() => tour?.startTour({ restart: true })}>Restart tour</button>
                   </div>
                 </div>
@@ -1755,37 +1759,6 @@ function DashboardContent() {
 
         {activePage === 'billing' ? <BillingPanel /> : null}
 
-        {activePage === 'support' ? (
-          <section>
-            <div className="page-header">
-              <div>
-                <div className="page-kicker">System health</div>
-                <h2 className="page-title">Keep the workflow reliable</h2>
-                <p className="page-sub">A practical checklist for the services that make campaign sending work.</p>
-              </div>
-            </div>
-            <div className="an-grid metric-grid">
-              <div className="card">
-                <div className="card-head"><div className="card-title">Setup checklist</div></div>
-                <div className="msl-list">
-                  <Metric label="Mailbox connected" value={smtpAccount ? 'yes' : 'no'} />
-                  <Metric label="Leads with email" value={emailLeads.length.toString()} />
-                  <Metric label="Campaign selected" value={selectedCampaign ? selectedCampaign.name : 'none'} />
-                  <Metric label="Replies pending" value={pendingReplies.length.toString()} />
-                </div>
-              </div>
-              <div className="card">
-                <div className="card-head"><div className="card-title">Known backend requirements</div></div>
-                <div className="msl-list">
-                  <Metric label="Redis worker" value="required for launch" />
-                  <Metric label="Service role key" value="required for workers" />
-                  <Metric label="Gemini key" value="required for generation" />
-                  <Metric label="SMTP app password" value="required to send" />
-                </div>
-              </div>
-            </div>
-          </section>
-        ) : null}
       </main>
       <CampaignBuilderModal
         open={showCampaignForm}
@@ -1859,4 +1832,9 @@ function ApolloImportProgress({ run, elapsedSeconds }: { run: LeadImportRun; ela
             : <div className="import-progress-note">{remainingSeconds > 5 ? `About ${formatDuration(remainingSeconds)} remaining` : 'Finishing this stage…'} · This is a live estimate.</div>}
     </div>
   );
+}
+
+function humanize(key: string) {
+  const text = key.replace(/_/g, ' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

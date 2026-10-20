@@ -53,7 +53,7 @@ export default function Sidebar({
             key={item.id}
             type="button"
             className={`nav-item ${activePage === item.id ? 'active' : ''}`}
-            onClick={() => onNavigate(item.id)}
+            onClick={() => (item.id === 'support' ? router.push('/support') : onNavigate(item.id))}
           >
             <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>{item.marker}</span>
             <span className="nav-label">{item.label}</span>
