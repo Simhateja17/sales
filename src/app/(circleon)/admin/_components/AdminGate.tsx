@@ -143,9 +143,9 @@ function MfaStep({ mode, email, onDone, onSignOut }: { mode: 'enroll' | 'verify'
           <>
             {enrollment ? (
               <div className="adm-qr">
-                {/* GoTrue returns the QR code as an SVG data URI. */}
+                {/* The raw GoTrue API returns bare SVG markup; only supabase-js wraps it in a data URI. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={enrollment.qr_code} alt="Authenticator QR code" width={180} height={180} />
+                <img src={qrSrc(enrollment.qr_code)} alt="Authenticator QR code" width={180} height={180} />
                 <p className="adm-small adm-muted">Can’t scan? Enter this key: <code>{enrollment.secret}</code></p>
               </div>
             ) : null}
@@ -163,4 +163,8 @@ function MfaStep({ mode, email, onDone, onSignOut }: { mode: 'enroll' | 'verify'
       </div>
     </div>
   );
+}
+
+function qrSrc(qr: string) {
+  return qr.startsWith('data:') ? qr : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr)}`;
 }
