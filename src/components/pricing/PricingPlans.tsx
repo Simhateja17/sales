@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import plans from '@/lib/pricing.json';
 import './pricing.css';
 export type Plan = typeof plans[number];
@@ -34,7 +34,15 @@ export const faqs = [
   ['Does CircleOn connect to my CRM?', 'No CRM integration or export is included. Use your calendar booking link for meetings. WhatsApp and SMS are coming soon and cannot be purchased.'],
 ];
 const FAQ_SCHEMA = { __html: JSON.stringify({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqs.map(([q,a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) }) };
-export default function PricingPlans({ onSelect, busy = false, approvedVoice = false, comparison = true }: { onSelect?: (plan: Plan) => void; busy?: boolean; approvedVoice?: boolean; comparison?: boolean }) {
+const FAMILY_LABELS: Record<Family, { label: string; blurb: string }> = {
+  followup: { label: 'Follow Up', blurb: 'AI finds verified leads and sends personalised email sequences.' },
+  voice: { label: 'Voice Agent', blurb: 'An AI agent calls your leads and books meetings.' },
+  allinone: { label: 'All-in-one', blurb: 'Email outreach and AI calling together, at a lower price.' },
+};
+// The founding banner hides the count until someone has claimed a spot.
+const FOUNDING_SPOTS = 20;
+export type PlanNotice = { planId: string; message: string; action?: ReactNode };
+export default function PricingPlans({ onSelect, busy = false, selectingId = null, notice = null, approvedVoice = false, comparison = true }: { onSelect?: (plan: Plan) => void; busy?: boolean; selectingId?: string | null; notice?: PlanNotice | null; approvedVoice?: boolean; comparison?: boolean }) {
   const { catalog, error } = useCatalog();
   const [family, setFamily] = useState<Family>('allinone');
   useEffect(() => { const value = new URLSearchParams(window.location.search).get('plan'); if (['followup','voice','allinone'].includes(value || '')) setFamily(value as Family); }, []);
@@ -45,15 +53,17 @@ export default function PricingPlans({ onSelect, busy = false, approvedVoice = f
   const rows: [string, (p: Plan) => string | number][] = [
     ['Monthly price, excl. GST', p => `S$${founding ? p.founding : p.list}`],
     ...(family !== 'voice' ? [ ['New verified leads / month', (p: Plan) => p.leads], ['Emails / month', (p: Plan) => p.emails], ['Active campaigns', (p: Plan) => p.campaigns || '—'], ['AI email personalisation', () => 'Included'], ['Reply detection and automatic stop', () => 'Included'] ] as [string,(p:Plan)=>string|number][] : []),
-    ...(family !== 'followup' ? [ ['AI minutes / month', (p: Plan) => p.minutes], ['AI voice agent', () => 1], ['Concurrent calls', (p: Plan) => p.concurrency], ['Recordings, transcripts and summaries', () => 'Included'], ['Knowledge base and appointment booking', () => 'Included'] ] as [string,(p:Plan)=>string|number][] : []),
+    ...(family !== 'followup' ? [ ['AI minutes / month', (p: Plan) => p.minutes], ['Concurrent calls', (p: Plan) => p.concurrency], ['Recordings, transcripts and summaries', () => 'Included'], ['Knowledge base and appointment booking', () => 'Included'] ] as [string,(p:Plan)=>string|number][] : []),
     ['User seats, including owner', p => p.seats], ['Calendar booking link', () => 'Included'],
     ['Reporting', p => p.tier === 'starter' ? 'Dashboard' : p.tier === 'growth' ? 'Dashboard + weekly report' : 'Dashboard + weekly report + monthly review call'],
     ['Support response', p => p.tier === 'starter' ? '2 business days' : p.tier === 'growth' ? '1 business day + chat' : 'Same business day'],
   ];
   return <div className="cp">
-    {catalog?.offer.active && <div className="cp-banner">Founding prices for six paid months + setup fee waived. <strong>{catalog.offer.spotsLeft} of 20 founding spots left</strong></div>}
+    {catalog?.offer.active && <div className="cp-banner">Founding prices for six paid months + setup fee waived.{catalog.offer.spotsLeft < FOUNDING_SPOTS && <strong>{catalog.offer.spotsLeft} of {FOUNDING_SPOTS} founding spots left</strong>}</div>}
+    {onSelect && catalog && !catalog.legalReady && <p role="status" className="cp-closed">Checkout opens soon. <a href={catalog.demoUrl || '/demo'}>Book a demo</a> and we will let you know as soon as it does.</p>}
     {error && <p role="status" className="cp-note">{error} Prices below are list prices; checkout availability will be checked again.</p>}
-    <div className="cp-tabs" aria-label="Plan family">{(['followup','voice','allinone'] as Family[]).map(f => <button key={f} type="button" aria-pressed={family===f} onClick={() => switchFamily(f)}>{ {followup:'Follow Up',voice:'Voice Agent',allinone:'All-in-one'}[f] }</button>)}</div>
+    <div className="cp-tabs" aria-label="Plan family">{(['followup','voice','allinone'] as Family[]).map(f => <button key={f} type="button" aria-pressed={family===f} onClick={() => switchFamily(f)}>{FAMILY_LABELS[f].label}</button>)}</div>
+    <p className="cp-blurb">{FAMILY_LABELS[family].blurb}</p>
     <div className="cp-grid">{visible.map(p => <article className={`cp-card ${p.tier==='growth' ? 'cp-featured' : ''}`} key={p.id}>
       <div className="cp-tier">{p.tier} {p.tier==='growth' && <span>Most popular</span>}</div>
       <h2>{p.name}</h2>
@@ -61,11 +71,12 @@ export default function PricingPlans({ onSelect, busy = false, approvedVoice = f
       {founding && <p className="cp-note">For six paid months, then S${p.list}/month excl. GST.</p>}
       <ul>{p.leads>0 && <><li>{p.leads.toLocaleString()} new verified leads / month</li><li>{p.emails.toLocaleString()} emails, up to four per lead</li></>}{p.minutes>0 && <><li>{p.minutes} AI call minutes / month</li><li>{p.concurrency} concurrent {p.concurrency===1?'call':'calls'}</li></>}<li>{p.seats} user {p.seats===1?'seat':'seats'}, including owner</li>{p.campaigns && <li>{p.campaigns} active {p.campaigns===1?'campaign':'campaigns'}</li>}<li>{p.tier==='starter'?'Dashboard reporting':p.tier==='growth'?'Weekly report':'Weekly report + monthly review call'}</li></ul>
       {family==='allinone' && <p>Save S${(available.find(x=>x.id===`followup_${p.tier}`)?.[founding?'founding':'list'] || 0)+(available.find(x=>x.id===`voice_${p.tier}`)?.[founding?'founding':'list'] || 0)-p[founding?'founding':'list']}/month excl. GST versus separate plans.</p>}
-      {family==='voice' && !approvedVoice ? <a className="cp-cta" href={catalog?.demoUrl || '/demo'}>Book a demo call</a> : onSelect ? <button className="cp-cta" disabled={busy || !catalog?.legalReady} onClick={() => onSelect(p)}>{busy?'Opening checkout…':family==='voice'?'Continue to paid checkout':'Start free trial'}</button> : <a className="cp-cta" href={`/signup?plan=${family}&tier=${p.tier}`}>Start free trial</a>}
+      {family==='voice' && !approvedVoice ? <a className="cp-cta" href={catalog?.demoUrl || '/demo'}>Book a demo call</a> : onSelect ? <button className="cp-cta" disabled={busy || !catalog?.legalReady} onClick={() => onSelect(p)}>{busy && selectingId===p.id?'Opening checkout…':family==='voice'?'Continue to paid checkout':'Start free trial'}</button> : <a className="cp-cta" href={`/signup?plan=${family}&tier=${p.tier}`}>Start free trial</a>}
+      {notice?.planId===p.id && <div className="cp-card-notice" role="alert"><p>{notice.message}</p>{notice.action}</div>}
     </article>)}</div>
     <p className="cp-note">One-time setup: <strong>{founding?'waived for founding clients':`S$${visible[0]?.setup} excl. GST`}</strong>{founding && ` (normally S$${visible[0]?.setup} excl. GST)`}. {family==='voice'?'No voice trial. Paid checkout follows demo approval and setup.':'Card required. Trial starts at checkout. Connect your own verified mailbox. Cancel before conversion to pay nothing.'}</p>
     {family!=='followup' && <p className="cp-note">Phone numbers are not included. Buy your own number and pay carrier charges separately. Singapore +65 numbers may require business registration. All-in-one’s trial includes email outreach only.</p>}
-    {comparison && <><h2>Compare every plan</h2><div className="cp-table-wrap" tabIndex={0} aria-label="Plan comparison"><table><thead><tr><th scope="col">Inclusion</th>{visible.map(p=><th key={p.id} scope="col">{p.tier}</th>)}</tr></thead><tbody>{rows.map(([label,value])=><tr key={label}><th scope="row">{label}</th>{visible.map(p=><td key={p.id}>{value(p)}</td>)}</tr>)}</tbody></table></div><p className="cp-note">Extra leads: S$1 each, including four emails. Extra AI minutes: S$0.60 each. Excl. GST. Paid overage requires opt-in and a monthly spending cap.</p>
+    {comparison && <><h2 id="compare">Compare every plan</h2><div className="cp-table-wrap" tabIndex={0} aria-label="Plan comparison"><table><thead><tr><th scope="col">Inclusion</th>{visible.map(p=><th key={p.id} scope="col">{p.tier}</th>)}</tr></thead><tbody>{rows.map(([label,value])=><tr key={label}><th scope="row">{label}</th>{visible.map(p=>{const v=value(p);return <td key={p.id}>{typeof v==='number'?v.toLocaleString():v}</td>;})}</tr>)}</tbody></table></div><p className="cp-note">Extra leads: S$1 each, including four emails. Extra AI minutes: S$0.60 each. Excl. GST. Paid overage requires opt-in and a monthly spending cap.</p>
     <p className="cp-chips"><span>WhatsApp · Coming soon</span><span>SMS · Coming soon</span></p><p className="cp-trust">CIRCLEON PTE. LTD. · Singapore-registered · Secure Stripe payments{catalog?.trust.pdpa?' · PDPA-compliant outreach':''}{catalog?.trust.dnc?' · DNC checks':''}</p>
     <h2>Frequently asked questions</h2>{faqs.map(([q,a])=><details key={q}><summary>{q}</summary><p>{a}</p></details>)}<script type="application/ld+json" dangerouslySetInnerHTML={FAQ_SCHEMA}/></>}
     <p className="cp-note"><a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a></p>

@@ -1,8 +1,11 @@
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
 
 import { TourProvider } from './_lib/tour/TourProvider';
 import TourAutoStart from './_lib/tour/TourAutoStart';
 import TourOverlay from './_lib/tour/TourOverlay';
+
+export const metadata: Metadata = { title: 'Dashboard' };
 
 /**
  * The tour lives here rather than inside the dashboard page so it survives

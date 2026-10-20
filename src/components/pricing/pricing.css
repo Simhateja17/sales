@@ -20,3 +20,11 @@
 .cp-billing .cp-section>button,.cp-billing form>button{background:var(--brand-grad);color:var(--on-brand);border:none;box-shadow:var(--brand-ring)}
 .cp-billing .cp-section>button:hover:not(:disabled),.cp-billing form>button:hover:not(:disabled){color:var(--on-brand);box-shadow:var(--brand-ring-hover)}
 .cp-billing .cp-error{background:var(--red-pale);border-color:var(--red-border);color:var(--red-text);font-size:13px}
+.cp-blurb{text-align:center;margin:-12px auto 28px;max-width:560px;font-size:15px;opacity:.8}
+.cp-closed{text-align:center;padding:14px 18px;border:1px solid var(--cp-border);border-radius:14px;background:var(--cp-bg);margin:0 auto 20px;max-width:640px}
+.cp-card-notice{margin-top:14px;padding:12px 14px;border-radius:12px;background:#fff4e5;border:1px solid #e6c48f;color:#4a3412;font-size:14px}
+.cp-card-notice p{margin:0 0 10px}
+.cp-card-notice button{font:inherit;font-weight:600;padding:8px 14px;border-radius:99px;border:1px solid #382150;background:transparent;color:#382150;cursor:pointer}
+.cp-card-notice button:disabled{opacity:.6;cursor:wait}
+html[data-theme=dark] .cp-card-notice{background:#3a2d1c;border-color:#7a5f33;color:#f5e6cc}
+html[data-theme=dark] .cp-card-notice button{border-color:#f0e7f5;color:#f0e7f5}

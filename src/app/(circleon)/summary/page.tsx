@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import SignOutButton from '@/components/circleon/SignOutButton';
 import { getWorkspace, saveOnboarding } from '@/lib/api';
 
 type Answers = Record<string, string | string[] | number>;
@@ -64,6 +65,7 @@ Only use prospects that fit these requirements. Do not import an existing or sup
 
   return (
     <div className="screen active" id="summary">
+      <SignOutButton />
       <div className="sum-hdr">
         <div className="sum-icon">✦</div>
         <div className="sum-title">Your lead targeting is ready</div>

@@ -43,7 +43,7 @@ export default function Sidebar({
           <div className="sb-mark">C</div>
           <div>
             <div className="sb-name">CircleOn AI</div>
-            <div className="sb-sub">Email sales agent</div>
+            <div className="sb-sub">AI sales agent</div>
           </div>
         </div>
       </div>
@@ -71,10 +71,6 @@ export default function Sidebar({
           </div>
         </div>
       </div>
-      <button type="button" className="nav-item" onClick={() => router.push('/support')}>
-        <span style={{ width: 22, fontSize: 10, fontWeight: 700 }}>Su</span>
-        <span className="nav-label">Support</span>
-      </button>
       <button
         type="button"
         className="nav-item sb-logout"

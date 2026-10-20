@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import SignOutButton from '@/components/circleon/SignOutButton';
 import { getApolloFilters, getTargetSuggestions, getWorkspace, saveOnboarding, saveOnboardingDraft } from '@/lib/api';
 
 type StepType = 'text' | 'textarea' | 'select' | 'choice' | 'tags' | 'range';
@@ -269,6 +270,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="screen active" id="onboarding">
+      <SignOutButton />
       <div className="prog-track">
         <div className="prog-fill" style={{ width: `${pct}%` }} />
       </div>
