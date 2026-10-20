@@ -1,5 +1,10 @@
+import type { Metadata } from 'next';
 import './circleon.css';
 import { THEME_BOOTSTRAP } from '@/lib/theme';
+
+export const metadata: Metadata = {
+  title: { template: '%s · CircleOn AI', default: 'CircleOn AI' },
+};
 
 export default function CircleOnLayout({ children }: { children: React.ReactNode }) {
   return (

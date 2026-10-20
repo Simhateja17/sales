@@ -27,7 +27,7 @@ export default function LaunchSettings() {
             <h2>Offer and compliance</h2>
             {FLAGS.map(f => (
               <label key={f.key} className="adm-toggle">
-                <input type="checkbox" checked={Boolean(settings[f.key])} disabled={action.busy} onChange={e => action.run('/settings', 'PATCH', { [f.key]: e.target.checked })} />
+                <input type="checkbox" checked={Boolean(settings[f.key])} disabled={action.busy} onChange={e => { const on = e.target.checked; if (window.confirm(`${on ? 'Turn on' : 'Turn off'} "${f.label}"? This changes what customers see.`)) action.run('/settings', 'PATCH', { [f.key]: on }); }} />
                 <span><strong>{f.label}</strong><span className="adm-small adm-muted">{f.hint}</span></span>
               </label>
             ))}

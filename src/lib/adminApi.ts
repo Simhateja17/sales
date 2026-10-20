@@ -92,7 +92,8 @@ export function formatDate(value: string | null | undefined, withTime = false) {
 }
 
 export function formatMoney(cents: number) {
-  return new Intl.NumberFormat('en-SG', { style: 'currency', currency: 'SGD', maximumFractionDigits: 0 }).format(cents / 100);
+  // en-SG renders SGD as a bare "$", which reads as US dollars.
+  return `S$${new Intl.NumberFormat('en-SG', { maximumFractionDigits: 0 }).format(cents / 100)}`;
 }
 
 export function humanize(key: string) {
