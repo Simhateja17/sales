@@ -14,6 +14,11 @@ export const navItems: Array<{ id: Page; label: string; marker: string }> = [
   { id: 'support', label: 'Support', marker: 'Su' },
 ];
 
+/** Postgres time columns come back as HH:MM:SS; people read HH:MM. */
+export function hhmm(value: string | null | undefined, fallback: string) {
+  return (value || fallback).slice(0, 5);
+}
+
 export function initials(name?: string | null) {
   if (!name) return 'NA';
   return name
@@ -104,7 +109,7 @@ export function CampaignRow({ campaign, active, onClick }: { campaign: Campaign;
       <div className="mtr-av">{campaignInitials(campaign.name)}</div>
       <div className="mtr-info">
         <div className="mtr-name">{campaign.name}</div>
-        <div className="mtr-detail">{campaign.daily_send_cap}/day · {campaign.sending_hours_start || '09:00'}–{campaign.sending_hours_end || '18:00'}</div>
+        <div className="mtr-detail">{campaign.daily_send_cap}/day · {hhmm(campaign.sending_hours_start, '09:00')}–{hhmm(campaign.sending_hours_end, '18:00')}</div>
         {campaign.attention_required ? <div className="mtr-detail" style={{ marginTop: 4, color: 'var(--purple)' }}>Requires your attention before Autopilot can use it</div> : null}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

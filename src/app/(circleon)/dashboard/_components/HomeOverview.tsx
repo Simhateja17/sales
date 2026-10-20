@@ -47,7 +47,7 @@ export default function HomeOverview({
       <div className="home-intro">
         <div>
           <p className="home-eyeline">{workspace?.name || 'Your workspace'}</p>
-          <h1 id="home-title">Good morning.</h1>
+          <h1 id="home-title">{greeting()}.</h1>
           <p>Everything you need to take the next thoughtful step is right here.</p>
         </div>
         <button className="home-primary-action" type="button" onClick={onCreateCampaign}>
@@ -129,4 +129,9 @@ export default function HomeOverview({
       </div>
     </section>
   );
+}
+
+function greeting() {
+  const hour = new Date().getHours();
+  return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 }

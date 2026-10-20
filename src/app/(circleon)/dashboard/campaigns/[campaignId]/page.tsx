@@ -36,7 +36,7 @@ import {
 } from '@/lib/api';
 import Sidebar from '../../_lib/Sidebar';
 import VoiceCampaignPanel from './VoiceCampaignPanel';
-import { EmptyState, Metric, initials, statusBadge, type Page } from '../../_lib/ui';
+import { EmptyState, Metric, hhmm, initials, statusBadge, type Page } from '../../_lib/ui';
 import { csvTargets, terminalImportStatuses } from '../../_lib/leadImport';
 
 function evidenceSourceLabel(sourceType?: string | null) {
@@ -570,7 +570,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
             </button>
             <h1 className="dash-greeting">{campaign?.name || (loading ? 'Loading campaign...' : 'Campaign')}</h1>
             <p className="dash-date">
-              {campaign ? `${campaign.daily_send_cap} ${campaign.channel === 'voice' ? 'calls' : 'emails'}/day · ${campaign.sending_hours_start || '09:00'}–${campaign.sending_hours_end || '18:00'} · ${campaign.timezone || 'Asia/Singapore'}` : ''}
+              {campaign ? `${campaign.daily_send_cap} ${campaign.channel === 'voice' ? 'calls' : 'emails'}/day · ${hhmm(campaign.sending_hours_start, '09:00')}–${hhmm(campaign.sending_hours_end, '18:00')} · ${campaign.timezone || 'Asia/Singapore'}` : ''}
             </p>
             {campaign?.attention_required ? <p className="sf-hint" style={{ marginTop: 8 }}>Requires your attention: {campaign.attention_reason || 'Review the campaign settings, then launch when you are happy with them.'}</p> : null}
           </div>
@@ -605,11 +605,11 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
           <div className="campaign-review-layout">
             <div>
               <div className="ptabs campaign-review-tabs" data-tour="campaign-tabs">
-                <button type="button" className={`ptab${tab === 'emails' ? ' active' : ''}`} onClick={() => setTab('emails')}>
-                  2. Review emails ({preview.length})
-                </button>
                 <button type="button" className={`ptab${tab === 'leads' ? ' active' : ''}`} onClick={() => setTab('leads')}>
                   1. Verified leads ({selectedLeadIds.length})
+                </button>
+                <button type="button" className={`ptab${tab === 'emails' ? ' active' : ''}`} onClick={() => setTab('emails')}>
+                  2. Review emails ({preview.length})
                 </button>
               </div>
 
@@ -766,7 +766,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 <Metric label="Generated emails" value={preview.length.toString()} />
                 <Metric label="Sent" value={sentCount.toString()} />
                 <Metric label="Daily cap" value={campaign.daily_send_cap.toString()} />
-                <Metric label="Send window" value={`${campaign.sending_hours_start || '09:00'}–${campaign.sending_hours_end || '18:00'} ${campaign.timezone || 'Asia/Singapore'}`} />
+                <Metric label="Send window" value={`${hhmm(campaign.sending_hours_start, '09:00')}–${hhmm(campaign.sending_hours_end, '18:00')} ${campaign.timezone || 'Asia/Singapore'}`} />
                 <Metric label="Cadence" value={`${campaign.cadence_per_hour || 25}/hour`} />
               </div>
               <div className="sf" style={{ marginTop: 18 }}>
