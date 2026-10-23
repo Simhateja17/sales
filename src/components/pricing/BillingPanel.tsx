@@ -82,6 +82,10 @@ export default function BillingPanel() {
     ? Math.max(0, Math.ceil((new Date(billing.trial_end).getTime() - Date.now()) / 86400000))
     : null;
   const renewal = usage?.periodEnd || billing?.current_period_end || null;
+  // Show every allowance the plan includes, at zero until something is used, so the panel is never blank on a live plan.
+  const usageRows = (['leads', 'emails', 'minutes'] as const)
+    .map(key => ({ key, used: usage?.used[key] ?? 0, limit: usage?.limits[key] || plan?.[key] || 0 }))
+    .filter(row => row.limit > 0 || row.used > 0);
   const lowUsage = usage ? (['leads', 'emails', 'minutes'] as const).find(key => usage.limits[key] > 0 && usage.used[key] >= usage.limits[key] * 0.8) : undefined;
 
   return (
@@ -124,16 +128,16 @@ export default function BillingPanel() {
           <h3>This month&apos;s usage</h3>
           <p className="bill-sub">{renewal ? `Resets ${fmtDay(renewal)}` : 'Resets on renewal'}</p>
           <div className="bill-usage">
-            {usage && (['leads', 'emails', 'minutes'] as const).filter(key => usage.limits[key] > 0 || usage.used[key] > 0).map(key => {
-              const pct = usage.limits[key] ? Math.min(100, Math.round((usage.used[key] / usage.limits[key]) * 100)) : 100;
+            {usageRows.map(row => {
+              const pct = row.limit ? Math.min(100, Math.round((row.used / row.limit) * 100)) : 100;
               return (
-                <div key={key}>
-                  <div className="bill-u-top"><b>{USAGE_LABELS[key]}</b><span>{usage.used[key].toLocaleString()} of {usage.limits[key].toLocaleString()}</span></div>
-                  <div className="bill-track" role="progressbar" aria-label={USAGE_LABELS[key]} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i className={pct >= 80 ? 'warn' : ''} style={{ width: `${pct}%` }} /></div>
+                <div key={row.key}>
+                  <div className="bill-u-top"><b>{USAGE_LABELS[row.key]}</b><span>{row.used.toLocaleString()} of {row.limit.toLocaleString()}</span></div>
+                  <div className="bill-track" role="progressbar" aria-label={USAGE_LABELS[row.key]} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i className={pct >= 80 ? 'warn' : ''} style={{ width: `${pct}%` }} /></div>
                 </div>
               );
             })}
-            {!usage && <p className="bill-empty">No usage yet.</p>}
+            {!usageRows.length && <p className="bill-empty">{plan ? 'Your plan has no monthly allowances to track.' : 'Choose a plan to see your monthly leads, emails and AI minutes here.'}</p>}
           </div>
           {usage && lowUsage && (
             <div className="bill-warn">
