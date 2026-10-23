@@ -203,6 +203,30 @@ export default function CampaignBuilderModal({
     return TIMEZONES.filter(timezone => `${timezone} ${timezoneLabel(timezone)}`.toLowerCase().includes(query)).slice(0, 80);
   }, [timezoneSearch]);
 
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const [wizardStep, setWizardStep] = useState(1);
+  useEffect(() => { if (open) setWizardStep(1); }, [open]);
+  const wizardSteps = isVoice ? ['Basics', 'Audience', 'The call', 'Review and launch'] : ['Basics', 'Audience', 'Sequence', 'Review and launch'];
+  const dayCount = Math.max(1, campaign.active_days.length);
+  const totalTouches = selectedLeadIds.length * (isVoice ? campaign.max_call_attempts : steps.length);
+  const estWeeks = selectedLeadIds.length ? Math.max(1, Math.ceil(Math.ceil(totalTouches / Math.max(1, campaign.daily_send_cap)) / dayCount)) : 0;
+  const canCreate = !(isSubmitting
+    || !campaign.name.trim()
+    || !selectedLeadIds.length
+    || (isVoice ? !coverage.withPhone : (!steps.every(step => step.name.trim()) || steps.some(step => step.attachment && step.attachment.size > 10 * 1024 * 1024))));
+  const stepReady = [Boolean(campaign.name.trim()), selectedLeadIds.length > 0, isVoice ? Boolean(coverage.withPhone) : steps.every(step => step.name.trim()), canCreate];
+  const createLabel = isSubmitting
+    ? 'Creating…'
+    : `Create ${isVoice ? 'voice ' : ''}campaign with ${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'}`;
+  const submitCampaign = () => onSubmit({
+    campaign,
+    brief,
+    leadIds: selectedLeadIds,
+    steps: isVoice ? [] : toSequenceSteps(steps),
+    attachments: isVoice ? [] : steps.flatMap((step, index) => step.attachment ? [{ stepNumber: index + 1, file: step.attachment }] : []),
+  });
+  const show = (n: number) => ({ display: wizardStep === n ? 'block' : 'none' });
+
   if (!open) return null;
 
   function updateStep(index: number, patch: Partial<DesignerStep>) {
@@ -262,17 +286,12 @@ export default function CampaignBuilderModal({
   }
 
   return (
-    <div className="modal-backdrop campaign-builder-backdrop" role="presentation" onMouseDown={() => !isSubmitting && onClose()}>
-      <section className="campaign-builder" role="dialog" aria-modal="true" aria-labelledby="campaign-builder-title" onMouseDown={event => event.stopPropagation()}>
-        <header className="campaign-builder-head">
-          <div><p>NEW CAMPAIGN</p><h2 id="campaign-builder-title">{isVoice ? 'Build a call worth answering.' : 'Build a considered outreach sequence.'}</h2></div>
-          <button className="campaign-builder-close" type="button" onClick={onClose} disabled={isSubmitting} aria-label="Close campaign builder">×</button>
-        </header>
-
-        <div className="campaign-builder-body">
-          <section className="campaign-builder-section campaign-builder-basics">
-            <div className="campaign-builder-section-head"><span>01</span><div><h3>Campaign details</h3><p>Set practical sending rules once.</p></div></div>
-            <div className="campaign-channel-picker" role="radiogroup" aria-label="Campaign channel">
+    <div className="cbp" role="presentation">
+      <section className="cb-page" role="dialog" aria-modal="true" aria-labelledby="campaign-builder-title">
+        <button className="cb-back" type="button" onClick={onClose} disabled={isSubmitting}>&larr; All campaigns</button>
+        <div className="cb-kicker">New campaign</div>
+        <h1 id="campaign-builder-title" className="cb-title">{isVoice ? 'Set up your voice campaign' : 'Set up your campaign'}</h1>
+            <div className="campaign-channel-picker cb-type" role="radiogroup" aria-label="Campaign channel">
               {([
                 { value: 'email' as const, title: 'Email campaign', copy: 'A written sequence, drafted per lead.' },
                 { value: 'voice' as const, title: 'Voice campaign', copy: 'An AI agent calls and books meetings.' },
@@ -290,7 +309,20 @@ export default function CampaignBuilderModal({
                 </button>
               ))}
             </div>
+        <ol className="cb-steps" aria-label="Steps">
+          {wizardSteps.map((label, index) => {
+            const n = index + 1;
+            const state = wizardStep === n ? 'on' : n < wizardStep ? 'ok' : '';
+            return <li key={label} className={state}><button type="button" onClick={() => setWizardStep(n)}><i>{n < wizardStep ? '✓' : n}</i>{label}</button></li>;
+          })}
+        </ol>
+        <div className="cb-grid">
+          <div className="cb-panel">
+            <div style={show(1)}>
+              <div className="cb-sec"><h4>Basics</h4>
             <label className="campaign-builder-field campaign-builder-field-wide"><span>Campaign name</span><input autoFocus value={campaign.name} onChange={event => setCampaign(current => ({ ...current, name: event.target.value }))} placeholder="Q3 founder outreach" /></label>
+              </div>
+              <div className="cb-sec"><h4>Sending</h4>
             <div className="campaign-builder-grid">
               <label className="campaign-builder-field"><span>{isVoice ? 'Daily call cap' : 'Daily send cap'}</span><input type="number" min="1" max="300" value={campaign.daily_send_cap} onChange={event => setCampaign(current => ({ ...current, daily_send_cap: Number(event.target.value) }))} /></label>
               {isVoice
@@ -299,7 +331,17 @@ export default function CampaignBuilderModal({
               <label className="campaign-builder-field"><span>Start</span><input type="time" value={campaign.sending_hours_start} onChange={event => setCampaign(current => ({ ...current, sending_hours_start: event.target.value }))} /></label>
               <label className="campaign-builder-field"><span>End</span><input type="time" value={campaign.sending_hours_end} onChange={event => setCampaign(current => ({ ...current, sending_hours_end: event.target.value }))} /></label>
             </div>
+                <div className="cb-days">
+                  <span>Sending days</span>
+                  <div role="group" aria-label="Sending days">
+                    {[1, 2, 3, 4, 5, 6, 0].map(day => (
+                      <button key={day} type="button" className={campaign.active_days.includes(day) ? 'on' : ''} aria-pressed={campaign.active_days.includes(day)} onClick={() => setCampaign(current => ({ ...current, active_days: current.active_days.includes(day) ? current.active_days.filter(item => item !== day) : [...current.active_days, day].sort() }))}>{dayLabels[day]}</button>
+                    ))}
+                  </div>
+                </div>
             <div className="campaign-builder-field campaign-builder-field-wide campaign-timezone-field"><span>Campaign timezone</span><div className="campaign-timezone-picker"><button className="campaign-timezone-trigger" type="button" aria-haspopup="listbox" aria-expanded={timezoneOpen} onClick={() => setTimezoneOpen(current => !current)}><span>{campaign.timezone}</span><b>▾</b></button>{timezoneOpen ? <div className="campaign-timezone-menu" role="listbox"><input autoFocus aria-label="Search timezones" value={timezoneSearch} onChange={event => setTimezoneSearch(event.target.value)} placeholder="Search city or timezone…" />{visibleTimezones.map(timezone => <button key={timezone} type="button" role="option" aria-selected={campaign.timezone === timezone} className={campaign.timezone === timezone ? 'is-selected' : ''} onClick={() => { setCampaign(current => ({ ...current, timezone })); setTimezoneOpen(false); setTimezoneSearch(''); }}><strong>{timezoneLabel(timezone)}</strong><small>{timezone}</small></button>)}{!visibleTimezones.length ? <p className="campaign-timezone-empty">No matching timezones.</p> : null}</div> : null}</div><small className="campaign-builder-timezone-hint">The sending window follows this timezone, including daylight-saving changes where applicable.</small></div>
+              </div>
+              <div className="cb-sec"><h4>Campaign brief</h4>
             <div className="campaign-brief-panel">
               <strong>Campaign brief</strong>
               <p>CircleOn starts with your onboarding context{agentConfig?.company_name ? ` for ${agentConfig.company_name}` : ''} and saves these campaign choices as a snapshot.</p>
@@ -311,10 +353,12 @@ export default function CampaignBuilderModal({
               <label className="campaign-builder-field"><span>Sector (optional context)</span><input value={brief.sector} onChange={event => setBrief(current => ({ ...current, sector: event.target.value }))} placeholder="Leave blank for a general campaign" /></label>
               <label className="campaign-builder-field campaign-builder-field-wide"><span>Signature</span><textarea className="campaign-builder-textarea" value={brief.signature} onChange={event => setBrief(current => ({ ...current, signature: event.target.value }))} placeholder="Prefilled from the connected mailbox; edit if needed" /></label>
             </div>
-          </section>
-
-          <section className="campaign-builder-section">
-            <div className="campaign-builder-section-head"><span>02</span><div><h3>{isVoice ? 'Callable leads' : 'Verified leads'}</h3><p>{isVoice ? 'Leads with a phone number, plus Apollo leads whose number we can look up.' : 'Only work-email leads can enter a campaign.'}</p></div><strong>{selectedLeadIds.length} selected</strong></div>
+              </div>
+            </div>
+            <div style={show(2)}>
+              <div className="cb-sec">
+                <h4>{isVoice ? 'Callable leads' : 'Verified leads'}</h4>
+                <p className="cb-s">{isVoice ? 'Leads with a phone number, plus Apollo leads whose number we can look up.' : 'Only work-email leads can enter a campaign. Pick from the leads already in your workspace.'} <b>{selectedLeadIds.length} selected</b></p>
             {isVoice && selectedLeadIds.length ? (
               <p className="campaign-coverage-note">
                 <strong>{coverage.callableNow}</strong> of {selectedLeadIds.length} selected can be called right away.
@@ -343,12 +387,13 @@ export default function CampaignBuilderModal({
               </label>)}
               {!visibleLeads.length ? <p className="campaign-builder-empty">{isVoice ? 'No leads with a phone number match this search.' : 'No verified work-email leads match this search.'}</p> : null}
             </div>
-          </section>
-
-          {isVoice ? (
-          <section className="campaign-builder-section">
-            <div className="campaign-builder-section-head"><span>03</span><div><h3>The call</h3><p>Write the script on the next screen, where you can review every line before anything is dialled.</p></div></div>
-            <div className="campaign-voice-explainer">
+              </div>
+            </div>
+            <div style={show(3)}>
+              <div className="cb-sec">
+                <h4>{isVoice ? 'The call' : 'Email sequence'}</h4>
+            {isVoice ? (
+<div className="campaign-voice-explainer">
               <p>Your agent opens by saying it is an AI calling on behalf of {agentConfig?.company_name || 'your company'}, and that the call is recorded. That part is fixed and cannot be edited away.</p>
               <p>It then gives a short pitch, offers real times from your calendar, and books the meeting. It does not sell, negotiate, or work objections, and calls stay under two minutes.</p>
               <ul>
@@ -357,10 +402,10 @@ export default function CampaignBuilderModal({
                 <li><strong>Calling starts when your Singapore number clears.</strong> Build everything now; nothing dials until the number is verified.</li>
               </ul>
             </div>
-          </section>
-          ) : (
-          <section className="campaign-builder-section">
-            <div className="campaign-builder-section-head"><span>03</span><div><h3>Email sequence</h3><p>CircleOn creates a distinct draft for every lead and every step. You can edit all drafts before launch.</p></div></div>
+                ) : null}
+                {!isVoice ? (
+                  <>
+                    <p className="cb-s">CircleOn creates a distinct draft for every lead and every step. You can edit all drafts before launch.</p>
             <div className="campaign-sequence-controls"><label className="campaign-builder-field"><span>Emails in this sequence</span><select value={steps.length} onChange={event => setStepCount(Number(event.target.value))}>{Array.from({length:maxSteps},(_,i)=>i+1).map(count => <option key={count} value={count}>{count} email{count === 1 ? '' : 's'}</option>)}</select></label><p>Changing the structure regenerates the recommended plan. Drag cards to set the sending order.</p></div>
             <div className="campaign-steps">
               {steps.map((step, index) => <article key={step.id} draggable className={`campaign-step${draggedStepIndex === index ? ' is-dragging' : ''}${dropTargetIndex === index && draggedStepIndex !== index ? ' is-drop-target' : ''}`} onDragStart={event => handleStepDragStart(event, index)} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; if (draggedStepIndex !== index) setDropTargetIndex(index); }} onDrop={event => handleStepDrop(event, index)} onDragEnd={() => { setDraggedStepIndex(null); setDropTargetIndex(null); }}>
@@ -375,39 +420,39 @@ export default function CampaignBuilderModal({
               </article>)}
             </div>
             <button className="campaign-add-step" type="button" disabled={steps.length >= maxSteps} onClick={addStep}>+ Add a custom follow-up</button>
-          </section>
-          )}
-        </div>
-
-        <footer className="campaign-builder-footer">
-          <p>{isVoice
-            ? 'Nothing is dialled until you approve the script and your Singapore number is verified. Every call is recorded and transcribed.'
-            : 'Attachments are sent to every lead in their sequence step. When a launched campaign is included in Autopilot, CircleOn can research, write, and send automatically within its safeguards.'}</p>
-          <div>
-            <button className="btn-outline" type="button" onClick={onClose} disabled={isSubmitting}>Cancel</button>
-            <button
-              className="btn-primary"
-              type="button"
-              disabled={isSubmitting
-                || !campaign.name.trim()
-                || !selectedLeadIds.length
-                || (isVoice ? !coverage.withPhone : (!steps.every(step => step.name.trim()) || steps.some(step => step.attachment && step.attachment.size > 10 * 1024 * 1024)))}
-              onClick={() => onSubmit({
-                campaign,
-                brief,
-                leadIds: selectedLeadIds,
-                steps: isVoice ? [] : toSequenceSteps(steps),
-                attachments: isVoice ? [] : steps.flatMap((step, index) => step.attachment ? [{ stepNumber: index + 1, file: step.attachment }] : []),
-              })}
-            >
-              {isSubmitting
-                ? 'Creating…'
-                : isVoice
-                  ? `Create voice campaign with ${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'}`
-                  : `Create campaign with ${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'}`}
-            </button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            <div style={show(4)}>
+              <div className="cb-sec">
+                <h4>Review and launch</h4>
+                <ul className="cb-checks">
+                  <li className={stepReady[0] ? 'ok' : ''}>{stepReady[0] ? `Named “${campaign.name.trim()}”` : 'Give the campaign a name'}</li>
+                  <li className={stepReady[1] ? 'ok' : ''}>{stepReady[1] ? `${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'} selected` : 'Select at least one lead'}</li>
+                  <li className={stepReady[2] ? 'ok' : ''}>{isVoice ? (stepReady[2] ? 'Selected leads have phone numbers' : 'Select leads that have a phone number') : (stepReady[2] ? `${steps.length} email${steps.length === 1 ? '' : 's'} in the sequence` : 'Every step needs a name')}</li>
+                </ul>
+                <p className="cb-note">{isVoice
+                  ? 'Nothing is dialled until you approve the script and your Singapore number is verified. Every call is recorded and transcribed.'
+                  : 'You review every email before launch. Attachments are sent to every lead in their sequence step. When a launched campaign is included in Autopilot, CircleOn can research, write, and send automatically within its safeguards.'}</p>
+                <button className="btn-primary" type="button" disabled={!canCreate} onClick={submitCampaign}>{createLabel}</button>
+              </div>
+            </div>
+            <div className="cb-foot">
+              <button className="btn-outline" type="button" onClick={() => (wizardStep === 1 ? onClose() : setWizardStep(wizardStep - 1))} disabled={isSubmitting}>{wizardStep === 1 ? 'Cancel' : 'Back'}</button>
+              {wizardStep < 4 ? <button className="btn-primary" type="button" disabled={!stepReady[wizardStep - 1]} onClick={() => setWizardStep(wizardStep + 1)}>Continue to {wizardSteps[wizardStep].toLowerCase()} &rarr;</button> : null}
+            </div>
           </div>
-        </footer>
+          <aside className="cb-sum" aria-label="Summary">
+            <div className="cb-sum-t">Summary</div>
+            <div className="cb-kv"><span>Leads</span><b>{selectedLeadIds.length ? `${selectedLeadIds.length} to add` : 'None yet'}</b></div>
+            <div className="cb-kv"><span>{isVoice ? 'Calls' : 'Sequence'}</span><b>{isVoice ? `Up to ${campaign.max_call_attempts} attempts` : steps.length === 1 ? 'One email' : `First email + ${steps.length - 1} follow-up${steps.length === 2 ? '' : 's'}`}</b></div>
+            <div className="cb-kv"><span>Pace</span><b>{campaign.daily_send_cap} a day, {campaign.active_days.length === 5 && [1, 2, 3, 4, 5].every(day => campaign.active_days.includes(day)) ? 'Mon to Fri' : `${campaign.active_days.length} days a week`}</b></div>
+            <div className="cb-kv"><span>Window</span><b>{campaign.sending_hours_start} to {campaign.sending_hours_end}</b></div>
+            <div className="cb-kv"><span>Est. finish</span><b>{estWeeks ? `~${estWeeks} week${estWeeks === 1 ? '' : 's'}` : '—'}</b></div>
+            <p>{isVoice ? 'Nothing is dialled until you approve the script.' : 'You will review every email before launch. Follow-ups stop on reply.'}</p>
+          </aside>
+        </div>
       </section>
     </div>
   );

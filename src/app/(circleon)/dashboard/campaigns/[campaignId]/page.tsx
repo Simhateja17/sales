@@ -131,6 +131,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     return Array.from(groups.values()).sort((a, b) => a.stepNumber - b.stepNumber);
   }, [campaign?.email_sequences, preview]);
   const sentCount = preview.filter(item => item.status === 'sent' || item.status === 'auto_sent').length;
+  const approvedCount = preview.filter(item => item.status === 'approved' || item.status === 'sent' || item.status === 'auto_sent').length;
+  const [activeStep, setActiveStep] = useState<number | null>(null);
+  const activeStepNo = activeStep ?? previewSequenceGroups[0]?.stepNumber ?? 1;
   const researchEvidenceGroups = useMemo(() => {
     const groups = new Map<string, {
       leadId: string;
@@ -567,27 +570,27 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
       />
 
       <main className={`main-content${sidebarCollapsed ? ' sidebar-is-collapsed' : ''}`}>
-        <div className="dash-topbar">
+        <button className="cd-back" type="button" onClick={() => navigate('campaigns')}>&larr; All campaigns</button>
+        <div className="cd-head">
           <div>
-            <button className="card-action" type="button" onClick={() => navigate('campaigns')} style={{ border: 0, background: 'transparent', padding: 0, marginBottom: 6 }}>
-              ← All campaigns
-            </button>
-            <h1 className="dash-greeting">{campaign?.name || (loading ? 'Loading campaign...' : 'Campaign')}</h1>
-            <p className="dash-date">
-              {campaign ? `${campaign.daily_send_cap} ${campaign.channel === 'voice' ? 'calls' : 'emails'}/day · ${hhmm(campaign.sending_hours_start, '09:00')}–${hhmm(campaign.sending_hours_end, '18:00')} · ${campaign.timezone || 'Asia/Singapore'}` : ''}
+            <div className="cd-kicker">Campaign{campaign ? ` · ${campaign.status.charAt(0).toUpperCase()}${campaign.status.slice(1)}` : ''}</div>
+            <h1 className="cd-title">{campaign?.name || (loading ? 'Loading campaign...' : 'Campaign')}</h1>
+            <p className="cd-sub">
+              {campaign ? `${selectedLeadIds.length} lead${selectedLeadIds.length === 1 ? '' : 's'} · ${campaign.daily_send_cap} ${campaign.channel === 'voice' ? 'calls' : 'emails'} a day · ${hhmm(campaign.sending_hours_start, '09:00')} to ${hhmm(campaign.sending_hours_end, '18:00')} ${campaign.timezone || 'Asia/Singapore'}` : ''}
             </p>
             {campaign?.attention_required ? <p className="sf-hint" style={{ marginTop: 8 }}>Requires your attention: {campaign.attention_reason || 'Review the campaign settings, then launch when you are happy with them.'}</p> : null}
           </div>
           {campaign ? (
-            <div className="page-actions">
-              {campaign.channel === 'voice' ? null : (
+            <div className="cd-actions">
+              {campaign.channel === 'voice' ? (
+                <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch'} onClick={handleLaunch}>
+                  {busy === 'launch' ? 'Launching...' : 'Launch'}
+                </button>
+              ) : (
                 <button className="btn-outline" type="button" disabled={busy === 'generate' || generationBusy || !canEdit} onClick={handleGenerate}>
-                  {busy === 'generate' || generationBusy ? 'Researching and writing...' : 'Generate emails'}
+                  {busy === 'generate' || generationBusy ? 'Researching and writing...' : preview.length ? 'Regenerate emails' : 'Generate emails'}
                 </button>
               )}
-              <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch'} onClick={handleLaunch}>
-                {busy === 'launch' ? 'Launching...' : 'Launch'}
-              </button>
               {campaign.status === 'active' || campaign.status === 'paused' ? (
                 <button className="btn-outline" type="button" disabled={busy === 'toggle'} onClick={toggleCampaignStatus}>
                   {campaign.status === 'active' ? 'Pause' : 'Resume'}
@@ -606,7 +609,22 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         ) : campaign && campaign.channel === 'voice' ? (
           <VoiceCampaignPanel campaign={campaign} />
         ) : campaign ? (
-          <div className="campaign-review-layout">
+          <div className="cd">
+            <div className="cd-stats" aria-label="Campaign totals">
+              <div><b>{selectedLeadIds.length}</b>Leads</div>
+              <div><b>{previewSequenceGroups.length || (campaign.email_sequences || []).length}</b>Steps</div>
+              <div><b>{approvedCount} of {preview.length}</b>Emails approved</div>
+              <div><b>{sentCount}</b>Sent</div>
+              <div><b>{preview.filter(item => item.status === 'draft').length}</b>Drafts to review</div>
+            </div>
+            <div className="cd-gate">
+              <div>
+                <b>{preview.length ? `Review gate: ${approvedCount} of ${preview.length} emails approved` : 'Review gate: no emails generated yet'}</b>
+                <small>{preview.length ? 'Approve the drafts you want to send, then launch. Nothing sends before that.' : 'Add verified leads, then generate the drafts to review them here.'}</small>
+              </div>
+              <span className="cd-gate-bar"><i style={{ width: `${preview.length ? Math.round((approvedCount / preview.length) * 100) : 0}%` }} /></span>
+              <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch'} onClick={handleLaunch}>{busy === 'launch' ? 'Launching...' : 'Launch campaign'}</button>
+            </div>
             <div>
               <div className="ptabs campaign-review-tabs" data-tour="campaign-tabs">
                 <button type="button" className={`ptab${tab === 'leads' ? ' active' : ''}`} onClick={() => setTab('leads')}>
@@ -618,6 +636,18 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
               </div>
 
               {tab === 'emails' ? (
+            <div className="cd-grid">
+            <nav className="cd-seq" aria-label="Sequence">
+              {(previewSequenceGroups.length ? previewSequenceGroups.map(group => ({ n: group.stepNumber, name: group.name, day: group.delayDays, total: group.messages.length, open: group.messages.filter(item => item.status === 'draft').length })) : (campaign.email_sequences || []).map(sequence => ({ n: sequence.step_number, name: sequence.name || `Step ${sequence.step_number}`, day: sequence.delay_days, total: 0, open: 0 }))).map((item, index, all) => (
+                <div key={item.n}>
+                  <button type="button" className={`cd-step${activeStepNo === item.n ? ' on' : ''}${item.total && !item.open ? ' ok' : ''}`} onClick={() => setActiveStep(item.n)}>
+                    <span className="cd-n">{item.total && !item.open ? '✓' : item.n}</span>
+                    <span><b>{item.name}</b><small>Day {item.day || 0} · {item.total ? (item.open ? `${item.open} need${item.open === 1 ? 's' : ''} review` : 'Approved') : 'Not generated'}</small></span>
+                  </button>
+                  {index < all.length - 1 ? <div className="cd-wait">wait {Math.max(0, (all[index + 1].day || 0) - (item.day || 0))} days, stop if replied</div> : null}
+                </div>
+              ))}
+            </nav>
             <div className="card campaign-review-panel" data-tour="campaign-review">
               <div className="card-head">
                 <div>
@@ -663,7 +693,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                   {researchEvidenceGroups.length > 12 ? <p className="sf-hint" style={{ marginTop: 12 }}>Showing the first 12 leads. Each generated message retains its own provenance in the stored generation metadata.</p> : null}
                 </section>
               ) : null}
-              {preview.length ? previewSequenceGroups.map(group => {
+              {preview.length ? previewSequenceGroups.filter(group => group.stepNumber === activeStepNo).map(group => {
                 const draftIds = group.messages.filter(item => item.status === 'draft').map(item => item.id);
                 const allGroupDraftsSelected = draftIds.length > 0 && draftIds.every(id => selectedPreviewIds.includes(id));
                 const timing = group.stepNumber === 1 || !group.delayDays ? 'Send immediately' : `Send on Day ${group.delayDays}`;
@@ -712,6 +742,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 );
               }) : <EmptyState text="Generate emails to see previews." />}
             </div>
+            </div>
               ) : (
             <div className="card campaign-review-panel">
               <div className="card-head">
@@ -757,43 +788,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
               )}
             </div>
 
-            <div className="set-panel campaign-review-aside">
-              <div className="sf" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
-                <div>
-                  <div className="sf-lbl">Campaign details</div>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: 25, marginTop: 8 }}>{campaign.name}</div>
-                </div>
-                <span className={`badge ${statusBadge(campaign.status)}`}><span className="bdot" />{campaign.status}</span>
-              </div>
-              <div className="msl-list">
-                <Metric label="Selected leads" value={selectedLeadIds.length.toString()} />
-                <Metric label="Generated emails" value={preview.length.toString()} />
-                <Metric label="Sent" value={sentCount.toString()} />
-                <Metric label="Daily cap" value={campaign.daily_send_cap.toString()} />
-                <Metric label="Send window" value={`${hhmm(campaign.sending_hours_start, '09:00')}–${hhmm(campaign.sending_hours_end, '18:00')} ${campaign.timezone || 'Asia/Singapore'}`} />
-                <Metric label="Cadence" value={`${campaign.cadence_per_hour || 25}/hour`} />
-              </div>
-              <div className="sf" style={{ marginTop: 18 }}>
-                <div className="sf-lbl">Sequence</div>
-                {(campaign.email_sequences || []).map(sequence => (
-                  <div className="msl-row" key={sequence.id}>
-                    <span className="msl-lbl">Step {sequence.step_number}</span>
-                    <span className="msl-val">{sequence.delay_days ? `Day ${sequence.delay_days}` : 'Immediately'}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="sf-hint" style={{ marginTop: 16 }}>
-                Manual launch safeguard: only approved emails are queued immediately. Autopilot keeps its automatic path for launched campaigns and records the research evidence used for each draft.
-              </div>
-              <div className="set-save">
-                <button className="btn-outline" type="button" onClick={() => selectedLeadIds.length ? setTab('leads') : setShowExistingPicker(true)}>
-                  {selectedLeadIds.length ? `Manage ${selectedLeadIds.length} leads` : 'Add verified leads'}
-                </button>
-                <button className="btn-primary" type="button" disabled={busy === 'generate' || generationBusy || !canEdit} onClick={handleGenerate}>
-                  {busy === 'generate' || generationBusy ? 'Researching and writing...' : 'Generate emails'}
-                </button>
-              </div>
-            </div>
           </div>
         ) : null}
       </main>
