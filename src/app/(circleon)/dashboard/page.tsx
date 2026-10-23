@@ -28,6 +28,7 @@ import {
   getInbox,
   getConversation,
   getEmailConversations,
+  logout,
   getLeads,
   getMeetings,
   regenerateInboxMessage,
@@ -66,6 +67,7 @@ import {
 import Sidebar from './_lib/Sidebar';
 import CampaignBuilderModal, { type CampaignBuilderSubmission } from './_components/CampaignBuilderModal';
 import VoiceSettingsPanel from './_components/VoiceSettingsPanel';
+import WorkspaceSettings from './_components/WorkspaceSettings';
 import AnalyticsView from './_components/AnalyticsView';
 import CallsView from './_components/CallsView';
 import HomeOverview from './_components/HomeOverview';
@@ -683,6 +685,14 @@ function DashboardContent() {
   }, [conversationFilter, conversationSearch, conversations]);
   const sentMessages = sentMail.length;
   const [bookingCopied, setBookingCopied] = useState(false);
+  async function handleLogoutHere() {
+    try {
+      await logout();
+      router.replace('/login');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not log out. Please try again.');
+    }
+  }
   async function copyBookingLink() {
     const link = agentConfig?.booking_link;
     if (!link) return;
@@ -1790,64 +1800,92 @@ function DashboardContent() {
                 </div> : null}
               </div> : null}
               {settingsSection === 'workspace' ? (
-                <div className="set-panel">
-                  <div className="sf-lbl">Workspace</div>
-                  <div className="msl-list" style={{ marginTop: 14 }}>
-                    <Metric label="Name" value={workspace?.name || 'Workspace'} />
-                    <Metric label="Plan" value={planLabel(workspace?.plan, 'Not selected')} />
-                    <Metric label="Onboarding" value={workspace?.onboarding_completed ? 'Complete' : 'Incomplete'} />
-                    <Metric label="Visible leads" value={visibleLeads.length.toString()} />
-                  </div>
-                  <div className="sf-hint" style={{ marginTop: 16 }}>Lead targeting and email-writing preferences are managed through onboarding. Billing controls are kept separate.</div>
-                  <div className="set-save">
-                    <button className="btn-outline" type="button" onClick={() => router.push('/onboarding')}>Edit targeting</button>
-                    <button className="btn-primary" type="button" onClick={() => setActivePage('billing')}>View billing</button>
-                  </div>
-                </div>
+                <WorkspaceSettings
+                  workspace={workspace}
+                  billing={billing}
+                  agentConfig={agentConfig}
+                  leadCount={visibleLeads.length}
+                  onEditTargeting={() => router.push('/onboarding')}
+                  onOpenBilling={() => setActivePage('billing')}
+                />
               ) : null}
               {settingsSection === 'voice' ? <VoiceSettingsPanel onMessage={setMessage} /> : null}
               {settingsSection === 'compliance' ? (
                 <div className="set-panel">
-                  <div className="sf-lbl">Email compliance</div>
-                  <div className="sf-hint" style={{ marginTop: 8 }}>These safeguards are applied to campaign sending and replies.</div>
-                  <div className="msl-list" style={{ marginTop: 14 }}>
-                    <Metric label="Verified sender required" value="Enabled" />
-                    <Metric label="Unsubscribe footer" value="Added automatically" />
-                    <Metric label="Reply opt-outs" value="Block future sends" />
-                    <Metric label="Suppression CSV" value="Available in Leads" />
-                    <Metric label="Generic emails" value="Rejected during enrichment" />
+                  <h3 className="st-h3">Compliance</h3>
+                  <p className="st-sub">Safeguards for your outreach. These are applied to campaign sending and replies.</p>
+                  <div className="mb-group st-first">
+                    <h4>Email</h4>
+                    {[
+                      ['Verified sender required', 'Campaigns only send from a mailbox you have connected and verified.'],
+                      ['Opt-out line on every email', 'An unsubscribe footer is added automatically, so recipients can ask to never be emailed again.'],
+                      ['Reply opt-outs block future sends', 'Replies like "stop" or "unsubscribe" are suppressed straight away.'],
+                      ['Generic emails rejected', 'Addresses like info@ or sales@ are rejected during enrichment.'],
+                    ].map(([title, detail]) => (
+                      <div className="st-row" key={title}>
+                        <span><b>{title}</b><small>{detail}</small></span>
+                        <span className="st-on">Always on</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="sf-hint" style={{ marginTop: 18 }}>CircleOn stops future campaign selection after an unsubscribe or suppression match. Your organization remains responsible for its sending identity, lawful basis, audience, and regional requirements.</div>
-                  <div className="set-save">
-                    <button className="btn-outline" type="button" onClick={() => setActivePage('leads')}>Manage suppressions</button>
+                  <div className="mb-group">
+                    <h4>Suppression list</h4>
+                    <p className="st-sub" style={{ marginTop: -6 }}>These people are never contacted, even if they appear in a new list. CircleOn stops future campaign selection after an unsubscribe or suppression match.</p>
+                    <div className="mb-actions" style={{ marginTop: 12 }}>
+                      <button className="btn-outline" type="button" onClick={() => setActivePage('leads')}>Manage suppressions</button>
+                    </div>
                   </div>
+                  <div className="mb-group">
+                    <h4>Calls</h4>
+                    <div className="st-row">
+                      <span><b>Do Not Call register</b><small>Connect your own PDPC account for Singapore personal numbers. Business lines are outside the Do Not Call provisions.</small></span>
+                      <button className="btn-outline" type="button" onClick={() => setSettingsSection('voice')}>Open calling</button>
+                    </div>
+                  </div>
+                  <p className="st-note">Your organisation remains responsible for its sending identity, lawful basis, audience and regional requirements. Read the <a href="/privacy">Privacy Policy</a>.</p>
                 </div>
               ) : null}
               {settingsSection === 'profile' ? (
                 <div className="set-panel">
-                  <div className="sf-lbl">Profile</div>
-                  <div className="msl-list" style={{ marginTop: 14 }}>
-                    <Metric label="Signed-in mailbox" value={smtpAccount?.from_email || 'Not connected'} />
-                    <Metric label="Workspace" value={workspace?.name || 'Workspace'} />
-                    <Metric label="Plan" value={planLabel(workspace?.plan, 'Not selected')} />
+                  <h3 className="st-h3">Profile</h3>
+                  <p className="st-sub">Your own account.</p>
+                  <div className="st-me">
+                    <span className="st-av st-av-lg">{initials(workspace?.name)}</span>
+                    <div><b>{workspace?.name || 'Workspace'}</b><small>{smtpAccount?.from_email || 'No mailbox connected'}</small></div>
                   </div>
-                  <div className="sf-lbl" style={{ marginTop: 22 }}>Appearance</div>
-                  <div className="pref-row" style={{ marginTop: 6 }}>
-                    <span className="pref-copy"><strong>Dark mode</strong>{theme === 'dark' ? 'Currently using the dark palette.' : 'Currently using the light palette.'}</span>
-                    <button
-                      type="button"
-                      role="switch"
-                      className="theme-switch"
-                      aria-checked={theme === 'dark'}
-                      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                      onClick={toggleTheme}
-                    ><span aria-hidden="true" /></button>
+                  <div className="mb-group">
+                    <h4>Details</h4>
+                    <div className="st-kv"><span>Signed-in mailbox</span><b>{smtpAccount?.from_email || 'Not connected'}</b></div>
+                    <div className="st-kv"><span>Workspace</span><b>{workspace?.name || 'Workspace'}</b></div>
+                    <div className="st-kv"><span>Plan</span><b>{planLabel(workspace?.plan, 'Not selected')}</b></div>
                   </div>
-                  <div className="sf-hint" style={{ marginTop: 16 }}>The theme is stored on this device, so each browser you sign in from keeps its own choice.</div>
-                  <div className="sf-lbl" style={{ marginTop: 22 }}>Guided tour</div>
-                  <div className="pref-row" style={{ marginTop: 6 }}>
-                    <span className="pref-copy"><strong>Product tour</strong>Replay the walkthrough of CircleOn, from mailbox to first campaign.</span>
-                    <button className="btn-outline" type="button" onClick={() => tour?.startTour({ restart: true })}>Restart tour</button>
+                  <div className="mb-group">
+                    <h4>Appearance</h4>
+                    <div className="st-row">
+                      <span><b>Dark mode</b><small>{theme === 'dark' ? 'Currently using the dark palette.' : 'Currently using the light palette.'} Stored on this device, so each browser keeps its own choice.</small></span>
+                      <button
+                        type="button"
+                        role="switch"
+                        className="theme-switch"
+                        aria-checked={theme === 'dark'}
+                        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                        onClick={toggleTheme}
+                      ><span aria-hidden="true" /></button>
+                    </div>
+                  </div>
+                  <div className="mb-group">
+                    <h4>Guided tour</h4>
+                    <div className="st-row">
+                      <span><b>Product tour</b><small>Replay the walkthrough of CircleOn, from mailbox to first campaign.</small></span>
+                      <button className="btn-outline" type="button" onClick={() => tour?.startTour({ restart: true })}>Restart tour</button>
+                    </div>
+                  </div>
+                  <div className="mb-group">
+                    <h4>Security</h4>
+                    <div className="st-row">
+                      <span><b>Log out</b><small>Ends your session on this device.</small></span>
+                      <button className="btn-outline" type="button" onClick={handleLogoutHere}>Log out</button>
+                    </div>
                   </div>
                 </div>
               ) : null}
