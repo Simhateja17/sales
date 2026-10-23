@@ -1579,7 +1579,7 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {loaded && activePage === 'calls' ? <CallsView onOpenSettings={() => { router.push('/dashboard?page=settings&section=voice'); }} /> : null}
+        {loaded && activePage === 'calls' ? <CallsView onOpenSettings={() => { router.push('/dashboard?page=settings&section=voice'); }} onOpenCampaigns={() => setActivePage('campaigns')} /> : null}
 
         {loaded && activePage === 'meetings' ? (
           <section>

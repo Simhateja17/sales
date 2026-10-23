@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getBillingStatus, getCallingStatus, type BillingUsage, type CallRecord } from '@/lib/api';
 import { fmtDate, initials } from '../_lib/ui';
 
@@ -19,7 +19,8 @@ function callTag(call: CallRecord): { label: string; tone: 'p' | 'g' | 'r' | 'd'
   if (call.status === 'failed') return { label: 'Failed', tone: 'r' };
   if (outcome === 'follow_up_needed' || outcome === 'interested' || outcome === 'booking_link_sent') return { label: 'Follow-up', tone: 'd' };
   if (call.status === 'completed') return { label: 'Answered', tone: 'g' };
-  return { label: call.status.replace('_', ' '), tone: 'g' };
+  const raw = call.status.replace('_', ' ');
+  return { label: raw.charAt(0).toUpperCase() + raw.slice(1), tone: 'g' };
 }
 
 function matches(call: CallRecord, filter: Filter) {
@@ -31,7 +32,7 @@ function matches(call: CallRecord, filter: Filter) {
 }
 
 function duration(seconds: number | null) {
-  if (seconds == null) return '—';
+  if (seconds == null) return '';
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
@@ -52,7 +53,52 @@ function transcriptLines(transcript: string | null) {
   });
 }
 
-export default function CallsView({ onOpenSettings }: { onOpenSettings: () => void }) {
+const WAVE = [30, 55, 80, 45, 90, 60, 35, 70, 95, 50, 40, 75, 85, 30, 60, 45, 90, 55, 35, 80, 65, 40, 70, 50, 85, 30, 60, 95, 45, 55, 75, 40, 65, 85, 35, 50, 70, 90, 45, 60];
+
+function clock(seconds: number) {
+  const whole = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+}
+
+/** Dark recording player: gold play button, a decorative waveform that fills as the audio plays, and elapsed/total time. */
+function CallPlayer({ src, fallbackSeconds }: { src: string; fallbackSeconds: number | null }) {
+  const audio = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [time, setTime] = useState(0);
+  const [total, setTotal] = useState(fallbackSeconds || 0);
+  const progress = total ? time / total : 0;
+
+  function toggle() {
+    const el = audio.current;
+    if (!el) return;
+    if (el.paused) el.play().catch(() => setPlaying(false));
+    else el.pause();
+  }
+
+  return (
+    <div className="calls-player">
+      <audio
+        ref={audio}
+        src={src}
+        preload="none"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => { setPlaying(false); setTime(0); }}
+        onTimeUpdate={event => setTime(event.currentTarget.currentTime)}
+        onLoadedMetadata={event => { if (Number.isFinite(event.currentTarget.duration)) setTotal(event.currentTarget.duration); }}
+      />
+      <button type="button" className="calls-play" onClick={toggle} aria-label={playing ? 'Pause recording' : 'Play recording'}>
+        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">{playing ? <path d="M6 4h4v16H6zM14 4h4v16h-4z" fill="#1A172C" /> : <path d="M7 4l13 8-13 8z" fill="#1A172C" />}</svg>
+      </button>
+      <div className="calls-wave" aria-hidden="true">
+        {WAVE.map((height, index) => <i key={index} className={index / WAVE.length < progress ? 'p' : ''} style={{ height: `${height}%` }} />)}
+      </div>
+      <span className="calls-clock">{clock(time)} / {clock(total)}</span>
+    </div>
+  );
+}
+
+export default function CallsView({ onOpenSettings, onOpenCampaigns }: { onOpenSettings: () => void; onOpenCampaigns?: () => void }) {
   const [calls, setCalls] = useState<CallRecord[] | null>(null);
   const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [error, setError] = useState('');
@@ -81,7 +127,10 @@ export default function CallsView({ onOpenSettings }: { onOpenSettings: () => vo
           <h2 className="page-title">Calls</h2>
           <p className="page-sub">Every call your AI agent answered or made, with recording, transcript and summary.</p>
         </div>
-        <div className="page-actions"><button className="btn-outline" type="button" onClick={onOpenSettings}>Agent settings</button></div>
+        <div className="page-actions">
+          <button className="btn-outline" type="button" onClick={onOpenSettings}>Agent settings</button>
+          {onOpenCampaigns ? <button className="btn-primary" type="button" onClick={onOpenCampaigns}>Call a lead</button> : null}
+        </div>
       </div>
       {error ? <div className="pdpa-banner">{error}</div> : null}
       <div className="mtg-kpis">
@@ -105,7 +154,7 @@ export default function CallsView({ onOpenSettings }: { onOpenSettings: () => vo
               return (
                 <button key={call.id} type="button" className={`calls-row${selected?.id === call.id ? ' on' : ''}`} onClick={() => setSelectedId(call.id)}>
                   <span className="calls-av">{initials(call.leads?.full_name || 'Unknown caller')}</span>
-                  <span className="calls-body"><b>{call.leads?.full_name || 'Unknown caller'}</b><small>{maskPhone(call.to_number || call.leads?.phone)} · {duration(call.duration_seconds)}</small></span>
+                  <span className="calls-body"><b>{call.leads?.full_name || 'Unknown caller'}</b><small>{[maskPhone(call.to_number || call.leads?.phone), duration(call.duration_seconds)].filter(Boolean).join(' · ')}</small></span>
                   <span className={`calls-tag calls-tag-${tag.tone}`}>{tag.label}</span>
                 </button>
               );
@@ -121,7 +170,7 @@ export default function CallsView({ onOpenSettings }: { onOpenSettings: () => vo
                 </div>
                 <span className={`calls-tag calls-tag-${callTag(selected).tone}`}>{callTag(selected).label}</span>
               </header>
-              {selected.recording_url ? <audio className="calls-audio" controls preload="none" src={selected.recording_url}>Your browser does not support audio playback.</audio> : null}
+              {selected.recording_url ? <CallPlayer key={selected.id} src={selected.recording_url} fallbackSeconds={selected.duration_seconds} /> : null}
               {selected.summary || selected.outcome_summary ? (
                 <div className="calls-summary"><span>AI summary</span>{selected.summary || selected.outcome_summary}</div>
               ) : null}
