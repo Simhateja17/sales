@@ -119,7 +119,9 @@ export default function BillingPanel() {
           </div>
           {billing?.cancel_at_period_end && <p className="bill-price" style={{ marginTop: 14 }}>Your cancellation takes effect at the end of the paid period.</p>}
           <div className="bill-row">
-            <a className="bill-white" href="#change-tier" onClick={() => document.getElementById('change-tier')?.scrollIntoView({ behavior: 'smooth' })}>Change plan</a>
+            {plan
+              ? <a className="bill-white" href="#change-tier" onClick={() => document.getElementById('change-tier')?.scrollIntoView({ behavior: 'smooth' })}>Change plan</a>
+              : <a className="bill-white" href="/pricing">Choose a plan</a>}
             <button className="bill-ghost" type="button" disabled={busy || !billing?.stripe_customer_id} onClick={openPortal}>Manage card and invoices</button>
           </div>
         </section>
@@ -137,7 +139,28 @@ export default function BillingPanel() {
                 </div>
               );
             })}
-            {!usageRows.length && <p className="bill-empty">{plan ? 'Your plan has no monthly allowances to track.' : 'Choose a plan to see your monthly leads, emails and AI minutes here.'}</p>}
+            {!usageRows.length && (
+              <div className="bill-wait">
+                <span className="bill-wait-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg></span>
+                {plan ? (
+                  <>
+                    <b>No monthly allowances on this plan</b>
+                    <p>Usage will appear here if you move to a plan that includes leads, emails or AI minutes.</p>
+                  </>
+                ) : billing?.plan ? (
+                  <>
+                    <b>{planLabel(billing.plan)} has no monthly allowances</b>
+                    <p>This plan started before monthly allowances. Pick a current plan to track leads, emails and AI call minutes each month.</p>
+                  </>
+                ) : (
+                  <>
+                    <b>No plan yet</b>
+                    <p>Pick a plan to see your monthly leads, emails and AI call minutes here.</p>
+                  </>
+                )}
+                {!plan ? <a className="bill-wait-cta" href="/pricing">Choose a plan</a> : null}
+              </div>
+            )}
           </div>
           {usage && lowUsage && (
             <div className="bill-warn">
