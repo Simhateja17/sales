@@ -11,7 +11,8 @@ import type { Page } from '../dashboard/_lib/ui';
 type Ticket = { id: string; subject: string; status: 'open' | 'answered' | 'closed'; last_message_at: string };
 type Message = { id: string; sender: 'user' | 'admin'; body: string; created_at: string };
 
-const STATUS_LABEL: Record<Ticket['status'], string> = { open: 'Waiting for us', answered: 'Replied', closed: 'Closed' };
+const STATUS_LABEL: Record<Ticket['status'], string> = { open: 'Awaiting reply', answered: 'Replied', closed: 'Resolved' };
+const TOPICS = ['Email sending', 'Voice agent', 'Leads', 'Billing', 'Something else'];
 
 export default function SupportPage() {
   return <Suspense fallback={null}><Support /></Suspense>;
@@ -85,7 +86,7 @@ function Support() {
                             <span className={`sup-dot sup-dot-${t.status}`} />
                             <span>
                               <Link href={`/support?ticket=${t.id}`}>{t.subject}</Link>
-                              <small>{new Date(t.last_message_at).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}</small>
+                              <small>{t.status === 'closed' ? 'Resolved' : 'Updated'} {new Date(t.last_message_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).replace('Sept', 'Sep')}</small>
                             </span>
                             <span className={`sup-tag sup-tag-${t.status}`}>{STATUS_LABEL[t.status]}</span>
                           </li>
@@ -104,12 +105,13 @@ function Support() {
 function NewTicket({ onCreated }: { onCreated: (id: string) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [topic, setTopic] = useState(TOPICS[0]);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setBusy(true); setError('');
     try {
-      const { ticket_id } = await apiFetch<{ ticket_id: string }>('/api/support', { method: 'POST', body: JSON.stringify({ subject: form.get('subject'), body: form.get('body') }) });
+      const { ticket_id } = await apiFetch<{ ticket_id: string }>('/api/support', { method: 'POST', body: JSON.stringify({ subject: `[${topic}] ${String(form.get('subject') || '').trim()}`, body: form.get('body') }) });
       onCreated(ticket_id);
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not send your request.'); }
     finally { setBusy(false); }
@@ -117,9 +119,12 @@ function NewTicket({ onCreated }: { onCreated: (id: string) => void }) {
   return (
     <form className="sup-panel sup-form" onSubmit={submit}>
       <h3>Ask for help</h3>
-      <p className="sup-muted">Tell us what happened, what you expected, and the campaign or lead involved.</p>
-      <label>Subject<input name="subject" minLength={3} maxLength={200} required placeholder="e.g. Emails stuck in draft" /></label>
-      <label>What do you need?<textarea name="body" rows={6} maxLength={10000} required /></label>
+      <p className="sup-muted">Pick a topic so it reaches the right person.</p>
+      <div className="sup-topics" role="group" aria-label="Topic">
+        {TOPICS.map(item => <button key={item} type="button" className={topic === item ? 'on' : ''} aria-pressed={topic === item} onClick={() => setTopic(item)}>{item}</button>)}
+      </div>
+      <label>Subject<input name="subject" minLength={3} maxLength={180} required placeholder="e.g. Emails stuck in draft" /></label>
+      <label>What do you need?<textarea name="body" rows={6} maxLength={10000} required placeholder="Tell us what happened, what you expected, and the campaign or lead involved." /><small>Do not include passwords or card numbers.</small></label>
       {error ? <p className="sup-error" role="alert">{error}</p> : null}
       <div className="sup-foot"><button className="btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Send request'}</button></div>
     </form>

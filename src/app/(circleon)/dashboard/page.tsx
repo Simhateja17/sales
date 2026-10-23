@@ -1659,7 +1659,8 @@ function DashboardContent() {
                 <button type="button" className={`sn-item${settingsSection === 'compliance' ? ' active' : ''}`} onClick={() => setSettingsSection('compliance')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4" /></svg>Compliance</button>
                 <button type="button" className={`sn-item${settingsSection === 'profile' ? ' active' : ''}`} onClick={() => setSettingsSection('profile')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0" /></svg>Profile</button>
               </div>
-              {settingsSection === 'mailbox' ? <form className="set-panel" data-tour="smtp-form" onSubmit={handleSmtpConnect}>
+              {settingsSection === 'mailbox' ? <div className="mb">
+              <form className="set-panel" data-tour="smtp-form" onSubmit={handleSmtpConnect}>
                 <div className="set-account">
                   <span className="set-account-ic" aria-hidden="true">{(smtpAccount?.from_email || '?').charAt(0).toUpperCase()}</span>
                   <div>
@@ -1668,63 +1669,78 @@ function DashboardContent() {
                     <small>{smtpAccount ? `SMTP ${smtpAccount.smtp_verified_at ? 'verified' : 'not verified'} · IMAP ${smtpAccount.imap_verified_at ? 'verified' : 'not verified'}` : 'Connect a mailbox below to start sending.'}</small>
                   </div>
                 </div>
-                <div className="sf mailbox-presets">
-                  <button className={mailboxProvider === 'gmail' ? 'btn-primary' : 'btn-outline'} type="button" onClick={() => applyMailboxPreset('gmail')}>Gmail preset</button>
-                  <button className={mailboxProvider === 'outlook' ? 'btn-primary' : 'btn-outline'} type="button" onClick={() => applyMailboxPreset('outlook')}>Outlook preset</button>
-                  <button className={mailboxProvider === 'manual' ? 'btn-primary' : 'btn-outline'} type="button" onClick={() => {
-                    setMailboxProvider('manual');
-                    setSmtpForm(current => ({ ...current, smtp_host: '', imap_host: '' }));
-                    setMessage('Manual setup selected. Enter the SMTP and IMAP values supplied by your email provider.');
-                  }}>Manual</button>
+                <div className="mb-method">
+                  <div><h3>Connection method</h3><p>Pick your provider or enter details manually.</p></div>
+                  <div className="view-switch" role="group" aria-label="Provider">
+                    <button type="button" className={`rs-pill${mailboxProvider === 'gmail' ? ' is-active' : ''}`} aria-pressed={mailboxProvider === 'gmail'} onClick={() => applyMailboxPreset('gmail')}>Gmail</button>
+                    <button type="button" className={`rs-pill${mailboxProvider === 'outlook' ? ' is-active' : ''}`} aria-pressed={mailboxProvider === 'outlook'} onClick={() => applyMailboxPreset('outlook')}>Outlook</button>
+                    <button type="button" className={`rs-pill${mailboxProvider === 'manual' ? ' is-active' : ''}`} aria-pressed={mailboxProvider === 'manual'} onClick={() => {
+                      setMailboxProvider('manual');
+                      setSmtpForm(current => ({ ...current, smtp_host: '', imap_host: '' }));
+                      setMessage('Manual setup selected. Enter the SMTP and IMAP values supplied by your email provider.');
+                    }}>Manual</button>
+                  </div>
                 </div>
-                <div className="sf-hint">Use an app password when your provider requires two-step verification. Your credentials are encrypted before storage.</div>
-                <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <input className="sf-inp" value={smtpForm.from_email} onChange={event => setSmtpForm({ ...smtpForm, from_email: event.target.value })} placeholder="sender@company.com" required />
-                  <input className="sf-inp" value={smtpForm.from_name} onChange={event => setSmtpForm({ ...smtpForm, from_name: event.target.value })} placeholder="Display name" required />
+                <div className="mb-group">
+                  <h4>Sender</h4>
+                  <div className="mb-grid">
+                    <label className="mb-field">Email address<input className="sf-inp" type="email" value={smtpForm.from_email} onChange={event => setSmtpForm({ ...smtpForm, from_email: event.target.value })} placeholder="sender@company.com" required /></label>
+                    <label className="mb-field">Display name<input className="sf-inp" value={smtpForm.from_name} onChange={event => setSmtpForm({ ...smtpForm, from_name: event.target.value })} placeholder="Jane Tan" required /><small>Shown to recipients</small></label>
+                  </div>
                 </div>
-                <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 12 }}>
-                  <input className="sf-inp" value={smtpForm.smtp_host} onChange={event => setSmtpForm({ ...smtpForm, smtp_host: event.target.value })} placeholder="smtp.gmail.com" required />
-                  <input className="sf-inp" type="number" value={smtpForm.smtp_port} onChange={event => setSmtpForm({ ...smtpForm, smtp_port: Number(event.target.value) })} required />
+                <div className="mb-group">
+                  <h4>Outgoing mail (SMTP)</h4>
+                  <div className="mb-grid mb-grid-port">
+                    <label className="mb-field">SMTP host<input className="sf-inp" value={smtpForm.smtp_host} onChange={event => setSmtpForm({ ...smtpForm, smtp_host: event.target.value })} placeholder="smtp.gmail.com" required /></label>
+                    <label className="mb-field">Port<input className="sf-inp" type="number" value={smtpForm.smtp_port} onChange={event => setSmtpForm({ ...smtpForm, smtp_port: Number(event.target.value) })} required /><small>{smtpForm.smtp_port === 465 ? 'SSL' : 'TLS'}</small></label>
+                  </div>
+                  <div className="mb-grid" style={{ marginTop: 14 }}>
+                    <label className="mb-field">Username<input className="sf-inp" value={smtpForm.smtp_username} onChange={event => setSmtpForm({ ...smtpForm, smtp_username: event.target.value })} placeholder="you@company.com" required /></label>
+                    <label className="mb-field">App password<input className="sf-inp" type="password" autoComplete="new-password" value={smtpForm.smtp_password} onChange={event => setSmtpForm({ ...smtpForm, smtp_password: event.target.value })} placeholder="16-character app password" required /><small>Encrypted before storage</small></label>
+                  </div>
                 </div>
-                <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <input className="sf-inp" value={smtpForm.smtp_username} onChange={event => setSmtpForm({ ...smtpForm, smtp_username: event.target.value })} placeholder="SMTP username" required />
-                  <input className="sf-inp" type="password" value={smtpForm.smtp_password} onChange={event => setSmtpForm({ ...smtpForm, smtp_password: event.target.value })} placeholder="SMTP password" required />
+                <div className="mb-group">
+                  <h4>Incoming mail (IMAP)</h4>
+                  <div className="mb-grid mb-grid-port">
+                    <label className="mb-field">IMAP host<input className="sf-inp" value={smtpForm.imap_host} onChange={event => setSmtpForm({ ...smtpForm, imap_host: event.target.value })} placeholder="imap.gmail.com" required /></label>
+                    <label className="mb-field">Port<input className="sf-inp" type="number" value={smtpForm.imap_port} onChange={event => setSmtpForm({ ...smtpForm, imap_port: Number(event.target.value) })} /><small>SSL</small></label>
+                  </div>
                 </div>
-                <div className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 12 }}>
-                  <input className="sf-inp" value={smtpForm.imap_host} onChange={event => setSmtpForm({ ...smtpForm, imap_host: event.target.value })} placeholder="imap.gmail.com" required />
-                  <input className="sf-inp" type="number" value={smtpForm.imap_port} onChange={event => setSmtpForm({ ...smtpForm, imap_port: Number(event.target.value) })} />
+                <div className="mb-foot">
+                  {smtpAccount?.smtp_verified_at && smtpAccount?.imap_verified_at ? <span className="mb-ok">Both connections verified</span> : <span className="mb-ok is-off">{smtpAccount ? 'Not fully verified yet' : 'Not connected yet'}</span>}
+                  <div className="mb-actions">
+                    <button className="btn-outline" type="button" disabled={!smtpAccount || busy === 'smtp-test'} onClick={handleTestSmtp}>
+                      {busy === 'smtp-test' ? 'Testing...' : 'Test connection'}
+                    </button>
+                    <button className="btn-primary" type="submit" disabled={busy === 'smtp'}>{busy === 'smtp' ? 'Connecting...' : 'Save mailbox'}</button>
+                  </div>
                 </div>
-                <div className="set-save">
-                  <button className="btn-outline" type="button" disabled={!smtpAccount || busy === 'smtp-test'} onClick={handleTestSmtp}>
-                    {busy === 'smtp-test' ? 'Testing...' : 'Test connection'}
-                  </button>
-                  <button className="btn-primary" type="submit" disabled={busy === 'smtp'}>{busy === 'smtp' ? 'Connecting...' : 'Save mailbox'}</button>
-                </div>
-                <div className="sf" style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--cream-dark)' }}>
-                  <div className="sf-lbl">{mailboxProvider === 'gmail' ? 'Connect Gmail' : mailboxProvider === 'outlook' ? 'Connect Outlook' : 'Manual connection instructions'}</div>
-                  {mailboxProvider === 'gmail' ? (
-                    <ol className="sf-hint" style={{ lineHeight: 1.8, paddingLeft: 20 }}>
+              </form>
+              <div className="mb-help">
+                <b>{mailboxProvider === 'gmail' ? 'Connecting Gmail' : mailboxProvider === 'outlook' ? 'Connecting Outlook' : 'Connecting manually'}</b>
+                {mailboxProvider === 'gmail' ? (
+                    <ol>
                       <li>Turn on two-step verification for your Google account.</li>
                       <li>Create an app password for Mail and paste it into SMTP password.</li>
                       <li>Use your complete Gmail address as the SMTP username.</li>
                       <li>Save the mailbox; CircleOn will verify both sending and inbox access.</li>
                     </ol>
                   ) : mailboxProvider === 'outlook' ? (
-                    <ol className="sf-hint" style={{ lineHeight: 1.8, paddingLeft: 20 }}>
+                    <ol>
                       <li>Use your complete Microsoft 365 email as the SMTP username.</li>
                       <li>Use an app password if your organization requires multi-factor authentication and permits app passwords.</li>
                       <li>Ask your Microsoft 365 administrator to enable authenticated SMTP and IMAP for this mailbox if verification fails.</li>
                       <li>Save the mailbox; CircleOn will verify both protocols before marking it connected.</li>
                     </ol>
                   ) : (
-                    <ol className="sf-hint" style={{ lineHeight: 1.8, paddingLeft: 20 }}>
+                    <ol>
                       <li>Copy the SMTP and IMAP hosts, ports, username, and app password from your provider.</li>
                       <li>SMTP port 587 normally uses TLS; IMAP commonly uses port 993.</li>
                       <li>Save first, then use Test connection to verify sending and inbox access.</li>
                     </ol>
                   )}
-                </div>
-              </form> : null}
+              </div>
+            </div> : null}
               {settingsSection === 'autopilot' ? <div className="set-panel" data-tour="autopilot-panel">
                 <div className="sf-lbl">Daily campaign autopilot</div>
                 <p className="sf-hint" style={{ marginTop: 8 }}>Autopilot finds new leads, assigns each one to a launched campaign, generates the sequence, and schedules sending. Campaigns marked Requires your attention never run here.</p>
