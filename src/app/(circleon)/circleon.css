@@ -1941,7 +1941,7 @@ body{background:var(--paper);}
 .st-kv b{text-align:right;}
 
 /* Campaign builder as a page-style flow (matches the design) */
-.cbp{position:fixed;left:264px;top:0;right:0;bottom:0;z-index:150;overflow:auto;background:var(--paper);color:var(--ink);}
+.cbp{position:fixed;left:0;top:0;right:0;bottom:0;z-index:150;overflow:auto;background:var(--paper);color:var(--ink);}
 .cb-page{padding:36px 48px 64px;max-width:1280px;}
 .cb-back{border:0;background:none;color:var(--brand-deep);font:700 13.5px 'DM Sans',sans-serif;cursor:pointer;padding:0;}
 .cb-kicker{font:500 11px 'DM Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-ink);margin-top:14px;}
