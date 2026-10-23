@@ -8,9 +8,18 @@ import InboundVoiceSettings from './InboundVoiceSettings';
 
 type Member = { id: string; email: string; status: string };
 
+const FAMILY_NAMES: Record<string, string> = { followup: 'Follow Up', voice: 'Voice Agent', allinone: 'Follow Up + Voice Agent' };
+const TIER_NAMES: Record<string, string> = { starter: 'Starter', growth: 'Growth', pro: 'Pro' };
+
 const USAGE_LABELS = { leads: 'Leads', emails: 'Emails', minutes: 'AI call minutes' } as const;
 
-const fmtDay = (value?: string | null) => (value ? new Date(value).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// Built by hand: en-GB spells September as "Sept", the design says "Sep".
+const fmtDay = (value?: string | null) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+};
 // en-SG prints SGD as a bare "$"; the design and the pricing page both say "S$".
 const fmtMoney = (cents: number, currency: string) => {
   const amount = new Intl.NumberFormat('en-SG', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
@@ -92,7 +101,7 @@ export default function BillingPanel() {
             {billing?.payment_failed ? <span className="bill-flag bad">Payment failed, activity paused</span>
               : foundingActive ? <span className="bill-flag">Founding price locked to {fmtDay(billing?.founder_until)}</span> : null}
           </div>
-          <h2>{billing?.plan ? planLabel(billing.plan) : 'No subscription'}</h2>
+          <h2>{plan ? `${FAMILY_NAMES[plan.family] || plan.name}, ${TIER_NAMES[plan.tier] || plan.tier}` : billing?.plan ? planLabel(billing.plan) : 'No subscription'}</h2>
           {plan ? (
             <div className="bill-price">
               <b>S${foundingActive ? plan.founding : plan.list}</b> / month
@@ -100,7 +109,7 @@ export default function BillingPanel() {
             </div>
           ) : null}
           <div className="bill-meta">
-            <div>Status<b style={{ textTransform: 'capitalize' }}>{status}</b></div>
+            <div>Status<b>{status}</b></div>
             <div>{trialDays !== null ? 'Trial ends' : 'Next renewal'}<b>{trialDays !== null ? `${fmtDay(billing?.trial_end)} (${trialDays}d)` : fmtDay(renewal)}</b></div>
             <div>Seats<b>{plan ? `${Math.min(activeMembers.length + 1, plan.seats)} of ${plan.seats} used` : '—'}</b></div>
           </div>
@@ -130,7 +139,7 @@ export default function BillingPanel() {
             <div className="bill-warn">
               {usage.used[lowUsage] >= usage.limits[lowUsage]
                 ? `You have reached your ${USAGE_LABELS[lowUsage].toLowerCase()} allowance. Activity pauses unless paid overage is on.`
-                : `You have used ${Math.round((usage.used[lowUsage] / usage.limits[lowUsage]) * 100)}% of your ${USAGE_LABELS[lowUsage].toLowerCase()}. Turn on overage or upgrade to keep going.`}
+                : `You have used ${Math.round((usage.used[lowUsage] / usage.limits[lowUsage]) * 100)}% of your ${USAGE_LABELS[lowUsage].toLowerCase()}. Turn on overage or upgrade to keep ${lowUsage === 'emails' ? 'sending' : 'going'}.`}
             </div>
           )}
         </section>
@@ -189,7 +198,8 @@ export default function BillingPanel() {
             {card ? (
               <div className="bill-card">
                 <span className="bill-visa">{card.brand}</span>
-                <div style={{ flex: 1, fontSize: 13.5 }}><b>{card.brand.charAt(0).toUpperCase() + card.brand.slice(1)} ending {card.last4}</b><br /><span style={{ color: 'var(--ink-mute)' }}>Expires {String(card.exp_month).padStart(2, '0')}/{String(card.exp_year).slice(-2)}</span></div>
+                <b>{card.brand.charAt(0).toUpperCase() + card.brand.slice(1)} ending {card.last4}</b>
+                <span className="bill-card-exp">Expires {String(card.exp_month).padStart(2, '0')}/{String(card.exp_year).slice(-2)}</span>
                 <button className="bill-link" type="button" disabled={busy} onClick={openPortal}>Update</button>
               </div>
             ) : <p className="bill-empty">{billing?.stripe_customer_id ? 'No card on file.' : 'A card is added when you choose a plan.'}</p>}

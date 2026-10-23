@@ -1849,3 +1849,17 @@ body{background:var(--paper);}
 .an2-wait-bar{width:100%;max-width:260px;height:6px;border-radius:9px;background:var(--rule-soft);overflow:hidden;}
 .an2-wait-bar i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,#7447C8,#DBB557);}
 .an2-wait p{margin:0;font-size:13.5px;line-height:1.55;color:var(--ink-mute);max-width:360px;}
+
+/* Billing: details from the design */
+.bill-grid{align-items:stretch;}
+.bill-meta div{font:500 11px 'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase;}
+.bill-meta b{font:600 14px 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase;margin-top:6px;}
+.bill-card{flex-direction:column;justify-content:center;text-align:center;gap:2px;padding:20px 14px;background:var(--surface-sunken);font-size:14px;}
+.bill-card .bill-visa{margin-bottom:10px;}
+.bill-card-exp{font-size:14px;color:var(--ink-mute);}
+.bill-card .bill-link{margin-top:10px;}
+.bill .cp-billing{max-width:none;}
+.bill .cp-billing .cp-section{background:var(--surface);border:1px solid var(--rule);border-radius:22px;padding:24px 26px;margin:0;}
+.bill .cp-billing .cp-section:first-of-type h3{font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;text-transform:none;}
+.bill .cp-billing textarea,.bill .cp-billing select{border-radius:12px;background:var(--surface-sunken);border:1px solid var(--rule);padding:12px 14px;}
+.bill .cp-billing .cp-section>button,.bill .cp-billing form>button{background:var(--brand);box-shadow:0 10px 26px rgba(116,71,200,.3);border-radius:99px;padding:12px 22px;}
