@@ -448,7 +448,6 @@ export default function CampaignBuilderModal({
             <div className="cb-kv"><span>Leads</span><b>{selectedLeadIds.length ? `${selectedLeadIds.length} to add` : 'None yet'}</b></div>
             <div className="cb-kv"><span>{isVoice ? 'Calls' : 'Sequence'}</span><b>{isVoice ? `Up to ${campaign.max_call_attempts} attempts` : steps.length === 1 ? 'One email' : `First email + ${steps.length - 1} follow-up${steps.length === 2 ? '' : 's'}`}</b></div>
             <div className="cb-kv"><span>Pace</span><b>{campaign.daily_send_cap} a day, {campaign.active_days.length === 5 && [1, 2, 3, 4, 5].every(day => campaign.active_days.includes(day)) ? 'Mon to Fri' : `${campaign.active_days.length} days a week`}</b></div>
-            <div className="cb-kv"><span>Window</span><b>{campaign.sending_hours_start} to {campaign.sending_hours_end}</b></div>
             <div className="cb-kv"><span>Est. finish</span><b>{estWeeks ? `~${estWeeks} week${estWeeks === 1 ? '' : 's'}` : '—'}</b></div>
             <p>{isVoice ? 'Nothing is dialled until you approve the script.' : 'You will review every email before launch. Follow-ups stop on reply.'}</p>
           </aside>
