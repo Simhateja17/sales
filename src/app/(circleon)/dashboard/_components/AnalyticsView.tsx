@@ -137,7 +137,14 @@ export default function AnalyticsView({ sentMail, inbox, campaigns, meetings, em
         <div className="an2-panel">
           <h3>What we learned</h3>
           <p className="an2-s">Patterns from your replies this period.</p>
-          {insights.length ? insights.map(text => <div className="an2-ins" key={text}><i /><span>{text}</span></div>) : <p className="an2-empty">Insights appear once you have a few replies in this period.</p>}
+          {insights.length ? insights.map(text => <div className="an2-ins" key={text}><i /><span>{text}</span></div>) : (
+            <div className="an2-wait">
+              <span className="an2-wait-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0012 3z" /></svg></span>
+              <b>{Math.min(view.replies.length, 3)} of 3 replies so far</b>
+              <div className="an2-wait-bar" role="progressbar" aria-valuemin={0} aria-valuemax={3} aria-valuenow={Math.min(view.replies.length, 3)}><i style={{ width: `${(Math.min(view.replies.length, 3) / 3) * 100}%` }} /></div>
+              <p>Once three replies come in, you will see which day and time get the most replies and how many show interest.</p>
+            </div>
+          )}
         </div>
       </div>
 
