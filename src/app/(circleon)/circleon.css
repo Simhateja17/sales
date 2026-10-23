@@ -1806,3 +1806,7 @@ body{background:var(--paper);}
 .start-card{border-radius:28px;border-color:#E6E2F1;box-shadow:0 30px 80px -44px rgba(71,30,134,.4);}
 .ps-logo{font:800 20px 'DM Sans',sans-serif;letter-spacing:-.04em;color:var(--ink);}
 .ps-logo .sb-mark{flex:none;}
+
+/* Header actions sit on the title's baseline, as in the design; Leads keeps its top-aligned action. */
+.page-header{align-items:flex-end;}
+.leads-page .page-header{align-items:flex-start;}

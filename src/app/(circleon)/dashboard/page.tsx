@@ -681,6 +681,18 @@ function DashboardContent() {
     });
   }, [conversationFilter, conversationSearch, conversations]);
   const sentMessages = sentMail.length;
+  const [bookingCopied, setBookingCopied] = useState(false);
+  async function copyBookingLink() {
+    const link = agentConfig?.booking_link;
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setBookingCopied(true);
+      setTimeout(() => setBookingCopied(false), 2000);
+    } catch {
+      setMessage('Could not copy automatically. Your booking link is ' + link);
+    }
+  }
   const selectedConversation = visibleConversations.find(item => item.lead_id === selectedConversationId) || visibleConversations[0] || null;
   function selectConversation(conversation: EmailConversation) {
     if (conversation.lead_id === selectedConversation?.lead_id) return;
@@ -1607,6 +1619,15 @@ function DashboardContent() {
                     </button>
                   ))}
                 </div>
+                <button
+                  className="btn-primary"
+                  type="button"
+                  disabled={!agentConfig?.booking_link}
+                  title={agentConfig?.booking_link ? 'Copy your calendar booking link' : 'Add a booking link in your onboarding answers first'}
+                  onClick={copyBookingLink}
+                >
+                  {bookingCopied ? 'Link copied' : 'Copy booking link'}
+                </button>
               </div>
             </div>
             <div className="mtg-kpis">
