@@ -1680,7 +1680,7 @@ body{background:var(--paper);}
 .ib{display:grid;grid-template-columns:340px minmax(0,1fr) 300px;height:100vh;min-height:640px;color:var(--ink);}
 .ib-col{border-right:1px solid var(--rule);display:flex;flex-direction:column;min-height:0;min-width:0;}
 .ib-ctx{border-right:0;padding:24px 22px;gap:18px;overflow:auto;background:var(--paper);}
-.ib-list{background:var(--surface);}
+.ib-list{background:var(--paper);}
 .ib-list-head{padding:24px 20px 14px;}
 .ib-list-head h2{font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:500;letter-spacing:-.03em;line-height:1;margin:8px 0 4px;}
 .ib-list-head p{margin:0;font-size:13px;color:var(--ink-mute);}
