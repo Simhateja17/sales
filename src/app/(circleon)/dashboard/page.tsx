@@ -66,6 +66,7 @@ import {
 import Sidebar from './_lib/Sidebar';
 import CampaignBuilderModal, { type CampaignBuilderSubmission } from './_components/CampaignBuilderModal';
 import VoiceSettingsPanel from './_components/VoiceSettingsPanel';
+import AnalyticsView from './_components/AnalyticsView';
 import CallsView from './_components/CallsView';
 import HomeOverview from './_components/HomeOverview';
 import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, intentBadge, navItems, statusBadge, type Page } from './_lib/ui';
@@ -700,8 +701,6 @@ function DashboardContent() {
     setInboxDirty(false);
     setSelectedConversationId(conversation.lead_id);
   }
-  const inbound = inbox.filter(item => item.direction === 'inbound');
-  const positiveReplies = inbound.filter(item => item.intent_classification === 'positive').length;
   const meetingKpis = useMemo(() => {
     const now = new Date();
     const todayKey = calendarDateKey(now);
@@ -1640,58 +1639,7 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {loaded && activePage === 'analytics' ? (
-          <section>
-            <div className="page-header">
-              <div>
-                <div className="page-kicker">Performance</div>
-                <h2 className="page-title">Analytics</h2>
-                <p className="page-sub">See what earns a reply, across email and calls.</p>
-              </div>
-            </div>
-            <div className="an-funnel" data-tour="analytics-kpis" aria-label="Funnel">
-              <div><small>Leads contacted</small><b>{emailLeads.length}</b><span>Verified work emails</span></div>
-              <div><small>Emails sent</small><b>{sentMessages}</b><span>First email + follow-ups</span></div>
-              <div><small>Replies</small><b>{inbound.length}</b><span>{emailLeads.length ? `${((inbound.length / emailLeads.length) * 100).toFixed(1)}% of leads` : 'No leads yet'}</span></div>
-              <div><small>Positive replies</small><b>{positiveReplies}</b><span>{inbound.length ? `${Math.round((positiveReplies / inbound.length) * 100)}% of replies` : 'No replies yet'}</span></div>
-              <div className="is-hi"><small>Meetings booked</small><b>{meetings.length}</b><span>{emailLeads.length ? `${((meetings.length / emailLeads.length) * 100).toFixed(1)}% of leads` : 'No leads yet'}</span></div>
-            </div>            <div className="card an-chart">
-              <div className="card-head">
-                <div>
-                  <div className="card-title">Daily sending and replies</div>
-                  <div className="sf-hint">Last 14 days.</div>
-                </div>
-                <div className="an-legend"><span><i style={{ background: '#D9CCF5' }} />Sent</span><span><i style={{ background: '#7447C8' }} />Replies</span></div>
-              </div>
-              <DailyChart sent={sentMail} replies={inbound} />
-            </div>
-            <div className="an-grid metric-grid">
-              <div className="card">
-                <div className="card-head"><div className="card-title">Campaign status</div></div>
-                <div className="chart-wrap">
-                  {['draft', 'ready', 'active', 'paused', 'completed'].map(status => (
-                    <Metric key={status} label={humanize(status)} value={campaigns.filter(c => c.status === status).length.toString()} />
-                  ))}
-                </div>
-              </div>
-              <div className="card">
-                <div className="card-head"><div className="card-title">Reply intent</div></div>
-                <div className="chart-wrap">
-                  {['positive', 'pricing', 'not_interested', 'dnc_request', 'auto_reply'].map(intent => {
-                    const count = inbox.filter(item => item.intent_classification === intent).length;
-                    return (
-                      <div className="an-bar" key={intent}>
-                        <span>{humanize(intent)}</span>
-                        <div className="an-bar-track"><i style={{ width: `${inbound.length ? Math.round((count / inbound.length) * 100) : 0}%` }} /></div>
-                        <b>{count}</b>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </section>
-        ) : null}
+        {loaded && activePage === 'analytics' ? <AnalyticsView sentMail={sentMail} inbox={inbox} campaigns={campaigns} meetings={meetings} emailLeads={emailLeads} /> : null}
 
         {loaded && activePage === 'settings' ? (
           <section>
@@ -1970,41 +1918,4 @@ function ApolloImportProgress({ run, elapsedSeconds }: { run: LeadImportRun; ela
 function humanize(key: string) {
   const text = key.replace(/_/g, ' ');
   return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-const DAY_MS = 86400000;
-
-/** Emails sent and replies received per day over the last 14 days, from messages the page already holds. */
-function DailyChart({ sent, replies }: { sent: EmailMessage[]; replies: EmailMessage[] }) {
-  const days = Array.from({ length: 14 }, (_, index) => {
-    const date = new Date(Date.now() - (13 - index) * DAY_MS);
-    return { key: date.toDateString(), label: String(date.getDate()), sent: 0, replies: 0 };
-  });
-  const byKey = new Map(days.map(day => [day.key, day]));
-  for (const message of sent) {
-    const day = byKey.get(new Date(message.sent_at || message.created_at).toDateString());
-    if (day) day.sent += 1;
-  }
-  for (const message of replies) {
-    const day = byKey.get(new Date(message.received_at || message.created_at).toDateString());
-    if (day) day.replies += 1;
-  }
-  const max = Math.max(1, ...days.map(day => Math.max(day.sent, day.replies)));
-  const base = 200;
-  const scale = 168 / max;
-  return (
-    <svg className="an-chart-svg" viewBox="0 0 760 226" width="100%" role="img" aria-label="Bar chart of emails sent and replies per day">
-      <line x1="0" y1={base} x2="760" y2={base} stroke="var(--rule)" />
-      {days.map((day, index) => {
-        const x = 10 + index * 54.3;
-        return (
-          <g key={day.key}>
-            <rect x={x} y={base - day.sent * scale} width="17" height={day.sent * scale} rx="4" fill="#D9CCF5" />
-            <rect x={x + 18} y={base - day.replies * scale} width="17" height={day.replies * scale} rx="4" fill="#7447C8" />
-            <text x={x + 17.5} y="218" textAnchor="middle" fontSize="11" fill="var(--ink-mute)">{day.label}</text>
-          </g>
-        );
-      })}
-    </svg>
-  );
 }
