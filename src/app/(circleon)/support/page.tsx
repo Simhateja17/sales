@@ -4,11 +4,14 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { apiFetch, isAuthenticationError } from '@/lib/api';
-import '../admin/admin.css';
+import { apiFetch, getSmtpStatus, getWorkspace, isAuthenticationError, type ConnectedAccount, type Workspace, type WorkspaceBilling } from '@/lib/api';
+import Sidebar from '../dashboard/_lib/Sidebar';
+import type { Page } from '../dashboard/_lib/ui';
 
 type Ticket = { id: string; subject: string; status: 'open' | 'answered' | 'closed'; last_message_at: string };
 type Message = { id: string; sender: 'user' | 'admin'; body: string; created_at: string };
+
+const STATUS_LABEL: Record<Ticket['status'], string> = { open: 'Waiting for us', answered: 'Replied', closed: 'Closed' };
 
 export default function SupportPage() {
   return <Suspense fallback={null}><Support /></Suspense>;
@@ -19,6 +22,9 @@ function Support() {
   const ticketId = useSearchParams().get('ticket');
   const [tickets, setTickets] = useState<Ticket[] | null>(null);
   const [error, setError] = useState('');
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [billing, setBilling] = useState<WorkspaceBilling | null>(null);
+  const [smtpAccount, setSmtpAccount] = useState<ConnectedAccount | null>(null);
 
   const load = useCallback(async () => {
     try { setTickets((await apiFetch<{ tickets: Ticket[] }>('/api/support')).tickets); }
@@ -29,32 +35,69 @@ function Support() {
   }, [router]);
   useEffect(() => { load(); }, [load]);
 
+  // The sidebar's trial card and mailbox footer need the workspace; failing to load them must not block support.
+  useEffect(() => {
+    getWorkspace().then(data => { setWorkspace(data.workspace); setBilling(data.billing); }).catch(() => {});
+    getSmtpStatus().then(data => setSmtpAccount(data.account)).catch(() => {});
+  }, []);
+
+  const goTo = (page: Page) => router.push(page === 'overview' ? '/dashboard' : `/dashboard?page=${page}`);
+
   return (
-    <div className="adm-center" style={{ alignItems: 'start' }}>
-      <main className="adm-main" style={{ maxWidth: 760 }}>
-        <Link className="adm-link adm-small" href="/dashboard">← Dashboard</Link>
-        <header className="adm-header"><h1 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 32, margin: 0 }}>Support</h1></header>
-        {error ? <p className="adm-error" role="alert">{error}</p> : null}
+    <>
+      <Sidebar activePage="support" onNavigate={goTo} workspace={workspace} billing={billing} smtpAccount={smtpAccount} pendingReplies={0} onError={setError} />
+      <main className="main-content sup">
+        <div className="page-header">
+          <div>
+            <div className="page-kicker">Help</div>
+            <h2 className="page-title">Support</h2>
+            <p className="page-sub">Ask us anything. We reply here and by email.</p>
+          </div>
+        </div>
+        {error ? <p className="sup-error" role="alert">{error}</p> : null}
         {ticketId
           ? <Thread id={ticketId} onBack={() => { router.push('/support'); load(); }} />
           : <>
-              <NewTicket onCreated={id => router.push(`/support?ticket=${id}`)} />
-              <section className="adm-card">
-                <h2 style={{ margin: 0, fontSize: 15 }}>Your requests</h2>
-                {tickets === null ? <p className="adm-muted">Loading…</p> : tickets.length ? (
-                  <ul className="adm-list">
-                    {tickets.map(t => (
-                      <li key={t.id}>
-                        <Link className="adm-link" href={`/support?ticket=${t.id}`}>{t.subject}</Link>
-                        <span className="adm-small adm-muted">{t.status === 'answered' ? 'Replied' : t.status === 'open' ? 'Waiting for us' : 'Closed'} · {new Date(t.last_message_at).toLocaleDateString()}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : <p className="adm-muted">No requests yet.</p>}
-              </section>
+              <div className="sup-quick">
+                <Link className="sup-q" href="/help">
+                  <span className="sup-q-ic sup-q-purple"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7a3 3 0 013 3v12a2 2 0 00-2-2H4zM20 5h-5a3 3 0 00-3 3v12a2 2 0 012-2h6z" /></svg></span>
+                  <span><b>Help Center</b><small>Guides and answers</small></span>
+                </Link>
+                <Link className="sup-q" href="/demo">
+                  <span className="sup-q-ic sup-q-gold"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg></span>
+                  <span><b>Book a call</b><small>Talk to our team</small></span>
+                </Link>
+              </div>
+              <div className="sup-grid">
+                <NewTicket onCreated={id => router.push(`/support?ticket=${id}`)} />
+                <div className="sup-side">
+                  <div className="sup-sla">
+                    <span className="sup-mono">Response time</span>
+                    <b>Within 1 business day</b>
+                    <p>We reply here and by email. Please do not include passwords or card numbers.</p>
+                  </div>
+                  <section className="sup-panel">
+                    <h3>Your requests</h3>
+                    {tickets === null ? <p className="sup-muted">Loading…</p> : tickets.length ? (
+                      <ul className="sup-list">
+                        {tickets.map(t => (
+                          <li key={t.id}>
+                            <span className={`sup-dot sup-dot-${t.status}`} />
+                            <span>
+                              <Link href={`/support?ticket=${t.id}`}>{t.subject}</Link>
+                              <small>{new Date(t.last_message_at).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}</small>
+                            </span>
+                            <span className={`sup-tag sup-tag-${t.status}`}>{STATUS_LABEL[t.status]}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <p className="sup-muted">No requests yet.</p>}
+                  </section>
+                </div>
+              </div>
             </>}
       </main>
-    </div>
+    </>
   );
 }
 
@@ -72,13 +115,13 @@ function NewTicket({ onCreated }: { onCreated: (id: string) => void }) {
     finally { setBusy(false); }
   }
   return (
-    <form className="adm-card adm-form" onSubmit={submit}>
-      <h2 style={{ margin: 0, fontSize: 15 }}>Ask for help</h2>
-      <p className="adm-muted adm-small" style={{ margin: 0 }}>We reply here and by email, usually within one business day.</p>
-      <label>Subject<input name="subject" minLength={3} maxLength={200} required /></label>
-      <label style={{ maxWidth: 'none' }}>What do you need?<textarea name="body" rows={5} maxLength={10000} required /></label>
-      <button className="adm-btn adm-primary" disabled={busy}>{busy ? 'Sending…' : 'Send'}</button>
-      {error ? <p className="adm-error" role="alert">{error}</p> : null}
+    <form className="sup-panel sup-form" onSubmit={submit}>
+      <h3>Ask for help</h3>
+      <p className="sup-muted">Tell us what happened, what you expected, and the campaign or lead involved.</p>
+      <label>Subject<input name="subject" minLength={3} maxLength={200} required placeholder="e.g. Emails stuck in draft" /></label>
+      <label>What do you need?<textarea name="body" rows={6} maxLength={10000} required /></label>
+      {error ? <p className="sup-error" role="alert">{error}</p> : null}
+      <div className="sup-foot"><button className="btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Send request'}</button></div>
     </form>
   );
 }
@@ -107,26 +150,26 @@ function Thread({ id, onBack }: { id: string; onBack: () => void }) {
   }
 
   return (
-    <>
-      <button className="adm-link adm-small" style={{ alignSelf: 'flex-start' }} onClick={onBack}>← All requests</button>
+    <div className="sup-thread-wrap">
+      <button className="sup-back" type="button" onClick={onBack}>← All requests</button>
       {data ? (
         <>
-          <h2 style={{ margin: 0 }}>{data.ticket.subject}</h2>
-          <section className="adm-thread">
+          <h3 className="sup-thread-title">{data.ticket.subject}</h3>
+          <section className="sup-thread">
             {data.messages.map(m => (
-              <article key={m.id} className={`adm-msg ${m.sender === 'user' ? 'adm-msg-admin' : ''}`}>
-                <header className="adm-small adm-muted">{m.sender === 'admin' ? 'CircleOn support' : 'You'} · {new Date(m.created_at).toLocaleString()}</header>
+              <article key={m.id} className={`sup-msg ${m.sender === 'user' ? 'is-you' : ''}`}>
+                <header>{m.sender === 'admin' ? 'CircleOn support' : 'You'} · {new Date(m.created_at).toLocaleString('en-SG')}</header>
                 <p>{m.body}</p>
               </article>
             ))}
           </section>
-          <form className="adm-card adm-form" onSubmit={send}>
-            <label style={{ maxWidth: 'none' }}>Reply<textarea rows={4} value={reply} onChange={e => setReply(e.target.value)} maxLength={10000} required /></label>
-            <button className="adm-btn adm-primary" disabled={busy || !reply.trim()}>{busy ? 'Sending…' : 'Send'}</button>
+          <form className="sup-panel sup-form" onSubmit={send}>
+            <label>Reply<textarea rows={4} value={reply} onChange={e => setReply(e.target.value)} maxLength={10000} required /></label>
+            <div className="sup-foot"><button className="btn-primary" disabled={busy || !reply.trim()}>{busy ? 'Sending…' : 'Send'}</button></div>
           </form>
         </>
-      ) : !error ? <p className="adm-muted">Loading…</p> : null}
-      {error ? <p className="adm-error" role="alert">{error}</p> : null}
-    </>
+      ) : !error ? <p className="sup-muted">Loading…</p> : null}
+      {error ? <p className="sup-error" role="alert">{error}</p> : null}
+    </div>
   );
 }

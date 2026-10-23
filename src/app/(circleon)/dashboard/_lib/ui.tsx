@@ -1,6 +1,6 @@
 import type { Campaign } from '@/lib/api';
 
-export type Page = 'overview' | 'campaigns' | 'leads' | 'inbox' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
+export type Page = 'overview' | 'campaigns' | 'leads' | 'inbox' | 'calls' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
 
 export const navGroups: Array<{ label: string; items: Array<{ id: Page; label: string }> }> = [
   { label: 'Workspace', items: [
@@ -8,6 +8,7 @@ export const navGroups: Array<{ label: string; items: Array<{ id: Page; label: s
     { id: 'leads', label: 'Leads' },
     { id: 'campaigns', label: 'Campaigns' },
     { id: 'inbox', label: 'Inbox' },
+    { id: 'calls', label: 'Calls' },
     { id: 'meetings', label: 'Meetings' },
   ] },
   { label: 'Insights', items: [{ id: 'analytics', label: 'Analytics' }] },

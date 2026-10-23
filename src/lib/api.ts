@@ -702,6 +702,10 @@ export interface BillingPaymentMethod {
   exp_year: number;
 }
 
+export function getCallingStatus() {
+  return apiFetch<CallingStatus>('/api/calling/status');
+}
+
 export function getBillingInvoices() {
   return apiFetch<{ invoices: BillingInvoice[]; payment_method: BillingPaymentMethod | null }>('/api/billing/invoices');
 }

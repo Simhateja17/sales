@@ -66,6 +66,7 @@ import {
 import Sidebar from './_lib/Sidebar';
 import CampaignBuilderModal, { type CampaignBuilderSubmission } from './_components/CampaignBuilderModal';
 import VoiceSettingsPanel from './_components/VoiceSettingsPanel';
+import CallsView from './_components/CallsView';
 import HomeOverview from './_components/HomeOverview';
 import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, intentBadge, navItems, statusBadge, type Page } from './_lib/ui';
 import { csvTargets, terminalImportStatuses } from './_lib/leadImport';
@@ -573,7 +574,7 @@ function DashboardContent() {
   const [leadDrawerMode, setLeadDrawerMode] = useState<LeadDrawerMode>('profile');
   const [leadDrawerOpen, setLeadDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [meetingsView, setMeetingsView] = useState<'list' | 'calendar'>('list');
+  const [meetingsView, setMeetingsView] = useState<'list' | 'calendar'>('calendar');
   const apolloMonitorRef = useRef('');
   const apolloRecoveryStartedRef = useRef(false);
 
@@ -655,6 +656,24 @@ function DashboardContent() {
     });
   }, [conversationFilter, conversationSearch, conversations]);
   const sentMessages = sentMail.length;
+  const inbound = inbox.filter(item => item.direction === 'inbound');
+  const positiveReplies = inbound.filter(item => item.intent_classification === 'positive').length;
+  const meetingKpis = useMemo(() => {
+    const now = new Date();
+    const todayKey = calendarDateKey(now);
+    const weekEnd = now.getTime() + 7 * 86400000;
+    const upcoming = meetings.filter(m => m.status !== 'canceled' && m.starts_at);
+    const held = meetings.filter(m => m.status === 'completed').length;
+    const missed = meetings.filter(m => m.status === 'no_show').length;
+    return {
+      today: upcoming.filter(m => meetingDateKey(m) === todayKey).length,
+      week: upcoming.filter(m => { const at = new Date(m.starts_at as string).getTime(); return at >= now.getTime() && at <= weekEnd; }).length,
+      month: meetings.filter(m => m.status !== 'canceled' && new Date(m.created_at).getMonth() === now.getMonth() && new Date(m.created_at).getFullYear() === now.getFullYear()).length,
+      showRate: held + missed ? `${Math.round((held / (held + missed)) * 100)}%` : '—',
+    };
+  }, [meetings]);
+  const [campaignFilter, setCampaignFilter] = useState<'all' | 'active' | 'draft' | 'paused'>('all');
+  const filteredCampaigns = campaignFilter === 'all' ? campaigns : campaigns.filter(campaign => campaign.status === campaignFilter);
   const openedMessages = preview.filter(item => item.open_count > 0).length;
 
   useEffect(() => {
@@ -1290,6 +1309,7 @@ function DashboardContent() {
             emailLeads={emailLeads}
             inbox={inbox}
             meetings={meetings}
+            sentMail={sentMail}
             smtpAccount={smtpAccount}
             onCreateCampaign={() => {
               setActivePage('campaigns');
@@ -1298,6 +1318,7 @@ function DashboardContent() {
             onOpenCampaigns={() => setActivePage('campaigns')}
             onOpenLeads={() => setActivePage('leads')}
             onOpenInbox={() => setActivePage('inbox')}
+            onOpenMeetings={() => setActivePage('meetings')}
             onOpenSettings={() => setActivePage('settings')}
           />
         ) : null}
@@ -1306,23 +1327,38 @@ function DashboardContent() {
           <section>
             <div className="page-header">
               <div>
-                <div className="page-kicker">Outbound workspace</div>
-                <h2 className="page-title">Campaigns with a review gate</h2>
-                <p className="page-sub">Build the audience and sequence together, review every generated email, then launch only what you approve.</p>
+                <div className="page-kicker">Outbound</div>
+                <h2 className="page-title">Campaigns</h2>
+                <p className="page-sub">Nothing sends until you approve it. Review every email, then launch.</p>
               </div>
               <div className="page-actions">
                 <button className="btn-primary" type="button" data-tour="create-campaign" onClick={() => openCampaignBuilder()}>New campaign</button>
               </div>
             </div>
+            <ol className="camp-flow" aria-label="How a campaign works">
+              {[
+                ['Pick leads', 'Verified work emails only'],
+                ['Draft sequence', 'First email + 3 follow-ups'],
+                ['You approve', 'Edit or approve each draft'],
+                ['Send and stop', 'Follow-ups stop on reply'],
+              ].map(([title, detail], index) => (
+                <li key={title} className={index === 2 ? 'is-gate' : ''}><i>{index + 1}</i><span><b>{title}</b><small>{detail}</small></span></li>
+              ))}
+            </ol>
+            <div className="camp-bar">
+              <div className="camp-tabs" role="group" aria-label="Filter campaigns">
+                {(['all', 'active', 'draft', 'paused'] as const).map(filter => (
+                  <button key={filter} type="button" className={campaignFilter === filter ? 'on' : ''} onClick={() => setCampaignFilter(filter)}>
+                    {filter === 'all' ? 'All' : humanize(filter)} {filter === 'all' ? campaigns.length : campaigns.filter(c => c.status === filter).length}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="campaign-list-layout">
               <div className="card campaign-list-panel">
-                <div className="card-head">
-                  <div className="card-title">Campaign list</div>
-                  <span className="card-action">{campaigns.length} campaign{campaigns.length === 1 ? '' : 's'}</span>
-                </div>
-                {campaigns.length ? campaigns.map(campaign => (
+                {filteredCampaigns.length ? filteredCampaigns.map(campaign => (
                   <CampaignRow key={campaign.id} campaign={campaign} onClick={() => router.push(`/dashboard/campaigns/${campaign.id}`)} />
-                )) : <EmptyState text="Create your first campaign." />}
+                )) : <EmptyState text={campaigns.length ? 'No campaigns match this filter.' : 'Create your first campaign.'} />}
               </div>
               <aside className="set-panel campaign-list-summary">
                 <div className="sf-lbl">Campaign workflow</div>
@@ -1436,9 +1472,9 @@ function DashboardContent() {
           <section>
             <div className="page-header">
               <div>
-                <div className="page-kicker">Communications</div>
-                <h2 className="page-title">Reply with context</h2>
-                <p className="page-sub">Every reply keeps the lead and company context alongside an AI draft for your approval.</p>
+                <div className="page-kicker">Inbox</div>
+                <h2 className="page-title">Replies</h2>
+                <p className="page-sub">Nothing sends until you approve it.</p>
               </div>
             </div>
             <div className="inbox-workspace" data-tour="inbox-workspace">
@@ -1510,13 +1546,15 @@ function DashboardContent() {
           </section>
         ) : null}
 
+        {loaded && activePage === 'calls' ? <CallsView onOpenSettings={() => { router.push('/dashboard?page=settings&section=voice'); }} /> : null}
+
         {loaded && activePage === 'meetings' ? (
           <section>
             <div className="page-header">
               <div>
                 <div className="page-kicker">Pipeline</div>
-                <h2 className="page-title">Meetings that move forward</h2>
-                <p className="page-sub">Positive replies become a clear, quiet meeting queue.</p>
+                <h2 className="page-title">Meetings</h2>
+                <p className="page-sub">Booked from replies and calls, straight into your calendar. Times in SGT.</p>
               </div>
               <div className="page-actions">
                 {/* The design shows the list only. The month calendar is an
@@ -1538,6 +1576,12 @@ function DashboardContent() {
                 </div>
               </div>
             </div>
+            <div className="mtg-kpis">
+              <div><b>{meetingKpis.today}</b><span>Today</span></div>
+              <div><b>{meetingKpis.week}</b><span>Next 7 days</span></div>
+              <div><b>{meetingKpis.month}</b><span>Booked this month</span></div>
+              <div><b>{meetingKpis.showRate}</b><span>Show-up rate</span></div>
+            </div>
             {meetingsView === 'list' ? <MeetingsList meetings={meetings} /> : <MeetingsCalendar meetings={meetings} />}
           </section>
         ) : null}
@@ -1547,19 +1591,26 @@ function DashboardContent() {
             <div className="page-header">
               <div>
                 <div className="page-kicker">Performance</div>
-                <h2 className="page-title">See what earns a reply</h2>
-                <p className="page-sub">Live campaign, delivery, and conversation signals in one place.</p>
+                <h2 className="page-title">Analytics</h2>
+                <p className="page-sub">See what earns a reply, across email and calls.</p>
               </div>
             </div>
-            <KpiRow
-              dataTour="analytics-kpis"
-              items={[
-                ['Generated', preview.length, 'Ge'],
-                ['Sent', sentMessages, 'Se'],
-                ['Opened', openedMessages, 'Op'],
-                ['Replies', inbox.length, 'Re'],
-              ]}
-            />
+            <div className="an-funnel" data-tour="analytics-kpis" aria-label="Funnel">
+              <div><small>Leads contacted</small><b>{emailLeads.length}</b><span>Verified work emails</span></div>
+              <div><small>Emails sent</small><b>{sentMessages}</b><span>First email + follow-ups</span></div>
+              <div><small>Replies</small><b>{inbound.length}</b><span>{emailLeads.length ? `${((inbound.length / emailLeads.length) * 100).toFixed(1)}% of leads` : 'No leads yet'}</span></div>
+              <div><small>Positive replies</small><b>{positiveReplies}</b><span>{inbound.length ? `${Math.round((positiveReplies / inbound.length) * 100)}% of replies` : 'No replies yet'}</span></div>
+              <div className="is-hi"><small>Meetings booked</small><b>{meetings.length}</b><span>{emailLeads.length ? `${((meetings.length / emailLeads.length) * 100).toFixed(1)}% of leads` : 'No leads yet'}</span></div>
+            </div>            <div className="card an-chart">
+              <div className="card-head">
+                <div>
+                  <div className="card-title">Daily sending and replies</div>
+                  <div className="sf-hint">Last 14 days.</div>
+                </div>
+                <div className="an-legend"><span><i style={{ background: '#D9CCF5' }} />Sent</span><span><i style={{ background: '#7447C8' }} />Replies</span></div>
+              </div>
+              <DailyChart sent={sentMail} replies={inbound} />
+            </div>
             <div className="an-grid metric-grid">
               <div className="card">
                 <div className="card-head"><div className="card-title">Campaign status</div></div>
@@ -1572,9 +1623,16 @@ function DashboardContent() {
               <div className="card">
                 <div className="card-head"><div className="card-title">Reply intent</div></div>
                 <div className="chart-wrap">
-                  {['positive', 'pricing', 'not_interested', 'dnc_request', 'auto_reply'].map(intent => (
-                    <Metric key={intent} label={humanize(intent)} value={inbox.filter(item => item.intent_classification === intent).length.toString()} />
-                  ))}
+                  {['positive', 'pricing', 'not_interested', 'dnc_request', 'auto_reply'].map(intent => {
+                    const count = inbox.filter(item => item.intent_classification === intent).length;
+                    return (
+                      <div className="an-bar" key={intent}>
+                        <span>{humanize(intent)}</span>
+                        <div className="an-bar-track"><i style={{ width: `${inbound.length ? Math.round((count / inbound.length) * 100) : 0}%` }} /></div>
+                        <b>{count}</b>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1586,8 +1644,8 @@ function DashboardContent() {
             <div className="page-header">
               <div>
                 <div className="page-kicker">Workspace controls</div>
-                <h2 className="page-title">Workspace settings</h2>
-                <p className="page-sub">Your sending mailbox, calling number, autopilot and safeguards, all in one place.</p>
+                <h2 className="page-title">Settings</h2>
+                <p className="page-sub">Your sending mailbox, calling number, autopilot and safeguards.</p>
               </div>
             </div>
             <div className="set-grid">
@@ -1600,10 +1658,13 @@ function DashboardContent() {
                 <button type="button" className={`sn-item${settingsSection === 'profile' ? ' active' : ''}`} onClick={() => setSettingsSection('profile')}>Profile</button>
               </div>
               {settingsSection === 'mailbox' ? <form className="set-panel" data-tour="smtp-form" onSubmit={handleSmtpConnect}>
-                <div className="sf">
-                  <div className="sf-lbl">Connected account</div>
-                  <div className="sf-hint">{smtpAccount ? `${smtpAccount.from_email} · ${smtpAccount.status}` : 'No mailbox connected.'}</div>
-                  {smtpAccount ? <div className="sf-hint">SMTP {smtpAccount.smtp_verified_at ? 'verified' : 'not verified'} · IMAP {smtpAccount.imap_verified_at ? 'verified' : 'not verified'}</div> : null}
+                <div className="set-account">
+                  <span className="set-account-ic" aria-hidden="true">{(smtpAccount?.from_email || '?').charAt(0).toUpperCase()}</span>
+                  <div>
+                    <b>{smtpAccount ? smtpAccount.from_email : 'No mailbox connected'}</b>
+                    {smtpAccount ? <span className={`set-account-chip${smtpAccount.status === 'connected' ? '' : ' is-off'}`}>{smtpAccount.status}</span> : null}
+                    <small>{smtpAccount ? `SMTP ${smtpAccount.smtp_verified_at ? 'verified' : 'not verified'} · IMAP ${smtpAccount.imap_verified_at ? 'verified' : 'not verified'}` : 'Connect a mailbox below to start sending.'}</small>
+                  </div>
                 </div>
                 <div className="sf mailbox-presets">
                   <button className={mailboxProvider === 'gmail' ? 'btn-primary' : 'btn-outline'} type="button" onClick={() => applyMailboxPreset('gmail')}>Gmail preset</button>
@@ -1856,4 +1917,41 @@ function ApolloImportProgress({ run, elapsedSeconds }: { run: LeadImportRun; ela
 function humanize(key: string) {
   const text = key.replace(/_/g, ' ');
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+const DAY_MS = 86400000;
+
+/** Emails sent and replies received per day over the last 14 days, from messages the page already holds. */
+function DailyChart({ sent, replies }: { sent: EmailMessage[]; replies: EmailMessage[] }) {
+  const days = Array.from({ length: 14 }, (_, index) => {
+    const date = new Date(Date.now() - (13 - index) * DAY_MS);
+    return { key: date.toDateString(), label: String(date.getDate()), sent: 0, replies: 0 };
+  });
+  const byKey = new Map(days.map(day => [day.key, day]));
+  for (const message of sent) {
+    const day = byKey.get(new Date(message.sent_at || message.created_at).toDateString());
+    if (day) day.sent += 1;
+  }
+  for (const message of replies) {
+    const day = byKey.get(new Date(message.received_at || message.created_at).toDateString());
+    if (day) day.replies += 1;
+  }
+  const max = Math.max(1, ...days.map(day => Math.max(day.sent, day.replies)));
+  const base = 200;
+  const scale = 168 / max;
+  return (
+    <svg className="an-chart-svg" viewBox="0 0 760 226" width="100%" role="img" aria-label="Bar chart of emails sent and replies per day">
+      <line x1="0" y1={base} x2="760" y2={base} stroke="var(--rule)" />
+      {days.map((day, index) => {
+        const x = 10 + index * 54.3;
+        return (
+          <g key={day.key}>
+            <rect x={x} y={base - day.sent * scale} width="17" height={day.sent * scale} rx="4" fill="#D9CCF5" />
+            <rect x={x + 18} y={base - day.replies * scale} width="17" height={day.replies * scale} rx="4" fill="#7447C8" />
+            <text x={x + 17.5} y="218" textAnchor="middle" fontSize="11" fill="var(--ink-mute)">{day.label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
 }
