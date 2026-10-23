@@ -128,7 +128,7 @@ function visibleMessageBody(value?: string | null) {
     .trim() || 'No message content';
 }
 
-function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: { conversation: EmailConversation; onClose: () => void; onRefresh: () => Promise<void>; onError: (message: string) => void }) {
+function ConversationThreadModal({ conversation, onClose, onRefresh, onError, inline = false, onDirtyChange }: { conversation: EmailConversation; onClose: () => void; onRefresh: () => Promise<void>; onError: (message: string) => void; inline?: boolean; onDirtyChange?: (dirty: boolean) => void }) {
   const [messages, setMessages] = useState<EmailMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(true);
@@ -155,7 +155,10 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
   }
 
   useEffect(() => { loadThread(); }, [conversation.lead_id]);
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty]);
+  useEffect(() => () => onDirtyChange?.(false), []);
   useEffect(() => {
+    if (inline) return;
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') requestClose(); };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -209,20 +212,8 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
     }
   }
 
-  return (
-    // The design opens the thread in the same right-hand drawer used elsewhere,
-    // not a centred modal.
-    <div className="detail-drawer-overlay" role="presentation" onMouseDown={requestClose}>
-      <aside className="detail-drawer conversation-drawer" role="dialog" aria-modal="true" aria-label={`Conversation with ${conversation.lead.full_name}`} onMouseDown={event => event.stopPropagation()}>
-        <div className="detail-drawer-head">
-          <div>
-            <p className="detail-drawer-eyebrow">Thread</p>
-            <h3>{conversation.latest_message.subject || `Conversation with ${conversation.lead.full_name || conversation.lead.email}`}</h3>
-            <div className="sf-hint" style={{ marginTop: 6 }}>{conversation.lead.full_name || conversation.lead.email}{conversation.lead.company_name ? ` · ${conversation.lead.company_name}` : ''}</div>
-          </div>
-          <button type="button" className="detail-drawer-close" aria-label="Close conversation" onClick={requestClose}>×</button>
-        </div>
-        <div className="detail-drawer-body">
+  const body = (
+    <>
         <div className="conversation-thread">
           {loading ? <div className="sf-hint">Loading conversation…</div> : messages.map(message => <article key={message.id} className={`thread-message ${message.direction === 'outbound' ? 'is-outbound' : 'is-inbound'}`}>
             <div className="thread-message-meta"><strong>{message.direction === 'outbound' ? 'You' : conversation.lead.full_name}</strong><span>{fmtDate(message.sent_at || message.received_at || message.created_at)}</span></div>
@@ -237,6 +228,39 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError }: 
           <textarea value={draft} onChange={event => { setDraft(event.target.value); setDirty(true); }} placeholder="Write your reply here…" />
           <div className="conversation-composer-actions"><button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={handleGenerate}>{busy === 'generate' ? 'CircleOn is writing…' : 'Let CircleOn Generate'}</button><button className="btn-primary" type="button" disabled={busy === 'approve' || !draft.trim()} onClick={handleApprove}>{busy === 'approve' ? 'Sending…' : 'Approve & send'}</button></div>
         </div> : <div className="conversation-closed-note"><span>This conversation has no reply awaiting approval.</span><button className="btn-outline" type="button" onClick={() => setComposerOpen(true)}>Write a reply</button></div>}
+    </>
+  );
+
+  if (inline) {
+    return (
+      <section className="ib-pane" aria-label={`Conversation with ${conversation.lead.full_name}`}>
+        <div className="ib-pane-head">
+          <div>
+            <h3>{conversation.lead.full_name || conversation.lead.email}</h3>
+            <small>{[conversation.lead.title, conversation.lead.company_name, conversation.campaign_name].filter(Boolean).join(' · ')}</small>
+          </div>
+          {conversation.latest_message.intent_classification ? <span className={`badge ${intentBadge(conversation.latest_message.intent_classification)}`}>{conversation.latest_message.intent_classification.replace(/_/g, ' ')}</span> : null}
+        </div>
+        <div className="ib-pane-body">{body}</div>
+      </section>
+    );
+  }
+
+  return (
+    // The design opens the thread in the same right-hand drawer used elsewhere,
+    // not a centred modal.
+    <div className="detail-drawer-overlay" role="presentation" onMouseDown={requestClose}>
+      <aside className="detail-drawer conversation-drawer" role="dialog" aria-modal="true" aria-label={`Conversation with ${conversation.lead.full_name}`} onMouseDown={event => event.stopPropagation()}>
+        <div className="detail-drawer-head">
+          <div>
+            <p className="detail-drawer-eyebrow">Thread</p>
+            <h3>{conversation.latest_message.subject || `Conversation with ${conversation.lead.full_name || conversation.lead.email}`}</h3>
+            <div className="sf-hint" style={{ marginTop: 6 }}>{conversation.lead.full_name || conversation.lead.email}{conversation.lead.company_name ? ` · ${conversation.lead.company_name}` : ''}</div>
+          </div>
+          <button type="button" className="detail-drawer-close" aria-label="Close conversation" onClick={requestClose}>×</button>
+        </div>
+        <div className="detail-drawer-body">
+        {body}
         </div>
       </aside>
     </div>
@@ -533,7 +557,8 @@ function DashboardContent() {
   const [inbox, setInbox] = useState<EmailMessage[]>([]);
   const [sentMail, setSentMail] = useState<EmailMessage[]>([]);
   const [conversations, setConversations] = useState<EmailConversation[]>([]);
-  const [openedConversation, setOpenedConversation] = useState<EmailConversation | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState('');
+  const [inboxDirty, setInboxDirty] = useState(false);
   const [conversationFilter, setConversationFilter] = useState<'all' | 'needs_reply' | 'draft_ready' | 'sent' | 'positive' | 'unsubscribed'>('all');
   const [conversationSearch, setConversationSearch] = useState('');
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -656,6 +681,13 @@ function DashboardContent() {
     });
   }, [conversationFilter, conversationSearch, conversations]);
   const sentMessages = sentMail.length;
+  const selectedConversation = visibleConversations.find(item => item.lead_id === selectedConversationId) || visibleConversations[0] || null;
+  function selectConversation(conversation: EmailConversation) {
+    if (conversation.lead_id === selectedConversation?.lead_id) return;
+    if (inboxDirty && !window.confirm('Discard your unsent reply draft?')) return;
+    setInboxDirty(false);
+    setSelectedConversationId(conversation.lead_id);
+  }
   const inbound = inbox.filter(item => item.direction === 'inbound');
   const positiveReplies = inbound.filter(item => item.intent_classification === 'positive').length;
   const meetingKpis = useMemo(() => {
@@ -719,7 +751,7 @@ function DashboardContent() {
   // holds off while a modal or drawer is open so content never shifts under an
   // interaction. Failures stay silent: this is not something the user asked for,
   // so it must never raise a banner over their work.
-  const backgroundRefreshBlocked = showCampaignForm || leadDrawerOpen || Boolean(openedConversation);
+  const backgroundRefreshBlocked = showCampaignForm || leadDrawerOpen || inboxDirty;
   const backgroundRefreshBlockedRef = useRef(backgroundRefreshBlocked);
   backgroundRefreshBlockedRef.current = backgroundRefreshBlocked;
 
@@ -1469,80 +1501,81 @@ function DashboardContent() {
         ) : null}
 
         {loaded && activePage === 'inbox' ? (
-          <section>
-            <div className="page-header">
-              <div>
+          <section className="ib" data-tour="inbox-workspace">
+            <div className="ib-col ib-list">
+              <div className="ib-list-head">
                 <div className="page-kicker">Inbox</div>
-                <h2 className="page-title">Replies</h2>
-                <p className="page-sub">Nothing sends until you approve it.</p>
+                <h2>Replies</h2>
+                <p>Nothing sends until you approve it.</p>
+                <div className="ib-search">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                  <input aria-label="Search conversations" value={conversationSearch} onChange={event => setConversationSearch(event.target.value)} placeholder="Search conversations" />
+                </div>
+                <div className="ib-filters" role="group" aria-label="Filter conversations">
+                  {(['all', 'needs_reply', 'draft_ready', 'sent', 'positive', 'unsubscribed'] as const).map(filter => (
+                    <button key={filter} type="button" className={conversationFilter === filter ? 'on' : ''} onClick={() => setConversationFilter(filter)}>
+                      {filter === 'all' ? `All ${conversations.length}` : humanize(filter)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="ib-items">
+                {visibleConversations.length ? visibleConversations.map(conversation => {
+                  const intent = conversation.latest_message.intent_classification;
+                  return (
+                    <button
+                      key={conversation.lead_id}
+                      type="button"
+                      className={`ib-item${selectedConversation?.lead_id === conversation.lead_id ? ' on' : ''}`}
+                      onClick={() => selectConversation(conversation)}
+                    >
+                      <span className="ib-av">{initials(conversation.lead.full_name)}</span>
+                      <span className="ib-item-body">
+                        <span className="ib-item-top"><b>{conversation.lead.full_name || conversation.lead.email || 'Conversation'}</b><time>{fmtDate(conversation.last_message_at)}</time></span>
+                        <small>{conversation.lead.company_name || conversation.lead.email}</small>
+                        <span className="ib-item-msg">{messagePreview(conversation.latest_message.body || conversation.latest_message.draft_body)}</span>
+                        {intent ? <span className={`ib-tag ib-tag-${intent === 'positive' ? 'pos' : intent === 'dnc_request' ? 'un' : intent === 'auto_reply' ? 'ar' : 'nr'}`}>{intent.replace(/_/g, ' ')}</span>
+                          : conversation.needs_reply ? <span className="ib-tag ib-tag-nr">Needs reply</span> : null}
+                      </span>
+                    </button>
+                  );
+                }) : <EmptyState text="No conversations match this filter yet." />}
               </div>
             </div>
-            <div className="inbox-workspace" data-tour="inbox-workspace">
-              <div className="card inbox-thread-panel">
-                <div className="card-head">
-                  <div>
-                    <div className="card-title">Reply queue</div>
-                    <div className="sf-hint">Approve a draft when it is ready to send.</div>
-                  </div>
-                  <span className="card-action">{visibleConversations.length} conversation{visibleConversations.length === 1 ? '' : 's'}</span>
-                </div>
-                <div className="conversation-controls">
-                  <div className="conversation-search">
-                    <svg className="conversation-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-                    <input aria-label="Search conversations" value={conversationSearch} onChange={event => setConversationSearch(event.target.value)} placeholder="Search conversations" />
-                    {conversationSearch ? (
-                      <button type="button" className="conversation-search-clear" aria-label="Clear search" onClick={() => setConversationSearch('')}>×</button>
-                    ) : null}
-                  </div>
-                  <div className="conversation-filter-list">{(['all', 'needs_reply', 'draft_ready', 'sent', 'positive', 'unsubscribed'] as const).map(filter => <button key={filter} type="button" className={conversationFilter === filter ? 'is-active' : ''} onClick={() => setConversationFilter(filter)}>{filter === 'all' ? 'All' : filter.replace(/_/g, ' ')}</button>)}</div>
-                </div>
-                {visibleConversations.length ? visibleConversations.map(conversation => (
-                  <div key={conversation.lead_id} className="call-card message-row" role="button" tabIndex={0} aria-label={`Open conversation with ${conversation.lead.full_name || conversation.lead.email}`} onClick={() => setOpenedConversation(conversation)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpenedConversation(conversation); } }}>
-                    <div className="call-av">{initials(conversation.lead.full_name)}</div>
-                    <div className="call-meta">
-                      <div className="call-name">{conversation.lead.full_name || conversation.lead.email || 'Conversation'}</div>
-                      <div className="call-detail">{conversation.lead.company_name || conversation.lead.email} · {fmtDate(conversation.last_message_at)}</div>
-                      <div className="message-row-preview">{messagePreview(conversation.latest_message.body)}</div>
-                    </div>
-                    <div className="call-right">
-                      {conversation.latest_message.intent_classification ? (
-                        <span className={`badge ${intentBadge(conversation.latest_message.intent_classification)}`}>
-                          {conversation.latest_message.intent_classification.replace(/_/g, ' ')}
-                        </span>
-                      ) : null}
-                      {/* Opens the thread rather than sending straight away.
-                          The design does the same, and this panel's own copy
-                          says the reply is never sent just because it was
-                          drafted — approving unread would contradict that.
-                          The actual approve lives in the thread drawer. */}
-                      <button
-                        type="button"
-                        className="btn-outline reply-approve"
-                        title={conversation.draft_ready ? 'Review the drafted reply' : 'No draft ready yet — open the thread'}
-                        onClick={event => {
-                          event.stopPropagation();
-                          setOpenedConversation(conversation);
-                        }}
-                      >
-                        Approve reply
-                      </button>
-                    </div>
-                  </div>
-                )) : <EmptyState text="No conversations match this filter yet." />}
-              </div>
-              <aside className="set-panel inbox-summary-panel">
-                <div className="sf-lbl">Conversation health</div>
-                <div className="msl-list" style={{ marginTop: 18 }}>
-                  {/* Three rows, matching the design. "Needs review" is the
-                      queue this page exists to clear: replies with a draft
-                      waiting on you. */}
-                  <Metric label="Needs review" value={pendingReplies.length.toString()} />
-                  <Metric label="Positive intent" value={conversations.filter(item => item.positive_intent).length.toString()} />
-                  <Metric label="Meetings booked" value={meetings.length.toString()} />
-                </div>
-                <div className="sf-hint" style={{ marginTop: 18 }}>Your reply is never sent just because it was drafted. Check the tone and approve it deliberately.</div>
-              </aside>
+
+            <div className="ib-col ib-main">
+              {selectedConversation
+                ? <ConversationThreadModal key={selectedConversation.lead_id} inline conversation={selectedConversation} onClose={() => setSelectedConversationId('')} onRefresh={refreshAll} onError={setMessage} onDirtyChange={setInboxDirty} />
+                : <div className="ib-empty"><b>Select a conversation</b><p>Replies keep the lead and company context beside an AI draft for your approval.</p></div>}
             </div>
+
+            <aside className="ib-col ib-ctx" aria-label="Context">
+              {selectedConversation ? (
+                <>
+                  <div className="ib-card">
+                    <div className="ib-mono">Lead</div>
+                    <div className="ib-kv"><span>Email</span><b>{selectedConversation.lead.email ? 'Verified' : 'Not verified'}</b></div>
+                    <div className="ib-kv"><span>Role</span><b>{selectedConversation.lead.title || '—'}</b></div>
+                    <div className="ib-kv"><span>Company</span><b>{selectedConversation.lead.company_name || '—'}</b></div>
+                    <div className="ib-kv"><span>Campaign</span><b>{selectedConversation.campaign_name || '—'}</b></div>
+                    <div className="ib-kv"><span>Messages</span><b>{selectedConversation.message_count}</b></div>
+                  </div>
+                  {selectedConversation.positive_intent ? (
+                    <div className="ib-card">
+                      <div className="ib-mono">Next step</div>
+                      <p>They showed interest. Review the draft reply, or book time through your calendar link.</p>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              <div className="ib-card">
+                <div className="ib-mono">Conversation health</div>
+                <div className="ib-health"><span>Needs review</span><b>{pendingReplies.length}</b></div>
+                <div className="ib-health"><span>Positive intent</span><b>{conversations.filter(item => item.positive_intent).length}</b></div>
+                <div className="ib-health"><span>Meetings booked</span><b>{meetings.length}</b></div>
+                <p className="ib-note">A reply is never sent just because it was drafted. Check the tone and approve it deliberately.</p>
+              </div>
+            </aside>
           </section>
         ) : null}
 
@@ -1650,12 +1683,12 @@ function DashboardContent() {
             </div>
             <div className="set-grid">
               <div className="set-nav">
-                <button type="button" className={`sn-item${settingsSection === 'mailbox' ? ' active' : ''}`} onClick={() => setSettingsSection('mailbox')}>SMTP and IMAP</button>
-                <button type="button" className={`sn-item${settingsSection === 'voice' ? ' active' : ''}`} onClick={() => setSettingsSection('voice')}>Calling</button>
-                <button type="button" className={`sn-item${settingsSection === 'autopilot' ? ' active' : ''}`} onClick={() => setSettingsSection('autopilot')}>Autopilot</button>
-                <button type="button" className={`sn-item${settingsSection === 'workspace' ? ' active' : ''}`} onClick={() => setSettingsSection('workspace')}>Workspace</button>
-                <button type="button" className={`sn-item${settingsSection === 'compliance' ? ' active' : ''}`} onClick={() => setSettingsSection('compliance')}>Compliance</button>
-                <button type="button" className={`sn-item${settingsSection === 'profile' ? ' active' : ''}`} onClick={() => setSettingsSection('profile')}>Profile</button>
+                <button type="button" className={`sn-item${settingsSection === 'mailbox' ? ' active' : ''}`} onClick={() => setSettingsSection('mailbox')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6" /></svg>Email account</button>
+                <button type="button" className={`sn-item${settingsSection === 'voice' ? ' active' : ''}`} onClick={() => setSettingsSection('voice')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-3 2a11 11 0 005 5l2-3 5 2v4a2 2 0 01-2 2A17 17 0 013 6a2 2 0 012-2z" /></svg>Calling</button>
+                <button type="button" className={`sn-item${settingsSection === 'autopilot' ? ' active' : ''}`} onClick={() => setSettingsSection('autopilot')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>Autopilot</button>
+                <button type="button" className={`sn-item${settingsSection === 'workspace' ? ' active' : ''}`} onClick={() => setSettingsSection('workspace')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 11h6M9 15h6" /></svg>Workspace</button>
+                <button type="button" className={`sn-item${settingsSection === 'compliance' ? ' active' : ''}`} onClick={() => setSettingsSection('compliance')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4" /></svg>Compliance</button>
+                <button type="button" className={`sn-item${settingsSection === 'profile' ? ' active' : ''}`} onClick={() => setSettingsSection('profile')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0" /></svg>Profile</button>
               </div>
               {settingsSection === 'mailbox' ? <form className="set-panel" data-tour="smtp-form" onSubmit={handleSmtpConnect}>
                 <div className="set-account">
@@ -1854,7 +1887,6 @@ function DashboardContent() {
         }}
         onSubmit={handleCreateCampaign}
       />
-      {openedConversation ? <ConversationThreadModal conversation={openedConversation} onClose={() => setOpenedConversation(null)} onRefresh={refreshAll} onError={setMessage} /> : null}
     </>
   );
 }
