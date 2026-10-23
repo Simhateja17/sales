@@ -1810,3 +1810,10 @@ body{background:var(--paper);}
 /* Header actions sit on the title's baseline, as in the design; Leads keeps its top-aligned action. */
 .page-header{align-items:flex-end;}
 .leads-page .page-header{align-items:flex-start;}
+
+/* Calendar cells: number top-left, events beneath; selection is a soft tint, not an outline (as in the design). */
+.calendar-booking-day{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:4px;}
+.calendar-booking-day .cal-booking-stack{align-self:stretch;}
+.calendar-booking-day .cal-date-number{margin-bottom:0;}
+.calendar-booking-day.selected,.calendar-booking-day.today.selected{box-shadow:none;border-color:transparent;}
+.calendar-booking-day.selected:not(.today){background:var(--surface-sunken);}
