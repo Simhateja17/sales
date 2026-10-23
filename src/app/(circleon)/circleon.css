@@ -1738,3 +1738,66 @@ body{background:var(--paper);}
 .sn-item{display:flex;align-items:center;gap:12px;}
 .sn-item svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;color:var(--ink-mute);}
 .sn-item.active svg{color:var(--brand);}
+
+/* Auth: split screen */
+.au{display:flex;min-height:100vh;background:#fff;font-family:'DM Sans',system-ui,sans-serif;color:#1A172C;}
+.au-l{flex:0 0 46%;max-width:680px;background:#14111F;color:#F4F0FF;position:relative;overflow:hidden;padding:44px 56px;display:flex;flex-direction:column;justify-content:space-between;gap:40px;}
+.au-l:before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 15% 115%,rgba(116,71,200,.6),transparent 62%),radial-gradient(ellipse 50% 40% at 100% 0%,rgba(196,158,98,.25),transparent 65%);}
+.au-l>*{position:relative;}
+.au-l .au-orbit{position:absolute;right:-200px;top:-200px;width:600px;height:600px;opacity:.55;pointer-events:none;}
+.au-r{flex:1;display:flex;align-items:center;justify-content:center;padding:48px 28px;background:#FBFAFF;}
+.au-card{width:100%;max-width:468px;background:#fff;border:1px solid #E6E2F1;border-radius:28px;padding:40px;box-shadow:0 30px 80px -44px rgba(71,30,134,.4);color:#1A172C;}
+.au-logo{display:flex;align-items:center;gap:11px;text-decoration:none;color:#fff;}
+.au-logo b{font-size:21px;font-weight:800;letter-spacing:-.04em;}
+.au-logo b span{color:#DBB557;}
+.au-ring{width:28px;height:28px;border-radius:50%;border:2.5px solid #9B7BE0;display:inline-flex;align-items:center;justify-content:center;}
+.au-ring i{width:8px;height:8px;border-radius:50%;background:#DBB557;}
+.au-pitch{display:flex;flex-direction:column;gap:24px;}
+.au-pitch p{font-size:16.5px;line-height:1.6;color:#CFC6DD;max-width:440px;margin:0;}
+.au-lh{font-family:'Cormorant Garamond',serif;font-size:56px;font-weight:500;line-height:1.02;letter-spacing:-.04em;color:#fff;margin:0;}
+.au-lh em{font-style:italic;color:#DBB557;}
+.au-points{display:flex;flex-direction:column;gap:16px;max-width:460px;}
+.au-chk{display:flex;gap:12px;align-items:flex-start;font-size:15.5px;line-height:1.5;color:#E3DCF5;}
+.au-chk i{flex:none;width:24px;height:24px;border-radius:50%;background:rgba(219,181,87,.14);border:1px solid rgba(219,181,87,.55);display:flex;align-items:center;justify-content:center;margin-top:1px;}
+.au-chk svg{width:13px;height:13px;stroke:#DBB557;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}
+.au-legal{font-size:13px;color:#A99FBD;line-height:1.6;}
+.au-eyebrow{display:inline-flex;align-items:center;gap:8px;font:500 11px 'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#805F2B;}
+.au-eyebrow:before{content:"";width:7px;height:7px;border-radius:50%;background:#C49E62;}
+.au-eyebrow-w{color:#DBB557;}
+.au-h2{font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:500;letter-spacing:-.035em;line-height:1.05;margin:12px 0 26px;color:#1A172C;}
+.au-sub{font-size:15px;line-height:1.55;color:#565267;margin:-14px 0 26px;}
+.au-stack{display:flex;flex-direction:column;gap:12px;}
+.au-social{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;height:52px;border-radius:14px;border:1px solid #D5D0E4;background:#fff;font:600 15px 'DM Sans',sans-serif;color:#1A172C;cursor:pointer;}
+.au-social:hover{background:#F7F4FF;border-color:#BDB8CE;}
+.au-social svg{width:20px;height:20px;}
+.au-or{display:flex;align-items:center;gap:14px;margin:22px 0;font:500 11px 'DM Mono',monospace;letter-spacing:.1em;color:#716F82;text-transform:uppercase;}
+.au-or:before,.au-or:after{content:"";flex:1;height:1px;background:#E6E2F1;}
+.au-form{display:flex;flex-direction:column;gap:16px;}
+.au-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;}
+.au-field{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:600;color:#1A172C;}
+.au-field input{font:400 16px 'DM Sans',sans-serif;color:#1A172C;padding:14px 16px;border-radius:12px;border:1px solid #BDB8CE;background:#fff;width:100%;box-sizing:border-box;}
+.au-field input::placeholder{color:#9A96AC;}
+.au-field input:focus{outline:2px solid #7447C8;outline-offset:1px;border-color:#7447C8;}
+.au-field input:disabled{background:#F7F4FF;color:#565267;}
+.au-otp{letter-spacing:.35em;font-size:22px!important;font-weight:600;text-align:center;}
+.au-check{display:flex;gap:12px;align-items:flex-start;font-size:13.5px;line-height:1.55;color:#565267;}
+.au-check input{width:20px;height:20px;margin:1px 0 0;accent-color:#7447C8;flex:none;}
+.au-check a{color:#5B32A8;}
+.au-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;height:54px;border:0;border-radius:99px;background:#7447C8;color:#fff;font:800 15px 'DM Sans',sans-serif;cursor:pointer;box-shadow:0 12px 28px rgba(116,71,200,.32);}
+.au-btn:hover:not(:disabled){background:#5B32A8;}
+.au-btn:disabled{opacity:.7;cursor:wait;}
+.au-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.au-link{align-self:flex-start;border:0;background:none;color:#5B32A8;font:600 14px 'DM Sans',sans-serif;cursor:pointer;padding:0;}
+.au-foot{text-align:center;margin:22px 0 0;font-size:13.5px;color:#565267;}
+.au-foot a{color:#5B32A8;font-weight:600;text-decoration:none;}
+.au-foot a:hover{text-decoration:underline;}
+.au-error{background:#FFF5F5;border:1px solid #F4B4B4;color:#B44C4C;padding:10px 14px;border-radius:12px;font-size:13px;margin-bottom:14px;}
+.au-success{background:#DCFCE7;border:1px solid #A7E9BF;color:#15803D;padding:10px 14px;border-radius:12px;font-size:13px;margin-bottom:14px;}
+@media(max-width:900px){.au{flex-direction:column;}.au-l{flex:none;max-width:none;padding:32px 24px;gap:24px;}.au-lh{font-size:40px;}.au-card{padding:28px 22px;}}
+
+/* Onboarding and plan screens: new brand buttons and logo */
+.btn-next{background:var(--brand);box-shadow:0 12px 28px rgba(116,71,200,.32);border-radius:99px;font-weight:800;padding:14px 28px;}
+.btn-next:hover:not(:disabled){background:var(--brand-deep);box-shadow:0 12px 28px rgba(116,71,200,.4);}
+.start-card{border-radius:28px;border-color:#E6E2F1;box-shadow:0 30px 80px -44px rgba(71,30,134,.4);}
+.ps-logo{font:800 20px 'DM Sans',sans-serif;letter-spacing:-.04em;color:var(--ink);}
+.ps-logo .sb-mark{flex:none;}

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { getWorkspace } from '@/lib/api';
+import AuthShell, { ARROW, GOOGLE_ICON } from '../_auth/AuthShell';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
@@ -108,70 +109,30 @@ function LoginContent() {
   };
 
   return (
-    <div className="screen active" id="login">
-      <div className="start-card" style={{ maxWidth: 560 }}>
-        <div className="start-top">
-          <div className="start-kicker"><span className="ob-cat-dot" />Welcome Back</div>
-          <div className="start-title">Log in to CircleOn AI</div>
-          <p className="start-sub">Continue where you left off and manage your sales agents.</p>
-        </div>
-        <div className="start-body">
-          <div className="social-stack">
-            <button className="social-btn" onClick={handleGoogleLogin}>
-              <svg viewBox="0 0 24 24" fill="none" style={{ width: 14, height: 14 }}>
-                <path d="M22 12.22c0-.78-.07-1.53-.2-2.25H12v4.26h5.6a4.79 4.79 0 0 1-2.08 3.14v2.6h3.36C20.85 18.12 22 15.43 22 12.22z" fill="#4285F4"/>
-                <path d="M12 22c2.7 0 4.97-.9 6.63-2.43l-3.36-2.6c-.93.62-2.12.99-3.27.99-2.52 0-4.66-1.7-5.42-3.98H3.11v2.68A10 10 0 0 0 12 22z" fill="#34A853"/>
-                <path d="M6.58 13.98A5.99 5.99 0 0 1 6.28 12c0-.69.12-1.37.3-1.98V7.34H3.11A10 10 0 0 0 2 12c0 1.61.38 3.13 1.11 4.66l3.47-2.68z" fill="#FBBC05"/>
-                <path d="M12 6.04c1.47 0 2.78.5 3.81 1.5l2.86-2.86C16.97 3.06 14.7 2 12 2a10 10 0 0 0-8.89 5.34l3.47 2.68c.76-2.28 2.9-3.98 5.42-3.98z" fill="#EA4335"/>
-              </svg>
-              Continue with Google Mail
-            </button>
-          </div>
-          <div className="or-row">or log in with email</div>
-
-          {error && (
-            <div style={{ background: 'var(--red-pale)', border: '1px solid var(--red-border)', color: 'var(--red-text)', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
-              {error}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <input className="ob-inp" type="email" autoComplete="email" placeholder="Work email" value={email} disabled={otpRequested} onChange={(e) => setEmail(e.target.value)} />
-            {otpRequested && (
-              <>
-                <input
-                  className="ob-inp"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={10}
-                  placeholder="Verification code"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                />
-                <button className="btn-back" type="button" onClick={() => { setOtpRequested(false); setOtp(''); setError(''); }}>
-                  Use a different email
-                </button>
-              </>
-            )}
-          </div>
-          <div className="start-foot">
-            New to CircleOn AI?{' '}
-            <Link href="/signup">Create account</Link>
-          </div>
-        </div>
-        <div className="start-nav">
-          <button className="btn-back" onClick={() => router.push('/signup')}>← Back</button>
-          <button className="btn-next" onClick={otpRequested ? verifyOtp : requestOtp} disabled={loading}>
-            {loading ? 'Please wait…' : otpRequested ? 'Verify & Log In' : 'Email Me a Code'}{' '}
-            {!loading && (
-              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            )}
-          </button>
-        </div>
+    <AuthShell variant="login">
+      <div className="au-eyebrow">Log in</div>
+      <h2 className="au-h2">Log in to CircleOn</h2>
+      <div className="au-stack">
+        <button className="au-social" type="button" onClick={handleGoogleLogin}>{GOOGLE_ICON}Continue with Google</button>
       </div>
-    </div>
+      <div className="au-or">or log in with email</div>
+      {error ? <div className="au-error" role="alert">{error}</div> : null}
+      <form className="au-form" onSubmit={event => { event.preventDefault(); if (!loading) (otpRequested ? verifyOtp : requestOtp)(); }}>
+        <label className="au-field">Work email
+          <input type="email" autoComplete="email" placeholder="jane@acme.com.sg" value={email} disabled={otpRequested} onChange={e => setEmail(e.target.value)} />
+        </label>
+        {otpRequested ? (
+          <label className="au-field">Verification code
+            <input className="au-otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={10} placeholder="Enter the code" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))} />
+          </label>
+        ) : null}
+        <button className="au-btn" type="submit" disabled={loading}>
+          {loading ? 'Please wait…' : otpRequested ? 'Verify and log in' : 'Email me a code'}
+          {!loading ? ARROW : null}
+        </button>
+        {otpRequested ? <button className="au-link" type="button" onClick={() => { setOtpRequested(false); setOtp(''); setError(''); }}>← Use a different email</button> : null}
+      </form>
+      <p className="au-foot">New to CircleOn? <Link href="/signup">Start your 7-day free trial</Link></p>
+    </AuthShell>
   );
 }

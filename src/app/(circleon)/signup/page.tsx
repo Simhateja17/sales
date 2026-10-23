@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import AuthShell, { APPLE_ICON, ARROW, GOOGLE_ICON } from '../_auth/AuthShell';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
@@ -94,94 +95,44 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="screen active" id="signup">
-      <div className="start-card">
-        <div className="start-top">
-          <div className="start-kicker"><span className="ob-cat-dot" />Account Setup</div>
-          <div className="start-title">Create your CircleOn AI workspace</div>
-          <p className="start-sub">Set up your account so your team can start building and launching your sales agent.</p>
-        </div>
-        <div className="start-body">
-          <div className="social-stack">
-            <button className="social-btn" onClick={handleGoogleSignup}>
-              <svg viewBox="0 0 24 24" fill="none" style={{ width: 14, height: 14 }}>
-                <path d="M22 12.22c0-.78-.07-1.53-.2-2.25H12v4.26h5.6a4.79 4.79 0 0 1-2.08 3.14v2.6h3.36C20.85 18.12 22 15.43 22 12.22z" fill="#4285F4"/>
-                <path d="M12 22c2.7 0 4.97-.9 6.63-2.43l-3.36-2.6c-.93.62-2.12.99-3.27.99-2.52 0-4.66-1.7-5.42-3.98H3.11v2.68A10 10 0 0 0 12 22z" fill="#34A853"/>
-                <path d="M6.58 13.98A5.99 5.99 0 0 1 6.28 12c0-.69.12-1.37.3-1.98V7.34H3.11A10 10 0 0 0 2 12c0 1.61.38 3.13 1.11 4.66l3.47-2.68z" fill="#FBBC05"/>
-                <path d="M12 6.04c1.47 0 2.78.5 3.81 1.5l2.86-2.86C16.97 3.06 14.7 2 12 2a10 10 0 0 0-8.89 5.34l3.47 2.68c.76-2.28 2.9-3.98 5.42-3.98z" fill="#EA4335"/>
-              </svg>
-              Sign up with Google Mail
-            </button>
-            <button className="social-btn">
-              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14 }}>
-                <path d="M16.37 1.43c0 1.14-.46 2.23-1.25 3.04-.8.8-1.87 1.23-2.99 1.19-.02-1.12.42-2.25 1.22-3.02.8-.8 1.95-1.27 3.02-1.21zM20.5 17.1c-.6 1.34-.9 1.94-1.67 3.1-1.08 1.62-2.6 3.64-4.49 3.66-1.68.02-2.12-1.1-4.4-1.09-2.27 0-2.74 1.11-4.42 1.1-1.88-.02-3.31-1.84-4.4-3.46C-2.1 15.4.18 7.78 5.6 7.45c1.74-.1 3.38 1.18 4.44 1.18 1.04 0 2.98-1.45 5.03-1.24.85.03 3.22.34 4.75 2.6-4.17 2.28-3.5 8.2.68 7.11z"/>
-              </svg>
-              Sign up with Apple
-            </button>
-          </div>
-          <div className="or-row">or sign up with email</div>
-
-          {error && (
-            <div style={{ background: 'var(--red-pale)', border: '1px solid var(--red-border)', color: 'var(--red-text)', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
-              {error}
-            </div>
-          )}
-          {success && (
-            <div style={{ background: 'var(--green-pale)', border: '1px solid var(--green-border)', color: 'var(--green-text)', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
-              {success}
-            </div>
-          )}
-
-          <div className="start-grid">
-            <input className="ob-inp" type="text" placeholder="Your full name" value={fullName} disabled={otpRequested} onChange={(e) => setFullName(e.target.value)} />
-            <input className="ob-inp" type="text" placeholder="Business name" value={businessName} disabled={otpRequested} onChange={(e) => setBusinessName(e.target.value)} />
-            <input className="ob-inp" type="email" autoComplete="email" placeholder="Work email" value={email} disabled={otpRequested} onChange={(e) => setEmail(e.target.value)} />
-            {isPersonalEmail(email) && !otpRequested ? (
-              <p className="signup-email-note">Free trials need a company email. You can still sign up with this address, but the trial will wait for a quick manual approval.</p>
-            ) : null}
-            {otpRequested && (
-              <input
-                className="ob-inp"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={10}
-                placeholder="Verification code"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))}
-              />
-            )}
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <input className="ob-inp" type="text" placeholder="Phone number (optional)" value={phone} disabled={otpRequested} onChange={(e) => setPhone(e.target.value)} />
-          </div>
-          <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <input type="checkbox" className="cb" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 2 }} />
-            <span>I agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>, and I consent to communication regarding account setup.</span>
-          </div>
-          <div className="start-foot">
-            {otpRequested ? (
-              <button className="btn-back" type="button" onClick={() => { setOtpRequested(false); setOtp(''); setError(''); setSuccess(''); }}>
-                Change account details
-              </button>
-            ) : (
-              <>Already have an account? <Link href="/login">Log in</Link></>
-            )}
-          </div>
-        </div>
-        <div className="start-nav">
-          <button className="btn-back" onClick={() => router.push('/')}>← Back</button>
-          <button className="btn-next" onClick={otpRequested ? verifyOtp : requestOtp} disabled={loading}>
-            {loading ? 'Please wait…' : otpRequested ? 'Verify & Create Account' : 'Email Me a Code'}{' '}
-            {!loading && (
-              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            )}
-          </button>
-        </div>
+    <AuthShell variant="signup">
+      <div className="au-eyebrow">Account setup</div>
+      <h2 className="au-h2">Create your workspace</h2>
+      <p className="au-sub">Set up your account so your team can start building and launching your AI sales agent.</p>
+      <div className="au-stack">
+        <button className="au-social" type="button" onClick={handleGoogleSignup}>{GOOGLE_ICON}Continue with Google</button>
+        <button className="au-social" type="button">{APPLE_ICON}Continue with Apple</button>
       </div>
-    </div>
+      <div className="au-or">or sign up with email</div>
+      {error ? <div className="au-error" role="alert">{error}</div> : null}
+      {success ? <div className="au-success" role="status">{success}</div> : null}
+      <form className="au-form" onSubmit={event => { event.preventDefault(); if (!loading) (otpRequested ? verifyOtp : requestOtp)(); }}>
+        <div className="au-row">
+          <label className="au-field">Full name<input type="text" autoComplete="name" placeholder="Jane Tan" value={fullName} disabled={otpRequested} onChange={e => setFullName(e.target.value)} /></label>
+          <label className="au-field">Business name<input type="text" autoComplete="organization" placeholder="Acme Pte. Ltd." value={businessName} disabled={otpRequested} onChange={e => setBusinessName(e.target.value)} /></label>
+        </div>
+        <label className="au-field">Work email<input type="email" autoComplete="email" placeholder="jane@acme.com.sg" value={email} disabled={otpRequested} onChange={e => setEmail(e.target.value)} /></label>
+        {isPersonalEmail(email) && !otpRequested ? (
+          <p className="signup-email-note">Free trials need a company email. You can still sign up with this address, but the trial will wait for a quick manual approval.</p>
+        ) : null}
+        <label className="au-field">Phone number (optional)<input type="tel" autoComplete="tel" placeholder="+65 8123 4567" value={phone} disabled={otpRequested} onChange={e => setPhone(e.target.value)} /></label>
+        {otpRequested ? (
+          <label className="au-field">Verification code
+            <input className="au-otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={10} placeholder="Enter the code" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))} />
+          </label>
+        ) : null}
+        <label className="au-check">
+          <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+          <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>, and I consent to CircleOn contacting me about my account setup.</span>
+        </label>
+        <button className="au-btn" type="submit" disabled={loading}>
+          {loading ? 'Please wait…' : otpRequested ? 'Verify and create account' : 'Email me a code'}
+          {!loading ? ARROW : null}
+        </button>
+        {otpRequested ? <button className="au-link" type="button" onClick={() => { setOtpRequested(false); setOtp(''); setError(''); setSuccess(''); }}>← Change account details</button> : null}
+      </form>
+      <p className="au-foot">Already have an account? <Link href="/login">Log in</Link></p>
+    </AuthShell>
   );
 }
 
