@@ -2,17 +2,25 @@ import type { Campaign } from '@/lib/api';
 
 export type Page = 'overview' | 'campaigns' | 'leads' | 'inbox' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
 
-export const navItems: Array<{ id: Page; label: string; marker: string }> = [
-  { id: 'overview', label: 'Home', marker: 'Ho' },
-  { id: 'campaigns', label: 'Campaigns', marker: 'Ca' },
-  { id: 'leads', label: 'Leads', marker: 'Le' },
-  { id: 'inbox', label: 'Inbox', marker: 'In' },
-  { id: 'meetings', label: 'Meetings', marker: 'Me' },
-  { id: 'analytics', label: 'Analytics', marker: 'An' },
-  { id: 'settings', label: 'Settings', marker: 'Se' },
-  { id: 'billing', label: 'Billing', marker: 'Bi' },
-  { id: 'support', label: 'Support', marker: 'Su' },
+export const navGroups: Array<{ label: string; items: Array<{ id: Page; label: string }> }> = [
+  { label: 'Workspace', items: [
+    { id: 'overview', label: 'Home' },
+    { id: 'leads', label: 'Leads' },
+    { id: 'campaigns', label: 'Campaigns' },
+    { id: 'inbox', label: 'Inbox' },
+    { id: 'meetings', label: 'Meetings' },
+  ] },
+  { label: 'Insights', items: [{ id: 'analytics', label: 'Analytics' }] },
+  { label: 'Account', items: [
+    { id: 'billing', label: 'Billing' },
+    { id: 'settings', label: 'Settings' },
+    { id: 'support', label: 'Support' },
+  ] },
 ];
+
+export const navItems: Array<{ id: Page; label: string; marker: string }> = navGroups.flatMap(group =>
+  group.items.map(item => ({ ...item, marker: item.label.slice(0, 2) })),
+);
 
 /** Postgres time columns come back as HH:MM:SS; people read HH:MM. */
 export function hhmm(value: string | null | undefined, fallback: string) {

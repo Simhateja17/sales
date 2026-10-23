@@ -1269,9 +1269,9 @@ function DashboardContent() {
         activePage={activePage}
         onNavigate={setActivePage}
         workspace={workspace}
+        billing={billing}
         smtpAccount={smtpAccount}
         pendingReplies={pendingReplies.length}
-        collapsed={sidebarCollapsed}
         onError={setMessage}
       />
 

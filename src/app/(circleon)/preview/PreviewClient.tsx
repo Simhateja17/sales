@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import HomeOverview from '../dashboard/_components/HomeOverview';
+import Sidebar from '../dashboard/_lib/Sidebar';
+import type { WorkspaceBilling } from '@/lib/api';
 import { useTheme } from '../dashboard/_lib/theme';
 import { initials } from '../dashboard/_lib/ui';
 import {
@@ -283,18 +285,15 @@ export default function PreviewClient() {
         </div>
       </Section>
 
-      <Section id="mailbox" title="Sidebar mailbox pill" note="Connected and disconnected — the mockup hardcoded the green dot.">
+      <Section id="mailbox" title="Sidebar" note="The real Sidebar: connected mailbox with a trial card, then disconnected with no trial.">
         <div className="pv-state-grid">
-          {[fixtureSmtpAccount, fixtureSmtpDisconnected].map(account => (
-            <div className="agent-pill" key={account.status} style={{ margin: 0 }}>
-              <div className="ap-lbl">Mailbox</div>
-              <div className="ap-row">
-                <span className="ap-dot" style={{ background: account.status === 'connected' ? undefined : 'var(--text-light)' }} />
-                <div>
-                  <div className="ap-name-txt">{account.from_email}</div>
-                  <div className="ap-num">{fixtureWorkspace.name}</div>
-                </div>
-              </div>
+          {[
+            { account: fixtureSmtpAccount, billing: { subscription_status: 'trialing', trial_end: new Date(Date.now() + 6 * 86400000).toISOString() } as WorkspaceBilling },
+            { account: fixtureSmtpDisconnected, billing: null },
+          ].map(({ account, billing }) => (
+            // transform makes this box the containing block for the sidebar's position:fixed.
+            <div key={account.status} style={{ position: 'relative', height: 760, transform: 'translateZ(0)', overflow: 'hidden', border: '1px solid var(--border)', borderRadius: 12 }}>
+              <Sidebar activePage="leads" onNavigate={() => {}} workspace={fixtureWorkspace} billing={billing} smtpAccount={account} pendingReplies={1} />
             </div>
           ))}
         </div>

@@ -685,6 +685,27 @@ export function getBillingStatus() {
   return apiFetch<{ billing: WorkspaceBilling | null; active: boolean; usage: BillingUsage | null }>('/api/billing/status');
 }
 
+export interface BillingInvoice {
+  id: string;
+  date: string | null;
+  description: string;
+  amount_cents: number;
+  currency: string;
+  status: string | null;
+  pdf_url: string | null;
+}
+
+export interface BillingPaymentMethod {
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+}
+
+export function getBillingInvoices() {
+  return apiFetch<{ invoices: BillingInvoice[]; payment_method: BillingPaymentMethod | null }>('/api/billing/invoices');
+}
+
 export function openBillingPortal() {
   return apiFetch<{ url: string }>('/api/billing/portal', { method: 'POST' });
 }

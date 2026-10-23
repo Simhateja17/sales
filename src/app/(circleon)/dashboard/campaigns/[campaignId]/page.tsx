@@ -33,6 +33,7 @@ import {
   type Lead,
   type LeadImportRun,
   type Workspace,
+  type WorkspaceBilling,
 } from '@/lib/api';
 import Sidebar from '../../_lib/Sidebar';
 import VoiceCampaignPanel from './VoiceCampaignPanel';
@@ -58,6 +59,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [billing, setBilling] = useState<WorkspaceBilling | null>(null);
   const [smtpAccount, setSmtpAccount] = useState<ConnectedAccount | null>(null);
   const [pendingReplies, setPendingReplies] = useState(0);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -177,6 +179,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         setLeads(leadData.leads);
         setSmtpAccount(smtpData.account);
         setWorkspace(workspaceData.workspace);
+        setBilling(workspaceData.billing);
         setPendingReplies((inboxData.conversations || []).filter(item => item.direction === 'inbound' || item.status === 'pending_approval').length);
       })
       .catch(error => {
@@ -557,9 +560,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         activePage="campaigns"
         onNavigate={navigate}
         workspace={workspace}
+        billing={billing}
         smtpAccount={smtpAccount}
         pendingReplies={pendingReplies}
-        collapsed={sidebarCollapsed}
         onError={setMessage}
       />
 
