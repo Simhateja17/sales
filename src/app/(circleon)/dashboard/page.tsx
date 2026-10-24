@@ -528,6 +528,8 @@ function MeetingsCalendar({ meetings }: { meetings: Meeting[] }) {
 }
 
 
+const LEADS_PER_PAGE = 10;
+
 export default function DashboardPage() {
   return (
     <Suspense fallback={null}>
@@ -598,6 +600,7 @@ function DashboardContent() {
   const [activeApolloRun, setActiveApolloRun] = useState<LeadImportRun | null>(null);
   const [apolloElapsedSeconds, setApolloElapsedSeconds] = useState(0);
   const [leadView, setLeadView] = useState<LeadView>('all');
+  const [leadPage, setLeadPage] = useState(1);
   const [selectedLeadId, setSelectedLeadId] = useState('');
   const [leadDrawerMode, setLeadDrawerMode] = useState<LeadDrawerMode>('profile');
   const [leadDrawerOpen, setLeadDrawerOpen] = useState(false);
@@ -637,6 +640,9 @@ function DashboardContent() {
     if (leadView === 'attention') return visibleLeads.filter(lead => leadViewStatus(lead) === 'Needs attention');
     return visibleLeads;
   }, [leadView, visibleLeads]);
+  const leadPageCount = Math.max(1, Math.ceil(filteredLeads.length / LEADS_PER_PAGE));
+  const leadPageNo = Math.min(leadPage, leadPageCount);
+  const pagedLeads = filteredLeads.slice((leadPageNo - 1) * LEADS_PER_PAGE, leadPageNo * LEADS_PER_PAGE);
   const selectedLead = useMemo(
     () => filteredLeads.find(lead => lead.id === selectedLeadId) || null,
     [filteredLeads, selectedLeadId]
@@ -1458,7 +1464,7 @@ function DashboardContent() {
                     ['campaign', 'In campaign'],
                     ['attention', 'Needs attention'],
                   ] as Array<[LeadView, string]>).map(([view, label]) => (
-                    <button key={view} type="button" role="tab" aria-selected={leadView === view} className={leadView === view ? 'active' : ''} onClick={() => setLeadView(view)}>{label}</button>
+                    <button key={view} type="button" role="tab" aria-selected={leadView === view} className={leadView === view ? 'active' : ''} onClick={() => { setLeadView(view); setLeadPage(1); }}>{label}</button>
                   ))}
                 </div>
                 <p className="lead-verification-note"><span aria-hidden="true">◇</span> Only leads with a verified work email appear here.</p>
@@ -1471,7 +1477,7 @@ function DashboardContent() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLeads.map(lead => (
+                      {pagedLeads.map(lead => (
                         <tr key={lead.id} className={selectedLead?.id === lead.id ? 'selected' : ''}>
 
                           <td><button className="lead-person-button" type="button" onClick={() => openLeadResearch(lead)}><span className="lead-avatar">{initials(lead.full_name)}</span><span><strong>{lead.full_name}</strong><small>{lead.title || 'Contact'}</small></span></button></td>
@@ -1485,7 +1491,14 @@ function DashboardContent() {
                   </table></div>
                   {!filteredLeads.length ? <EmptyState text="No leads match this view yet." /> : null}
                   <div className="lead-table-footer">
-                    <span>Showing {filteredLeads.length ? `1–${filteredLeads.length}` : '0'} of {filteredLeads.length} leads</span>
+                    <span>Showing {filteredLeads.length ? `${(leadPageNo - 1) * LEADS_PER_PAGE + 1}–${(leadPageNo - 1) * LEADS_PER_PAGE + pagedLeads.length}` : '0'} of {filteredLeads.length} leads</span>
+                    {leadPageCount > 1 ? (
+                      <nav className="lead-pager" aria-label="Lead pages">
+                        <button type="button" className="btn-outline" disabled={leadPageNo <= 1} onClick={() => setLeadPage(leadPageNo - 1)}>Previous</button>
+                        <span>Page {leadPageNo} of {leadPageCount}</span>
+                        <button type="button" className="btn-outline" disabled={leadPageNo >= leadPageCount} onClick={() => setLeadPage(leadPageNo + 1)}>Next</button>
+                      </nav>
+                    ) : null}
                   </div>
                 </div>
               </main>
