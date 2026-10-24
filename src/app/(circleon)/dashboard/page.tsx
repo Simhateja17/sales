@@ -287,10 +287,12 @@ function leadEnrichment(lead: Lead) {
   if (lead.enrichment_status === 'failed') return 'Enrichment failed';
   if (lead.enrichment_status === 'cooldown') return 'Enrichment cooldown';
   if (lead.enrichment_status === 'pending') return 'Enrichment running';
-  if (lead.enrichment_status === 'completed') {
-    return lead.company_name && lead.title ? 'Company and role verified' : 'Work email verified';
-  }
-  return lead.email ? 'Work email verified' : 'Not enriched yet';
+  // Only claim "verified" when a provider actually verified the address; an email the user typed in is not checked.
+  const emailVerified = lead.email_status === 'verified' || lead.email_status === 'likely';
+  if (lead.enrichment_status === 'completed' && lead.company_name && lead.title) return emailVerified ? 'Company and role verified' : 'Company and role added';
+  if (emailVerified) return 'Work email verified';
+  if (lead.email_status === 'invalid') return 'Email looks invalid';
+  return lead.email ? 'Email added, not verified' : 'Not enriched yet';
 }
 
 function formatCompanyNumber(value?: number | null, prefix = '') {
