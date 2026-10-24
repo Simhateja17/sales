@@ -59,19 +59,19 @@ export default function PricingPlans({ onSelect, busy = false, selectingId = nul
     ['Support response', p => p.tier === 'starter' ? '2 business days' : p.tier === 'growth' ? '1 business day + chat' : 'Same business day'],
   ];
   return <div className="cp">
-    {catalog?.offer.active && <div className="cp-banner">Founding prices for six paid months + setup fee waived.{catalog.offer.spotsLeft < FOUNDING_SPOTS && <strong>{catalog.offer.spotsLeft} of {FOUNDING_SPOTS} founding spots left</strong>}</div>}
+    {catalog?.offer.active && <div className="cp-banner"><span><b>Founding Client offer:</b> lock in launch prices for 6 months + setup fee waived.</span>{catalog.offer.spotsLeft < FOUNDING_SPOTS && <strong>{catalog.offer.spotsLeft} of {FOUNDING_SPOTS} founding spots left</strong>}</div>}
     {onSelect && catalog && !catalog.legalReady && <p role="status" className="cp-closed">Checkout opens soon. <a href={catalog.demoUrl || '/demo'}>Book a demo</a> and we will let you know as soon as it does.</p>}
     {error && <p role="status" className="cp-note">{error} Prices below are list prices; checkout availability will be checked again.</p>}
     <div className="cp-tabs" aria-label="Plan family">{(['followup','voice','allinone'] as Family[]).map(f => <button key={f} type="button" aria-pressed={family===f} onClick={() => switchFamily(f)}>{FAMILY_LABELS[f].label}</button>)}</div>
-    <p className="cp-blurb">{FAMILY_LABELS[family].blurb}</p>
+    <p className="cp-blurb">{onSelect ? FAMILY_LABELS[family].blurb : family === 'voice' ? 'No voice trial. Book a demo call and we set you up. Prices excl. GST.' : 'Card required. Cancel anytime before day 7. Prices excl. GST.'}</p>
     <div className="cp-grid">{visible.map(p => <article className={`cp-card ${p.tier==='growth' ? 'cp-featured' : ''}`} key={p.id}>
       <div className="cp-tier">{p.tier} {p.tier==='growth' && <span>Most popular</span>}</div>
       <h2>{p.name}</h2>
-      <div className="cp-price">{founding && <del>S${p.list}</del>}<strong>S${founding ? p.founding : p.list}</strong><small>/month excl. GST</small></div>
+      <div className="cp-price"><div><strong>S${founding ? p.founding : p.list}</strong>{founding && <del aria-label="List price">S${p.list}</del>}</div><small>/month, excl. GST</small></div>
       {founding && <p className="cp-note">For six paid months, then S${p.list}/month excl. GST.</p>}
+      {family==='voice' && !approvedVoice ? <a className="cp-cta" href={catalog?.demoUrl || '/demo'}>Book a demo call</a> : onSelect ? <button className="cp-cta" disabled={busy || !catalog?.legalReady} onClick={() => onSelect(p)}>{busy && selectingId===p.id?'Opening checkout…':family==='voice'?'Continue to paid checkout':'Start free trial'}</button> : <a className="cp-cta" href={`/signup?plan=${family}&tier=${p.tier}`}>Start free trial</a>}
       <ul>{p.leads>0 && <><li>{p.leads.toLocaleString()} new verified leads / month</li><li>{p.emails.toLocaleString()} emails, up to four per lead</li></>}{p.minutes>0 && <><li>{p.minutes} AI call minutes / month</li><li>{p.concurrency} concurrent {p.concurrency===1?'call':'calls'}</li></>}<li>{p.seats} user {p.seats===1?'seat':'seats'}, including owner</li>{p.campaigns && <li>{p.campaigns} active {p.campaigns===1?'campaign':'campaigns'}</li>}<li>{p.tier==='starter'?'Dashboard reporting':p.tier==='growth'?'Weekly report':'Weekly report + monthly review call'}</li></ul>
       {family==='allinone' && <p>Save S${(available.find(x=>x.id===`followup_${p.tier}`)?.[founding?'founding':'list'] || 0)+(available.find(x=>x.id===`voice_${p.tier}`)?.[founding?'founding':'list'] || 0)-p[founding?'founding':'list']}/month excl. GST versus separate plans.</p>}
-      {family==='voice' && !approvedVoice ? <a className="cp-cta" href={catalog?.demoUrl || '/demo'}>Book a demo call</a> : onSelect ? <button className="cp-cta" disabled={busy || !catalog?.legalReady} onClick={() => onSelect(p)}>{busy && selectingId===p.id?'Opening checkout…':family==='voice'?'Continue to paid checkout':'Start free trial'}</button> : <a className="cp-cta" href={`/signup?plan=${family}&tier=${p.tier}`}>Start free trial</a>}
       {notice?.planId===p.id && <div className="cp-card-notice" role="alert"><p>{notice.message}</p>{notice.action}</div>}
     </article>)}</div>
     <p className="cp-note">One-time setup: <strong>{founding?'waived for founding clients':`S$${visible[0]?.setup} excl. GST`}</strong>{founding && ` (normally S$${visible[0]?.setup} excl. GST)`}. {family==='voice'?'No voice trial. Paid checkout follows demo approval and setup.':`Card required. Trial starts at checkout.${onSelect ? '' : ' Connect your own verified mailbox.'} Cancel before conversion to pay nothing.`}</p>
@@ -80,6 +80,7 @@ export default function PricingPlans({ onSelect, busy = false, selectingId = nul
     {comparison && <><h2 id="compare">Compare every plan</h2><div className="cp-table-wrap" tabIndex={0} aria-label="Plan comparison"><table><thead><tr><th scope="col">Inclusion</th>{visible.map(p=><th key={p.id} scope="col">{p.tier}</th>)}</tr></thead><tbody>{rows.map(([label,value])=><tr key={label}><th scope="row">{label}</th>{visible.map(p=>{const v=value(p);return <td key={p.id}>{typeof v==='number'?v.toLocaleString():v}</td>;})}</tr>)}</tbody></table></div><p className="cp-note">Extra leads: S$1 each, including four emails. Extra AI minutes: S$0.60 each. Excl. GST. Paid overage requires opt-in and a monthly spending cap.</p>
     <p className="cp-chips"><span>WhatsApp · Coming soon</span><span>SMS · Coming soon</span></p><p className="cp-trust">CIRCLEON PTE. LTD. · Singapore-registered · Secure Stripe payments{catalog?.trust.pdpa?' · PDPA-compliant outreach':''}{catalog?.trust.dnc?' · DNC checks':''}</p>
     <h2>Frequently asked questions</h2>{faqs.map(([q,a])=><details key={q}><summary>{q}</summary><p>{a}</p></details>)}<script type="application/ld+json" dangerouslySetInnerHTML={FAQ_SCHEMA}/></>}
+    {comparison && !onSelect && <div className="cp-closing"><h2>One new client pays for CircleOn for a year</h2><p>Start your 7-day free trial. Card required, cancel anytime before day 7.</p><a href="/signup?plan=allinone&tier=growth">Start free trial</a></div>}
     <p className="cp-note"><a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a></p>
   </div>;
 }
