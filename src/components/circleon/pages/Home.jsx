@@ -3,6 +3,7 @@
 import { Fragment } from 'react';
 import { FoundingBanner } from '@/components/pricing/PricingPlans';
 import { cssToObj } from '../cssToObj';
+import HeroFit from '../HeroFit';
 
 export default function Home({ v }) {
   return (
@@ -206,6 +207,7 @@ export default function Home({ v }) {
               99%
             </span>
           </div>
+          <HeroFit>
           <FoundingBanner />
           <section className="co-intro">
             <div className="co-eyebrow">
@@ -553,6 +555,7 @@ export default function Home({ v }) {
               booked
             </span>
           </section>
+          </HeroFit>
         </section>
         <section id="solutions" style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "clamp(40px,5vw,72px) 24px"}}>
           <div data-reveal style={{"textAlign": "center", "maxWidth": "620px", "margin": "0 auto 44px"}}>

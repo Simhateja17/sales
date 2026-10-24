@@ -122,7 +122,7 @@
   .co-rain{position:absolute;inset:0;overflow:hidden;pointer-events:none}
   .co-rain span{position:absolute;top:-80px;color:#8A6A3F;font:12px 'DM Mono',monospace;opacity:.44;animation:coRain linear infinite;text-shadow:0 0 12px rgba(255,255,255,.9)}
   .co-rain span:before{content:"";display:block;width:1px;height:32px;margin:0 auto 9px;background:linear-gradient(transparent,#C49E62)}
-  @keyframes coRain{to{transform:translateY(950px);opacity:0}}
+  @keyframes coRain{to{transform:translateY(120vh);opacity:0}}
   .co-intro{position:relative;z-index:5;text-align:center}
   .co-eyebrow{display:inline-flex;gap:8px;align-items:center;border:1px solid rgba(139,92,246,.3);border-radius:999px;padding:7px 16px 7px 12px;color:#471E86;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(244,240,255,.78));font:600 10px 'DM Mono',monospace;letter-spacing:.09em;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 8px 20px -6px rgba(116,71,200,.28);backdrop-filter:blur(8px)}
   .co-eyebrow b{width:6px;height:6px;border-radius:50%;background:linear-gradient(180deg,#945FF9,#7447C8);box-shadow:0 0 12px rgba(116,71,200,.6);animation:coPulse 1.6s infinite;flex-shrink:0}
@@ -512,3 +512,10 @@
    remaining track, since that part is drawn by the UA, not by us. */
 .co-range{accent-color:#C49E62;cursor:pointer}
 [data-co-theme="dark"] .co-range{accent-color:#e5bb62;color-scheme:dark}
+
+  @media(min-width:721px){
+    .co-hero{min-height:0;padding:0}
+    .co-fit{position:relative;zoom:var(--co-s,1);width:calc(100vw / var(--co-s,1));height:800px;padding:48px 24px 0;box-sizing:border-box}
+    .co-fit .co-intro h1{font-size:59px}
+    .co-fit .co-world{width:min(1150px,calc(98vw / var(--co-s,1)))}
+  }
