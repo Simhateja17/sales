@@ -1,0 +1,18 @@
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.0.2.2:3000
+✓ Ready in 516ms
+
+ GET /home 200 in 2.8s (next.js: 2.4s, application-code: 413ms)
+ GET /leads 200 in 513ms (next.js: 456ms, application-code: 57ms)
+ GET /billing 200 in 751ms (next.js: 706ms, application-code: 45ms)
+ GET /settings 200 in 668ms (next.js: 626ms, application-code: 42ms)
+ GET /campaigns 200 in 722ms (next.js: 600ms, application-code: 122ms)
+ GET /billing 200 in 116ms (next.js: 6ms, application-code: 110ms)
+ GET /settings 200 in 84ms (next.js: 4ms, application-code: 80ms)
+ GET /settings/voice 200 in 919ms (next.js: 840ms, application-code: 79ms)
+ GET /dashboard?page=billing 200 in 119ms (next.js: 68ms, application-code: 50ms)
+ GET /billing 200 in 26ms (next.js: 4ms, application-code: 22ms)
+ GET /dashboard?page=settings&section=autopilot 200 in 87ms (next.js: 4ms, application-code: 83ms)
+ GET /settings/autopilot 200 in 78ms (next.js: 49ms, application-code: 30ms)
+ GET /campaigns/camp_1 200 in 1030ms (next.js: 899ms, application-code: 130ms)

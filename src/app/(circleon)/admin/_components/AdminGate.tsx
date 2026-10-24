@@ -66,7 +66,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
       <div className="adm-card adm-narrow">
         <h1>Not available</h1>
         <p className="adm-muted">This area is restricted to CircleOn staff.</p>
-        <Link className="adm-btn" href="/dashboard">Back to dashboard</Link>
+        <Link className="adm-btn" href="/home">Back to dashboard</Link>
       </div>
     </div>
   );
@@ -93,7 +93,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="adm-side-foot">
           <p className="adm-muted adm-small">{me?.user.email}</p>
-          <Link href="/dashboard" className="adm-link adm-small">Customer dashboard</Link>
+          <Link href="/home" className="adm-link adm-small">Customer dashboard</Link>
           <button className="adm-link adm-small" onClick={signOut}>Sign out</button>
         </div>
       </aside>

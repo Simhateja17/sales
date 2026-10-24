@@ -3,7 +3,8 @@
 import BillingPanel from '@/components/pricing/BillingPanel';
 import { planLabel } from '@/lib/planLabel';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { legacyDashboardTarget, pagePath, parsePagePath } from './_lib/routes';
 import {
   approveInboxMessage,
   draftManualConversationReply,
@@ -543,17 +544,22 @@ export default function DashboardPage() {
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const requestedPage = searchParams.get('page');
-  const activePage: Page = requestedPage === 'sent' ? 'inbox' : requestedPage && pageIds.has(requestedPage) ? requestedPage as Page : 'overview';
-  const setActivePage = (page: Page) => router.push(page === 'overview' ? '/dashboard' : `/dashboard?page=${page}`);
-  // Settings sub-sections read from the URL the same way pages do, so they can
-  // be linked to directly — the guided tour needs to open one, and a support
-  // reply pointing at "the mailbox settings" now has a URL to point at.
-  const requestedSection = searchParams.get('section');
+  const pathname = usePathname();
+  const routed = parsePagePath(pathname);
+  // Old /dashboard?page=… links keep working: they are rewritten to the clean URL as soon as the page loads.
+  const legacy = !routed && pathname === '/dashboard';
+  useEffect(() => {
+    if (legacy) router.replace(legacyDashboardTarget(new URLSearchParams(searchParams.toString())));
+  }, [legacy, router, searchParams]);
+  const activePage: Page = routed?.page ?? 'overview';
+  const setActivePage = (page: Page) => router.push(pagePath(page));
+  // Settings sub-sections are part of the URL (/settings/voice), so they can be linked to directly:
+  // the guided tour opens one, and a support reply can point at "the mailbox settings".
+  const requestedSection = routed?.page === 'settings' ? routed.section : null;
   const settingsSection: SettingsSection = requestedSection && settingsSectionIds.has(requestedSection)
     ? requestedSection as SettingsSection
     : 'mailbox';
-  const setSettingsSection = (section: SettingsSection) => router.push(`/dashboard?page=settings&section=${section}`);
+  const setSettingsSection = (section: SettingsSection) => router.push(pagePath('settings', section));
   const [today, setToday] = useState('');
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [billing, setBilling] = useState<WorkspaceBilling | null>(null);
@@ -1176,7 +1182,7 @@ function DashboardContent() {
       setSelectedCampaignId(data.campaign.id);
       setCampaignBuilderLeadIds([]);
       setShowCampaignForm(false);
-      router.push(`/dashboard/campaigns/${data.campaign.id}`);
+      router.push(`/campaigns/${data.campaign.id}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not create campaign');
     } finally {
@@ -1418,7 +1424,7 @@ function DashboardContent() {
             <div className="campaign-list-layout">
               <div className="card campaign-list-panel">
                 {filteredCampaigns.length ? filteredCampaigns.map(campaign => (
-                  <CampaignRow key={campaign.id} campaign={campaign} onClick={() => router.push(`/dashboard/campaigns/${campaign.id}`)} />
+                  <CampaignRow key={campaign.id} campaign={campaign} onClick={() => router.push(`/campaigns/${campaign.id}`)} />
                 )) : <EmptyState text={campaigns.length ? 'No campaigns match this filter.' : 'Create your first campaign.'} />}
               </div>
               <aside className="set-panel campaign-list-summary">
@@ -1615,7 +1621,7 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {loaded && activePage === 'calls' ? <CallsView onOpenSettings={() => { router.push('/dashboard?page=settings&section=voice'); }} onOpenCampaigns={() => setActivePage('campaigns')} /> : null}
+        {loaded && activePage === 'calls' ? <CallsView onOpenSettings={() => { router.push(pagePath('settings', 'voice')); }} onOpenCampaigns={() => setActivePage('campaigns')} /> : null}
 
         {loaded && activePage === 'meetings' ? (
           <section>

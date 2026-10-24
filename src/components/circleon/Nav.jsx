@@ -145,7 +145,7 @@ export default function Nav({ v }) {
             </>
           )}
           {isAuthenticated ? (
-            <Link className="co-nav-demo co-p40d131" href="/dashboard" style={PILL_STYLE}>
+            <Link className="co-nav-demo co-p40d131" href="/home" style={PILL_STYLE}>
               {'Dashboard '}
               {PILL_ARROW}
             </Link>

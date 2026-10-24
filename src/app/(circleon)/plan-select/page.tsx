@@ -46,7 +46,7 @@ export default function PlanSelectPage() {
       <h1 className="ps-title">Choose your plan</h1>
       <p className="ps-sub">Start with a seven-day free trial. A card is required, and you can cancel before it ends to pay nothing.</p>
       {error&&<p role="alert" className="cp-error">{error}</p>}
-      {billing?.stripe_subscription_id&&<p><a href="/dashboard?page=billing">Manage your existing subscription</a></p>}
+      {billing?.stripe_subscription_id&&<p><a href="/billing">Manage your existing subscription</a></p>}
     </div>
     <PricingPlans onSelect={select} busy={selecting!==null} selectingId={selecting} notice={notice} comparison={false} approvedVoice={Boolean(billing?.voice_approved&&billing?.voice_ready)}/>
     <div className="cp ps-foot">

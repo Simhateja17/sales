@@ -178,7 +178,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   }, [tourOpen]);
 
   const routeContext = useMemo<RouteContext>(() => ({
-    firstCampaign: firstCampaignId ? `/dashboard/campaigns/${firstCampaignId}` : null,
+    firstCampaign: firstCampaignId ? `/campaigns/${firstCampaignId}` : null,
   }), [firstCampaignId]);
 
   const value = useMemo<TourContextValue>(() => ({

@@ -32,7 +32,7 @@ export default function TourAutoStart() {
   useEffect(() => {
     if (firedRef.current || loading || loadFailed || !startTour) return;
     if (status !== 'not_started') return;
-    if (pathname !== '/dashboard' || query !== '') return;
+    if ((pathname !== '/home' && pathname !== '/dashboard') || query !== '') return;
     firedRef.current = true;
     startTour();
   }, [loading, loadFailed, status, pathname, query, startTour]);

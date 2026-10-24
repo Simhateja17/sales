@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch, getSmtpStatus, getWorkspace, isAuthenticationError, type ConnectedAccount, type Workspace, type WorkspaceBilling } from '@/lib/api';
 import Sidebar from '../dashboard/_lib/Sidebar';
 import type { Page } from '../dashboard/_lib/ui';
+import { pagePath } from '../dashboard/_lib/routes';
 
 type Ticket = { id: string; subject: string; status: 'open' | 'answered' | 'closed'; last_message_at: string };
 type Message = { id: string; sender: 'user' | 'admin'; body: string; created_at: string };
@@ -42,7 +43,7 @@ function Support() {
     getSmtpStatus().then(data => setSmtpAccount(data.account)).catch(() => {});
   }, []);
 
-  const goTo = (page: Page) => router.push(page === 'overview' ? '/dashboard' : `/dashboard?page=${page}`);
+  const goTo = (page: Page) => router.push(pagePath(page));
 
   return (
     <>

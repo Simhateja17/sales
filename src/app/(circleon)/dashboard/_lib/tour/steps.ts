@@ -18,7 +18,7 @@ import type { TourStep } from './types';
 export const TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
-    route: '/dashboard',
+    route: '/home',
     target: null,
     placement: 'center',
     title: 'A quick tour of CircleOn',
@@ -27,7 +27,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'connect-mailbox',
-    route: '/dashboard?page=settings&section=mailbox',
+    route: '/settings/mailbox',
     target: '[data-tour="smtp-form"]',
     placement: 'left',
     title: 'Connect the mailbox you send from',
@@ -38,7 +38,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'add-leads',
-    route: '/dashboard?page=leads',
+    route: '/leads',
     target: '[data-tour="find-leads"]',
     placement: 'bottom',
     title: 'Bring in people worth writing to',
@@ -48,7 +48,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'leads-verified',
-    route: '/dashboard?page=leads',
+    route: '/leads',
     target: '[data-tour="leads-table"]',
     placement: 'top',
     title: 'Only verified emails get used',
@@ -56,7 +56,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'first-campaign',
-    route: '/dashboard?page=campaigns',
+    route: '/campaigns',
     target: '[data-tour="create-campaign"]',
     placement: 'bottom',
     title: 'Build your first campaign',
@@ -67,7 +67,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'campaign-review',
-    route: '/dashboard?page=campaigns',
+    route: '/campaigns',
     dynamicRoute: 'firstCampaign',
     // Anchored to the tab strip rather than the review panel itself: this page
     // opens on the leads tab, so the panel is not mounted when the step opens.
@@ -79,7 +79,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'campaign-launch',
-    route: '/dashboard?page=campaigns',
+    route: '/campaigns',
     dynamicRoute: 'firstCampaign',
     target: '[data-tour="campaign-launch"]',
     placement: 'bottom',
@@ -88,7 +88,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'inbox-approval',
-    route: '/dashboard?page=inbox',
+    route: '/inbox',
     target: '[data-tour="inbox-workspace"]',
     placement: 'top',
     title: 'Replies come back here',
@@ -96,7 +96,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'nav',
-    route: '/dashboard',
+    route: '/home',
     target: '[data-tour="nav"]',
     placement: 'right',
     title: 'Everything else lives here',
@@ -104,7 +104,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'meetings',
-    route: '/dashboard?page=meetings',
+    route: '/meetings',
     target: '[data-tour="meetings"]',
     placement: 'top',
     title: 'Meetings, and what came of them',
@@ -112,7 +112,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'analytics',
-    route: '/dashboard?page=analytics',
+    route: '/analytics',
     target: '[data-tour="analytics-kpis"]',
     placement: 'bottom',
     title: 'See what earns a reply',
@@ -120,7 +120,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'autopilot',
-    route: '/dashboard?page=settings&section=autopilot',
+    route: '/settings/autopilot',
     target: '[data-tour="autopilot-panel"]',
     placement: 'left',
     title: 'Hand over the routine part',
@@ -128,7 +128,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'finish',
-    route: '/dashboard',
+    route: '/home',
     target: null,
     placement: 'center',
     title: 'That is the whole thing',

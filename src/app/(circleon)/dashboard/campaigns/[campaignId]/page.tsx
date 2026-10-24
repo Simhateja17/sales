@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useEffect, useMemo, useState } from 'react';
+import { pagePath } from '../../_lib/routes';
 import { useRouter } from 'next/navigation';
 import {
   generateCampaignEmails,
@@ -243,7 +244,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   }, [openedEmail?.id]);
 
   function navigate(page: Page) {
-    router.push(page === 'overview' ? '/dashboard' : `/dashboard?page=${page}`);
+    router.push(pagePath(page));
   }
 
   async function reloadPreview() {
