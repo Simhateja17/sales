@@ -116,3 +116,4 @@ html[data-theme=dark] .cp-card-notice button{border-color:#f0e7f5;color:#f0e7f5}
 :is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-table-wrap tbody th{color:#F6F3FC}
 :is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-table-wrap thead th{background:#332b49}
 :is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-chips span{background:#251b30;border-color:#594266;color:#D8D5E2}
+.cp-page{position:relative;z-index:2}
