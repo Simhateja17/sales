@@ -93,26 +93,26 @@ html[data-theme=dark] .cp-card-notice button{border-color:#f0e7f5;color:#f0e7f5}
 
 /* Dark theme for the public pricing page: the light design hardcodes dark ink,
    so retint the page, cards and copy together instead of mixing both. */
-html[data-theme=dark] .cp-page{background:radial-gradient(ellipse 60% 40% at 50% 0,#3a2a5c 0,rgba(58,42,92,0) 70%),#14111F}
-html[data-theme=dark] .cp-hero h1,html[data-theme=dark] .cp:not(.cp-billing)>h2{color:#F6F3FC}
-html[data-theme=dark] .cp-hero h1 em{color:#B9A3DC}
-html[data-theme=dark] .cp-hero p,html[data-theme=dark] .cp:not(.cp-billing) .cp-blurb,html[data-theme=dark] .cp:not(.cp-billing)>.cp-note,html[data-theme=dark] .cp:not(.cp-billing) .cp-trust,html[data-theme=dark] .cp:not(.cp-billing) details p{color:#CFC6DD}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-banner{background:#251b30;border:1px solid #3a3348}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-tabs{background:#251b30;border-color:#3a3348}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-tabs button{color:#D8D5E2}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-tabs button:hover{background:#332b49}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-tabs button[aria-pressed=true]{background:#9B7BE0;color:#14111F}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-card{background:#251b30;border-color:#3a3348;color:#F0E7F5}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-featured{background:#14111F;border-color:#DBB557}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-tier{color:#DBB557}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-price del,html[data-theme=dark] .cp:not(.cp-billing) .cp-price small,html[data-theme=dark] .cp:not(.cp-billing) .cp-card .cp-note,html[data-theme=dark] .cp:not(.cp-billing) .cp-card>p{color:#B9B5C6}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-card ul{border-top-color:#3a3348}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-card li:before{background:#332b49;color:#B9A3DC}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-cta{background:#F0E7F5;color:#14111F}
-html[data-theme=dark] .cp .cp-card a.cp-cta{color:#14111F}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-cta:hover:not(:disabled){background:#fff}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-featured .cp-cta{background:#DBB557;color:#14111F}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-table-wrap th,html[data-theme=dark] .cp:not(.cp-billing) .cp-table-wrap td{color:#D8D5E2;border-bottom-color:#3a3348}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-table-wrap tbody th{color:#F6F3FC}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-table-wrap thead th{background:#332b49}
-html[data-theme=dark] .cp:not(.cp-billing) .cp-chips span{background:#251b30;border-color:#594266;color:#D8D5E2}
+:is([data-theme=dark],[data-co-theme=dark]) .cp-page{background:radial-gradient(ellipse 60% 40% at 50% 0,#3a2a5c 0,rgba(58,42,92,0) 70%),#14111F}
+:is([data-theme=dark],[data-co-theme=dark]) .cp-hero h1,:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing)>h2{color:#F6F3FC}
+:is([data-theme=dark],[data-co-theme=dark]) .cp-hero h1 em{color:#B9A3DC}
+:is([data-theme=dark],[data-co-theme=dark]) .cp-hero p,:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-blurb,:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing)>.cp-note,:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-trust,:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) details p{color:#CFC6DD}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-banner{background:#251b30;border:1px solid #3a3348}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-tabs{background:#251b30;border-color:#3a3348}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-tabs button{color:#D8D5E2}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-tabs button:hover{background:#332b49}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-tabs button[aria-pressed=true]{background:#9B7BE0;color:#14111F}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-card{background:#251b30;border-color:#3a3348;color:#F0E7F5}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-featured{background:#14111F;border-color:#DBB557}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-tier{color:#DBB557}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-price del,:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-price small,:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-card .cp-note,:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-card>p{color:#B9B5C6}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-card ul{border-top-color:#3a3348}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-card li:before{background:#332b49;color:#B9A3DC}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-cta{background:#F0E7F5;color:#14111F}
+:is([data-theme=dark],[data-co-theme=dark]) .cp .cp-card a.cp-cta{color:#14111F}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-cta:hover:not(:disabled){background:#fff}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-featured .cp-cta{background:#DBB557;color:#14111F}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-table-wrap th,:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-table-wrap td{color:#D8D5E2;border-bottom-color:#3a3348}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-table-wrap tbody th{color:#F6F3FC}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-table-wrap thead th{background:#332b49}
+:is([data-theme=dark],[data-co-theme=dark]) .cp:not(.cp-billing) .cp-chips span{background:#251b30;border-color:#594266;color:#D8D5E2}
