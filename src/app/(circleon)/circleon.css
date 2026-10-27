@@ -2045,5 +2045,9 @@ body{background:var(--paper);}
 button.cd-back{background:none;border:0;padding:0;cursor:pointer;font:inherit;font-size:13px}
 button.cd-back:hover{color:var(--brand)}
 .cd-gate-bar i{background:#e8b84a}
+:root[data-theme="dark"] .cd-gate{background:var(--brand-wash);color:var(--ink);border:1px solid var(--rule)}
+:root[data-theme="dark"] .cd-gate small{opacity:.85;color:var(--ink-soft)}
+:root[data-theme="dark"] .cd-gate-bar{background:rgba(255,255,255,.14)}
+button.card-action{background:none;border:0;padding:4px 6px;font-family:inherit}
 .lead-pager{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--ink-soft)}
 .lead-pager .btn-outline:disabled{opacity:.45;cursor:not-allowed}
