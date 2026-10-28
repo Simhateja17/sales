@@ -83,16 +83,7 @@ export default function Nav({ v }) {
     <nav className="co-nav" style={{"position": "sticky", "top": "0", "zIndex": "60", "backdropFilter": "blur(22px) saturate(1.8)", "WebkitBackdropFilter": "blur(22px) saturate(1.8)", "background": "linear-gradient(180deg, rgba(247,243,252,.86), rgba(251,250,246,.7))", "borderBottom": "1px solid rgba(230,225,238,.8)"}}>
       <div className="co-nav-inner" style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "0 24px", "height": "76px", "display": "grid", "gridTemplateColumns": "1fr auto 1fr", "alignItems": "center", "gap": "20px"}}>
         <a href="/" aria-label="CircleOn.ai home" className="co-nav-logo" onClick={run(v.gotoHome)} style={{"textDecoration": "none", "display": "flex", "alignItems": "center", "gap": "10px", "cursor": "pointer", "flexShrink": "0"}}>
-          <span style={{"position": "relative", "width": "24px", "height": "24px", "borderRadius": "50%", "border": "1.5px solid #1A172C", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}}>
-            <span style={{"width": "6px", "height": "6px", "borderRadius": "50%", "background": "#C49E62"}} />
-          </span>
-          {' '}
-          <span className="co-nav-wordmark" style={{"fontFamily": "'Cormorant Garamond',serif", "fontWeight": "400", "fontSize": "21px", "letterSpacing": "-.01em", "color": "#1A172C"}}>
-            CircleOn
-            <span style={{"fontStyle": "normal", "color": "#7447C8"}}>
-              .ai
-            </span>
-          </span>
+          <img src="/circleon-logo.png" alt="CircleOn" style={{"height": "52px", "width": "auto", "display": "block"}} />
         </a>
         <div className="co-nav-links" style={{"display": "flex", "alignItems": "center", "gap": "28px", "justifyContent": "center"}}>
           {links.map((l) => (
