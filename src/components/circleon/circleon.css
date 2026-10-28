@@ -518,4 +518,8 @@
     .co-fit{position:relative;zoom:var(--co-s,1);width:calc(100vw / var(--co-s,1));height:800px;padding:48px 24px 0;box-sizing:border-box}
     .co-fit .co-intro h1{font-size:59px}
     .co-fit .co-world{width:min(1150px,calc(98vw / var(--co-s,1)))}
+    /* The banner appears after the catalog loads; keep it out of flow so it can't push the intro onto the mockup. */
+    .co-fit .co-hero-banner{position:absolute;top:6px;left:0;right:0;z-index:7;pointer-events:none}
+    .co-fit .co-hero-banner .cp-banner{pointer-events:auto;width:max-content;max-width:calc(100% - 48px);margin:0 auto;padding:7px 18px;font-size:12px}
+    .co-fit .co-world{bottom:84px;height:390px}
   }
