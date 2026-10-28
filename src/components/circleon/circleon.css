@@ -523,3 +523,10 @@
     .co-fit .co-hero-banner .cp-banner{pointer-events:auto;width:max-content;max-width:calc(100% - 48px);margin:0 auto;padding:7px 18px;font-size:12px}
     .co-fit .co-world{bottom:84px;height:390px}
   }
+
+/* Mobile: the mockup used to be pinned to the bottom of a fixed-height hero while the text above it
+   flowed freely, so a wrapped banner/headline slid underneath it. Stack it below the buttons instead. */
+@media(max-width:720px){
+  .co-hero{min-height:0;padding-bottom:28px}
+  .co-hero .co-world{position:relative;bottom:auto;left:50%;margin-top:26px}
+}
