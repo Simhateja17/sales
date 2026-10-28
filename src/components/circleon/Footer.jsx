@@ -42,7 +42,7 @@ export default function Footer({ v }) {
               <div style={{"display": "flex", "flexDirection": "column", "gap": "11px"}}>
                 {(col.links || []).map((ln, $index) => (
                   <Fragment key={$index}>
-                  <a className="co-footer-link co-pcc1d41" onClick={ln.onClick} style={{"fontSize": "14.5px", "color": "#716F82", "cursor": "pointer"}}>
+                  <a className="co-footer-link co-pcc1d41" href={ln.href} onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button > 0) return; e.preventDefault(); ln.onClick && ln.onClick(); }} style={{"fontSize": "14.5px", "color": "#716F82", "cursor": "pointer"}}>
                     {ln.label}
                   </a>
                   </Fragment>
@@ -53,7 +53,7 @@ export default function Footer({ v }) {
           ))}
         </div>
         <div className="co-footer-legal" style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "20px 24px 40px", "borderTop": "1px solid #F1EEFD", "fontSize": "13.5px", "color": "#716F82"}}>
-          © 2026 CIRCLEON PTE. LTD. · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a>
+          © 2026 CIRCLEON PTE. LTD.{process.env.NEXT_PUBLIC_UEN ? ` · UEN ${process.env.NEXT_PUBLIC_UEN}` : ''} · Singapore · PDPA · <a href="mailto:info@circleon.ai">info@circleon.ai</a><br /><a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a> · <a href="/pdpa">PDPA</a> · <a href="/dnc-policy">DNC Policy</a> · <a href="/contact">Contact</a>
         </div>
       </footer>
     </>

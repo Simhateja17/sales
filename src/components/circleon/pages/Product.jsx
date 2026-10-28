@@ -47,9 +47,18 @@ export default function Product({ v }) {
                 </>
               ) : null}
               {' '}
-              <a onClick={v.gotoSignup} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "16px 30px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#FAF9FF", "background": "#1A172C", "cursor": "pointer", "transition": "background .25s,transform .2s"}} className="co-pa7e2f4">
-                Sign Up →
+              <a href="/signup" onClick={(e) => { e.preventDefault(); v.gotoSignup(); }} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "16px 30px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#FAF9FF", "background": "#1A172C", "cursor": "pointer", "transition": "background .25s,transform .2s"}} className="co-pa7e2f4">
+                Start 7-day free trial →
               </a>
+              {' '}
+              {v.isVoicePage ? (
+                <>
+                {' '}
+                <a href="/demo" style={{"display": "inline-flex", "alignItems": "center", "padding": "16px 4px", "fontWeight": "600", "fontSize": "15px", "color": "#1A172C", "borderBottom": "1px solid #1A172C"}}>
+                  Book a demo
+                </a>
+                </>
+              ) : null}
               {' '}
               <a onClick={v.gotoHome} style={{"display": "inline-flex", "alignItems": "center", "padding": "16px 4px", "fontWeight": "600", "fontSize": "15px", "color": "#1A172C", "cursor": "pointer", "borderBottom": "1px solid #1A172C", "transition": ".2s"}} className="co-p3c9245">
                 Explore platform
@@ -227,7 +236,7 @@ export default function Product({ v }) {
                       {v.freeLeadsHeadline}{". We'll email up to 3 enriched matches to "}{v.freeLeadsEmail || 'you'}{" once the research is ready."}
                     </p>
                     <div style={{"display": "flex", "flexWrap": "wrap", "gap": "16px", "justifyContent": "center", "marginTop": "34px"}}>
-                      <a onClick={v.gotoSignup} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "15px 28px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398 co-on-gold">
+                      <a href="/signup" onClick={(e) => { e.preventDefault(); v.gotoSignup(); }} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "15px 28px", "borderRadius": "10px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": ".2s"}} className="co-pda0398 co-on-gold">
                         Get unlimited leads →
                       </a>
                     </div>
@@ -382,7 +391,7 @@ export default function Product({ v }) {
                         </svg>
                       </div>
                       <div style={cssToObj(`font-size:11.5px;font-weight:700;color:${v.mockHeading ?? ""};text-align:center`)}>
-                        SMS reminder
+                        Follow-up email 1
                       </div>
                       <div style={cssToObj(`font-size:10.5px;color:${v.mockMuted ?? ""}`)}>
                         Day 2
@@ -395,7 +404,7 @@ export default function Product({ v }) {
                         </svg>
                       </div>
                       <div style={cssToObj(`font-size:11.5px;font-weight:700;color:${v.mockHeading ?? ""};text-align:center`)}>
-                        WhatsApp check-in
+                        Follow-up email 2
                       </div>
                       <div style={cssToObj(`font-size:10.5px;color:${v.mockMuted ?? ""}`)}>
                         Day 5
@@ -736,14 +745,14 @@ export default function Product({ v }) {
         <section style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "clamp(40px,5vw,72px) 24px clamp(64px,8vw,100px)"}}>
           <div data-reveal style={{"textAlign": "center", "background": "#1A172C", "padding": "clamp(48px,7vw,80px) 24px", "borderRadius": "20px"}}>
             <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(26px,3.2vw,38px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 12px"}}>
-              Ready to get started?
+              Ready to try CircleOn?
             </h2>
             <p style={{"fontSize": "16.5px", "color": "#9E9CAD", "margin": "0 0 30px"}}>
-              Sign up now and be first in line for early access.
+              Card required. Cancel anytime before day 7. Prices excl. GST.
             </p>
             {' '}
-            <a onClick={v.gotoSignup} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "16px 30px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-p1f1771">
-              Sign Up →
+            <a href="/signup" onClick={(e) => { e.preventDefault(); v.gotoSignup(); }} style={{"display": "inline-flex", "alignItems": "center", "gap": "10px", "padding": "16px 30px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-p1f1771">
+              Start 7-day free trial →
             </a>
           </div>
         </section>

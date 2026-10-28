@@ -192,7 +192,6 @@ class CircleOnShell extends React.Component {
       { name: 'Priya', tag: 'DISCOVERY · CRISP', warmth: 70, pace: 78, depth: 55, lang: 'en-IN', dur: '0:21', a: '#7447C8', b: '#945FF9', d: '#471E86' },
       { name: 'Anders', tag: 'OUTBOUND · STEADY', warmth: 55, pace: 60, depth: 75, lang: 'en-GB', dur: '0:25', a: '#0065D2', b: '#90BAF1', d: '#00378D' },
       { name: 'Sofía', tag: 'RENEWAL · EMPATHETIC', warmth: 92, pace: 35, depth: 48, lang: 'es-MX', dur: '0:24', a: '#7447C8', b: '#C49E62', d: '#471E86' },
-      { name: 'Kenji', tag: 'TECHNICAL · EVEN', warmth: 58, pace: 52, depth: 68, lang: 'ja-JP', dur: '0:19', a: '#0065D2', b: '#7447C8', d: '#00378D' },
       { name: 'Lior', tag: 'OUTBOUND · BRIGHT', warmth: 66, pace: 82, depth: 44, lang: 'en-US', dur: '0:22', a: '#7447C8', b: '#C49E62', d: '#471E86' },
     ];
     return raw.map((v) => ({ ...v, orb: `conic-gradient(from 200deg,${v.a},${v.d},${v.b},${v.a})` }));
@@ -385,15 +384,14 @@ class CircleOnShell extends React.Component {
           { title: 'Smart Prospecting', desc: 'Surface companies and contacts that match your ideal customer profile automatically.' },
           { title: 'Data Enrichment', desc: 'Append verified emails, roles, and firmographics to every lead in seconds.' },
           { title: 'AI Lead Scoring', desc: 'Rank prospects by intent and fit so your team works the hottest leads first.' },
-          { title: 'Real-time CRM Sync', desc: 'Push qualified leads to HubSpot, Salesforce, or Pipedrive the moment they qualify.' },
+          { title: 'Verified Contacts', desc: 'Every email address is checked before it reaches your campaign.' },
         ],
         workflowTitle: 'How Lead Generation Works',
-        workflow: [['Identify', 'Identify your target audience'], ['Discover', 'Find qualified prospects that match your ICP'], ['Enrich', 'Enrich contact data with verified details'], ['Score', 'AI lead scoring ranks by intent and fit'], ['Deliver', 'Send qualified leads straight to your CRM']],
+        workflow: [['Identify', 'Identify your target audience'], ['Discover', 'Find qualified prospects that match your ICP'], ['Enrich', 'Enrich contact data with verified details'], ['Score', 'AI lead scoring ranks by intent and fit'], ['Deliver', 'Hand qualified leads to your follow-up sequence']],
         statsBarData: {
           title: 'How teams put Lead Generation to work',
           bars: [
             { label: 'AI lead scoring', value: 95, isUs: true },
-            { label: 'CRM sync', value: 88, isUs: true },
             { label: 'ICP enrichment', value: 92, isUs: true },
           ],
           caption: 'Share of active accounts using each capability weekly, based on CircleOn product usage.',
@@ -410,13 +408,7 @@ class CircleOnShell extends React.Component {
           { heading: 'Benefits', note: 'Fill your pipeline without lifting a finger.', items: [
             { ic: 'zap', title: 'Be first to respond', desc: '78% of buyers purchase from whoever replies first, CircleOn makes that you, every time.' },
             { ic: 'clock', title: '11 hours back per rep', desc: 'Reps stop building lists by hand and spend the week closing instead.' },
-            { ic: 'shield', title: 'Clean, verified data', desc: 'Every email and record verified and deduplicated before it hits your CRM.' },
-          ] },
-          { heading: 'Integrations', note: 'Works with the tools your team already uses.', items: [
-            { ic: 'sync', title: 'HubSpot', desc: 'Two-way sync of leads and activity.' },
-            { ic: 'cloud', title: 'Salesforce', desc: 'Native lead and contact objects.' },
-            { ic: 'funnel', title: 'Pipedrive', desc: 'Auto-create deals from scored leads.' },
-            { ic: 'bell', title: 'Slack', desc: 'Get pinged the second a hot lead lands.' },
+            { ic: 'shield', title: 'Clean, verified data', desc: 'Every email and record verified and deduplicated before it reaches your campaign.' },
           ] },
           { heading: 'Use Cases', note: 'One engine, three ways teams grow with it.', items: [
             { ic: 'target', title: 'Outbound sales', desc: 'Build targeted lists at scale.' },
@@ -428,7 +420,7 @@ class CircleOnShell extends React.Component {
           { q: 'Why does response speed matter so much?', a: 'Contact a lead within 5 minutes and you\'re 21× more likely to qualify it than at 30 minutes, and 100× more likely to even connect (MIT / InsideSales). Yet the average company takes 47 hours. CircleOn routes scored leads instantly so a rep can act inside that window.' },
           { q: 'Where do the leads come from?', a: 'CircleOn combines licensed B2B data providers with public web signals, then verifies every contact before it reaches you.' },
           { q: 'How is lead scoring calculated?', a: 'Our model weighs firmographic fit, buying signals, and engagement to produce a 0–100 score you can tune to your ICP.' },
-          { q: 'Can I bring my own CRM?', a: 'Yes, native integrations cover the major CRMs, and an open API handles everything else.' },
+          { q: 'Does CircleOn connect to my CRM?', a: 'No CRM integration or export is included. Use your calendar booking link for meetings.' },
         ],
       },
       'voice-agent': {
@@ -462,7 +454,6 @@ class CircleOnShell extends React.Component {
         flowNotes: ['sounds human', 'never sleeps'],
         sections: [
           { heading: 'Voice capabilities', note: 'Everything a great front-desk hire can do, except it never misses a call, and 85% of callers who hit voicemail never ring back.', items: [
-            { ic: 'globe', title: 'Multilingual', desc: 'Fluent across 30+ languages and accents.' },
             { ic: 'wave', title: 'Custom voice', desc: 'Match your brand tone and persona.' },
             { ic: 'doc', title: 'Call summaries', desc: 'Every call transcribed and summarized.' },
             { ic: 'route', title: 'Smart routing', desc: 'Sends complex calls to the right person.' },
@@ -493,16 +484,15 @@ class CircleOnShell extends React.Component {
         features: [
           { title: 'Smart Timing', desc: 'AI decides the best moment to reach each lead based on behavior.' },
           { title: 'Deep Personalization', desc: 'Every message tailored to the prospect, not a template blast.' },
-          { title: 'Multi-channel', desc: 'Email, SMS, and WhatsApp orchestrated in one sequence.' },
+          { title: 'Email Sequences', desc: 'Up to four personalised emails per lead, sent on a schedule.' },
           { title: 'Auto Meeting Booking', desc: 'Confirms and reschedules meetings without you touching a thing.' },
         ],
         workflowTitle: 'How Follow Up Works',
-        workflow: [['Capture', 'A new lead is captured the moment they show interest'], ['Wait', 'AI waits based on smart, behavior-driven timing'], ['Email', 'Sends a personalized email tailored to the lead'], ['Remind', 'Follows up with an SMS or WhatsApp reminder'], ['Confirm', 'Confirms the meeting automatically'], ['Convert', 'Turns the conversation into a paying customer']],
+        workflow: [['Capture', 'A new lead is captured the moment they show interest'], ['Wait', 'AI waits based on smart, behavior-driven timing'], ['Email', 'Sends a personalized email tailored to the lead'], ['Follow up', 'Sends timed follow-up emails until the lead replies'], ['Confirm', 'Confirms the meeting automatically'], ['Convert', 'Turns the conversation into a paying customer']],
         statsBarData: {
           title: 'How teams put Follow Up to work',
           bars: [
             { label: 'Email sequences', value: 93, isUs: true },
-            { label: 'SMS reminders', value: 85, isUs: true },
             { label: 'Smart send timing', value: 90, isUs: true },
           ],
           caption: 'Share of active accounts using each capability weekly, based on CircleOn product usage.',
@@ -516,18 +506,11 @@ class CircleOnShell extends React.Component {
         },
         flowNotes: ['perfectly timed', 'never misses'],
         sections: [
-          { heading: 'Multi-channel communication', note: 'Meet prospects where they actually reply, texted prospects convert about 40% higher, and multi-channel sequences roughly double reply rates.', items: [
-            { ic: 'mail', title: 'Email', desc: 'Personalized, deliverability-optimized.' },
-            { ic: 'message', title: 'SMS', desc: 'Short, timely nudges that get read.' },
-            { ic: 'chat', title: 'WhatsApp', desc: 'Rich, conversational follow-ups.' },
+          { heading: 'Email follow-up', note: 'Keep every lead warm without chasing them by hand.', items: [
+            { ic: 'mail', title: 'Email', desc: 'Personalised, deliverability-optimised.' },
             { ic: 'inbox', title: 'Unified inbox', desc: 'Every reply in one thread.' },
           ] },
           { heading: 'Analytics', note: 'See exactly what\'s working. CircleOn tracks every channel, sequence, and test, so you can double down on what converts.', chart: true, chartData: [
-            { title: 'Reply rate by channel', caption: 'Adding channels compounds replies, three beats one, every time.', bars: [
-              { label: 'Email only', value: '8%', w: 26, hi: false },
-              { label: 'Email + SMS', value: '19%', w: 61, hi: false },
-              { label: 'Email + SMS + WhatsApp', value: '31%', w: 100, hi: true },
-            ] },
             { title: 'Where deals convert', caption: 'The full funnel, first send to booked meeting.', bars: [
               { label: 'Sent', value: '100%', w: 100, hi: false },
               { label: 'Opened', value: '61%', w: 61, hi: false },
@@ -539,17 +522,12 @@ class CircleOnShell extends React.Component {
               { label: 'Variant B, winner', value: '9.8%', w: 100, hi: true },
             ] },
           ] },
-          { heading: 'Integrations', note: 'Fits the tools you already run on.', items: [
-            { ic: 'sync', title: 'HubSpot', desc: 'Trigger sequences on any event.' },
-            { ic: 'calendar', title: 'Calendly', desc: 'Book straight into your calendar.' },
-            { ic: 'card', title: 'Stripe', desc: 'Follow up on failed payments.' },
-          ] },
         ],
         faqs: [
-          { q: 'Why automate follow-up instead of doing it manually?', a: 'Because it\'s where deals quietly die: 80% of sales need 5+ follow-ups, yet 44% of reps stop after one and only 8% ever reach five (SPOTIO). CircleOn runs all five-plus, perfectly timed, automatically.' },
+          { q: 'Why automate follow-up instead of doing it manually?', a: 'Follow-up is where deals quietly die: many reps stop after one or two messages. CircleOn keeps going for you, with up to four emails per lead, timed automatically.' },
           { q: 'Will messages feel automated?', a: 'No, each message is generated for the individual prospect using their context, so replies feel personal and relevant.' },
           { q: 'How does smart timing work?', a: 'The model learns when each lead engages and paces outreach to land at high-response moments instead of fixed intervals.' },
-          { q: 'Which channels are supported?', a: 'Email, SMS, and WhatsApp today, orchestrated together in a single sequence with a unified reply inbox.' },
+          { q: 'Which channels are supported?', a: 'Email today, with a unified reply inbox. WhatsApp and SMS are coming soon and cannot be purchased yet.' },
         ],
       },
     };
@@ -561,7 +539,7 @@ class CircleOnShell extends React.Component {
       product.features = product.features.map((f, i) => ({ ...f, n: i + 1, n2: String(i + 1).padStart(2, '0') }));
       product.statsBar = this.statsBarBuild(product.statsBarData);
       product.statsTrend = this.statsTrendBuild(product.statsTrendData);
-      product.heroStat = { value: product.statsBarData.bars[2].value + '%', label: product.statsBarData.caption.replace(/,.*$/, '') };
+      product.heroStat = { value: product.statsBarData.bars[product.statsBarData.bars.length - 1].value + '%', label: product.statsBarData.caption.replace(/,.*$/, '') };
       product.sections = this.buildSections(product.sections);
       product.faqs = product.faqs.map((q, i) => ({ ...q, n2: String(i + 1).padStart(2, '0'), isOpen: this.state.openFaq === i, isClosed: this.state.openFaq !== i, toggle: this.toggleFaq(i) }));
     }
@@ -588,45 +566,43 @@ class CircleOnShell extends React.Component {
     const followGrad = sheen + 'radial-gradient(circle at 70% 88%, #1A0E38 0%, transparent 54%), radial-gradient(circle at 85% 15%, #C9B6FF 0%, transparent 40%), conic-gradient(from 30deg at 50% 50%, #471E86, #7447C8, #B79CF2, #7447C8, #471E86)';
 
     const goto = this.goto;
-    const team = [
-      { initials: 'AR', name: 'Ava Reyes', role: 'CEO & Co-founder' },
-      { initials: 'JK', name: 'Jonah Kim', role: 'CTO & Co-founder' },
-      { initials: 'ML', name: 'Maya Lopez', role: 'Head of AI' },
-      { initials: 'DP', name: 'Deepak Patel', role: 'Head of Product' },
-    ];
+    const team = [];
+    const blogAuthor = { initials: 'CO', name: 'CircleOn Team' };
     const resources = [
-      { label: 'About', note: 'Our mission & team', onClick: () => goto('about') },
-      { label: 'Safety', note: 'Responsible & secure AI', onClick: () => goto('safety') },
-      { label: 'Customer Stories', note: 'Results from real teams', onClick: () => goto('stories') },
-      { label: 'Blog', note: 'Ideas & playbooks', onClick: () => goto('blog') },
-      { label: 'Help Center', note: 'Docs & support', onClick: () => goto('help') },
+      { label: 'About', note: 'Our mission & team', href: ROUTES['about'], onClick: () => goto('about') },
+      { label: 'Safety', note: 'Responsible & secure AI', href: ROUTES['safety'], onClick: () => goto('safety') },
+      { label: 'Customer Stories', note: 'Results from real teams', href: ROUTES['stories'], onClick: () => goto('stories') },
+      { label: 'Blog', note: 'Ideas & playbooks', href: ROUTES['blog'], onClick: () => goto('blog') },
+      { label: 'Help Center', note: 'Docs & support', href: ROUTES['help'], onClick: () => goto('help') },
     ];
 
     const footerCols = [
       { title: 'Solutions', links: [
-        { label: 'Lead Generation', onClick: () => goto('lead-generation') },
-        { label: 'Voice Agent', onClick: () => goto('voice-agent') },
-        { label: 'Follow Up', onClick: () => goto('follow-up') },
+        { label: 'Lead Generation', href: ROUTES['lead-generation'], onClick: () => goto('lead-generation') },
+        { label: 'Voice Agent', href: ROUTES['voice-agent'], onClick: () => goto('voice-agent') },
+        { label: 'Follow Up', href: ROUTES['follow-up'], onClick: () => goto('follow-up') },
       ] },
       { title: 'Resources', links: [
-        { label: 'About', onClick: () => goto('about') },
-        { label: 'Safety', onClick: () => goto('safety') },
-        { label: 'Customer Stories', onClick: () => goto('stories') },
-        { label: 'Blog', onClick: () => goto('blog') },
-        { label: 'Help Center', onClick: () => goto('help') },
+        { label: 'About', href: ROUTES['about'], onClick: () => goto('about') },
+        { label: 'Safety', href: ROUTES['safety'], onClick: () => goto('safety') },
+        { label: 'Customer Stories', href: ROUTES['stories'], onClick: () => goto('stories') },
+        { label: 'Blog', href: ROUTES['blog'], onClick: () => goto('blog') },
+        { label: 'Help Center', href: ROUTES['help'], onClick: () => goto('help') },
       ] },
       { title: 'Company', links: [
-        { label: 'Contact', onClick: () => goto('help') },
-        { label: 'Careers', onClick: () => goto('about') },
-        { label: 'Privacy Policy', onClick: () => this.props.router.push('/privacy') },
-        { label: 'Terms of Service', onClick: () => this.props.router.push('/terms') },
+        { label: 'Contact', href: '/contact', onClick: () => this.props.router.push('/contact') },
+        { label: 'Book a demo', href: '/demo', onClick: () => this.props.router.push('/demo') },
+        { label: 'Privacy Policy', href: '/privacy', onClick: () => this.props.router.push('/privacy') },
+        { label: 'PDPA', href: '/pdpa', onClick: () => this.props.router.push('/pdpa') },
+        { label: 'DNC Policy', href: '/dnc-policy', onClick: () => this.props.router.push('/dnc-policy') },
+        { label: 'Terms of Service', href: '/terms', onClick: () => this.props.router.push('/terms') },
       ] },
     ];
 
     const freeFeats = ['Explore the platform', 'Up to 50 leads / mo', 'Community support', 'No credit card required'];
-    const leadStarterFeats = ['Lead Generation solution', 'Up to 500 leads / mo', 'AI lead scoring', 'CRM sync', 'Email support'];
+    const leadStarterFeats = ['Lead Generation solution', 'Up to 500 leads / mo', 'AI lead scoring', 'Email support'];
     const voiceStarterFeats = ['Voice Agent solution', 'Up to 300 minutes / mo', 'Appointment booking', 'Call summaries', 'Email support'];
-    const followStarterFeats = ['Follow Up solution', 'Up to 500 contacts / mo', 'Email + SMS sequences', 'Smart send timing', 'Email support'];
+    const followStarterFeats = ['Follow Up solution', 'Up to 500 contacts / mo', 'Email sequences', 'Smart send timing', 'Email support'];
     const starterPick = this.state.starterPick;
     const starterFeats = starterPick === 'voice' ? voiceStarterFeats : starterPick === 'follow' ? followStarterFeats : leadStarterFeats;
     const starterOpt = (active) => `display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-radius:10px;font-size:13.5px;font-weight:600;cursor:pointer;transition:.2s;border:1px solid ${active ? dark ? '#806044' : '#1A172C' : dark ? '#765c7f' : '#D8D5E2'};background:${active ? dark ? '#403248' : '#1A172C' : dark ? '#2c1f36' : '#fff'};color:${active ? '#fff' : dark ? '#ded3e5' : '#423F54'}`;
@@ -777,12 +753,12 @@ class CircleOnShell extends React.Component {
       goFollowContent: () => this.gotoAndScroll('wf-follow'),
       scrollSolutions: () => this.scrollTo('solutions'),
       gotoSignup: () => this.props.router.push('/signup'),
-      homeLeadFlow: this.decorateLeadFlow(this.flowSketch([['Identify', 'Identify your target audience'], ['Discover', 'Find qualified prospects that match your ICP'], ['Enrich', 'Enrich contact data with verified details'], ['Score', 'AI lead scoring ranks by intent and fit'], ['Deliver', 'Send qualified leads straight to your CRM']])),
+      homeLeadFlow: this.decorateLeadFlow(this.flowSketch([['Identify', 'Identify your target audience'], ['Discover', 'Find qualified prospects that match your ICP'], ['Enrich', 'Enrich contact data with verified details'], ['Score', 'AI lead scoring ranks by intent and fit'], ['Deliver', 'Hand qualified leads to your follow-up sequence']])),
       homeVoiceFlow: this.decorateFlow(this.flowSketch([['Answer', 'Answers every incoming call instantly'], ['Understand', 'Understands customer intent from natural speech'], ['Retrieve', 'Retrieves business knowledge to inform the call'], ['Respond', 'Answers questions accurately and naturally'], ['Schedule', 'Schedules the appointment or executes the task'], ['Transfer', 'Transfers to a human when it truly matters']]), this.state.voiceStep ?? 0, this.voiceStepClick),
-      homeFollowFlow: this.decorateFlow(this.flowSketch([['Capture', 'A new lead is captured the moment they show interest'], ['Wait', 'AI waits based on smart, behavior-driven timing'], ['Email', 'Sends a personalized email tailored to the lead'], ['Remind', 'Follows up with an SMS or WhatsApp reminder'], ['Confirm', 'Confirms the meeting automatically'], ['Convert', 'Turns the conversation into a paying customer']]), this.state.followStep ?? 0, this.followStepClick),
-      leadFlow: this.numHoriz(['Identify Target Audience', 'Find Qualified Prospects', 'Enrich Contact Data', 'AI Lead Scoring', 'Send Qualified Leads to CRM']),
+      homeFollowFlow: this.decorateFlow(this.flowSketch([['Capture', 'A new lead is captured the moment they show interest'], ['Wait', 'AI waits based on smart, behavior-driven timing'], ['Email', 'Sends a personalized email tailored to the lead'], ['Follow up', 'Sends timed follow-up emails until the lead replies'], ['Confirm', 'Confirms the meeting automatically'], ['Convert', 'Turns the conversation into a paying customer']]), this.state.followStep ?? 0, this.followStepClick),
+      leadFlow: this.numHoriz(['Identify Target Audience', 'Find Qualified Prospects', 'Enrich Contact Data', 'AI Lead Scoring', 'Hand Off to Follow-up Sequence']),
       voiceFlow: this.numHoriz(['Incoming Call', 'AI Understands Customer Intent', 'Retrieves Business Knowledge', 'Answers Questions', 'Schedules Appointment or Executes Task', 'Transfers to Human if Needed']),
-      followFlow: this.numHoriz(['Lead Captured', 'AI Waits Based on Smart Timing', 'Personalized Email', 'SMS or WhatsApp Reminder', 'Meeting Confirmation', 'Customer Conversion']),
+      followFlow: this.numHoriz(['Lead Captured', 'AI Waits Based on Smart Timing', 'Personalized Email', 'Timed Follow-up Emails', 'Meeting Confirmation', 'Customer Conversion']),
       voices: this.voicesData(),
       leadSamples: this.leadSamplesData(dark),
       freeLeadsOpen: this.state.freeLeadsOpen,
@@ -809,32 +785,24 @@ class CircleOnShell extends React.Component {
         { title: 'Human in control', desc: 'Every agent operates within guardrails you define, with human handoff always available.' },
         { title: 'Data encryption', desc: 'Data is encrypted in transit (TLS 1.3) and at rest (AES-256) across our infrastructure.' },
         { title: 'Privacy by design', desc: 'We never sell your data or your customers\' data, and you can delete it at any time.' },
-        { title: 'Compliance', desc: 'SOC 2 Type II, GDPR, and CCPA aligned, with regional data residency options.' },
+        { title: 'Compliance', desc: 'Singapore-based and built around PDPA and Do Not Call requirements. See our PDPA and DNC pages.' },
         { title: 'Responsible AI', desc: 'Models are tested for bias and misuse, with transparent logging of every action.' },
-        { title: 'Consent-aware outreach', desc: 'Built-in opt-out handling and DNC compliance across voice, SMS, and email.' },
+        { title: 'Consent-aware outreach', desc: 'Built-in opt-out handling and DNC checks for voice and email outreach.' },
       ],
-      metrics: [
-        { value: '+42%', label: 'average conversion lift' },
-        { value: '3.1×', label: 'more qualified pipeline' },
-        { value: '11 hrs', label: 'saved per rep, weekly' },
-      ],
-      stories: [
-        { quote: 'CircleOn books more demos overnight than our SDRs used to in a week. It changed how we sell.', initials: 'SL', name: 'Sara Lin', role: 'VP Sales, Northwind' },
-        { quote: 'The voice agent answers every after-hours call. We stopped losing jobs to competitors who picked up first.', initials: 'TM', name: 'Tom Meyer', role: 'Owner, BrightHome Services' },
-        { quote: 'Follow-up used to fall through the cracks. Now every lead gets a perfectly-timed nudge automatically.', initials: 'RC', name: 'Rina Chen', role: 'Growth Lead, Fintra' },
-      ],
+      metrics: [],
+      stories: [],
       categories: ['All', 'Growth', 'Voice AI', 'Automation', 'Product'].map((label) => ({ label, chipStyle: `padding:9px 18px;border-radius:999px;border:1px solid ${label === 'All' ? '#1A172C' : '#D8D5E2'};background:${label === 'All' ? '#1A172C' : '#fff'};color:${label === 'All' ? '#fff' : '#1A172C'};font-size:13.5px;font-weight:600;cursor:pointer;transition:.2s` })),
       posts: [
-        { cat: 'Automation', title: 'Building a follow-up engine that closes itself', excerpt: 'How AI sequencing keeps every lead warm without a human lifting a finger.', read: '6 min read', thumbGrad: 'linear-gradient(150deg,#F1EEFD,#F8EED5)', avatarGrad: 'linear-gradient(155deg,#945FF9,#7447C8)', author: team[0] },
-        { cat: 'Voice AI', title: 'What makes an AI voice agent sound human', excerpt: 'The pacing, tone, and interruption handling that separate great agents from robotic ones.', read: '5 min read', thumbGrad: 'linear-gradient(150deg,#F8EED5,#F1EEFD)', avatarGrad: 'linear-gradient(155deg,#E6CE9D,#C49E62)', author: team[2] },
-        { cat: 'Growth', title: 'Lead scoring that reps actually trust', excerpt: 'Why most scoring models get ignored, and the signals that make reps believe the number.', read: '7 min read', thumbGrad: 'linear-gradient(150deg,#F1EEFD,#F8EED5)', avatarGrad: 'linear-gradient(155deg,#945FF9,#7447C8)', author: team[1] },
-        { cat: 'Product', title: 'Inside CircleOn: how our agents stay in sync', excerpt: 'A look at the shared context layer that keeps lead gen, voice, and follow-up talking to each other.', read: '4 min read', thumbGrad: 'linear-gradient(150deg,#F8EED5,#F1EEFD)', avatarGrad: 'linear-gradient(155deg,#E6CE9D,#C49E62)', author: team[3] },
+        { cat: 'Automation', title: 'Building a follow-up engine that closes itself', excerpt: 'How AI sequencing keeps every lead warm without a human lifting a finger.', read: '6 min read', thumbGrad: 'linear-gradient(150deg,#F1EEFD,#F8EED5)', avatarGrad: 'linear-gradient(155deg,#945FF9,#7447C8)', author: blogAuthor },
+        { cat: 'Voice AI', title: 'What makes an AI voice agent sound human', excerpt: 'The pacing, tone, and interruption handling that separate great agents from robotic ones.', read: '5 min read', thumbGrad: 'linear-gradient(150deg,#F8EED5,#F1EEFD)', avatarGrad: 'linear-gradient(155deg,#E6CE9D,#C49E62)', author: blogAuthor },
+        { cat: 'Growth', title: 'Lead scoring that reps actually trust', excerpt: 'Why most scoring models get ignored, and the signals that make reps believe the number.', read: '7 min read', thumbGrad: 'linear-gradient(150deg,#F1EEFD,#F8EED5)', avatarGrad: 'linear-gradient(155deg,#945FF9,#7447C8)', author: blogAuthor },
+        { cat: 'Product', title: 'Inside CircleOn: how our agents stay in sync', excerpt: 'A look at the shared context layer that keeps lead gen, voice, and follow-up talking to each other.', read: '4 min read', thumbGrad: 'linear-gradient(150deg,#F8EED5,#F1EEFD)', avatarGrad: 'linear-gradient(155deg,#E6CE9D,#C49E62)', author: blogAuthor },
       ],
       featured: {
         cat: 'Growth', read: '8 min read',
         title: 'The 5-minute rule: why speed-to-lead decides who wins',
         excerpt: "Responding within five minutes makes you 21× more likely to qualify a lead. Here's how AI agents make that the default, not the exception.",
-        author: team[0],
+        author: blogAuthor,
       },
       sidePosts: [
         { cat: 'Voice AI', read: '5 min read', title: 'What makes an AI voice agent sound human', thumbGrad: 'linear-gradient(150deg,#F1EEFD,#F8EED5)' },
@@ -843,12 +811,12 @@ class CircleOnShell extends React.Component {
       lastSidePost: { cat: 'Automation', read: '6 min read', title: 'Building a follow-up engine that closes itself' },
       helpCats: [
         { title: 'Getting Started', desc: 'Set up your workspace and launch your first agent.', count: 12 },
-        { title: 'Lead Generation', desc: 'Sources, scoring, enrichment, and CRM sync.', count: 18 },
+        { title: 'Lead Generation', desc: 'Sources, scoring, enrichment, and verification.', count: 18 },
         { title: 'Voice Agent', desc: 'Numbers, voices, knowledge, and call routing.', count: 15 },
-        { title: 'Follow Up', desc: 'Sequences, channels, timing, and analytics.', count: 14 },
+        { title: 'Follow Up', desc: 'Sequences, timing, and analytics.', count: 14 },
       ],
       socials: [
-        { short: 'in' }, { short: 'X' }, { short: 'GH' },
+        
       ],
     };
   }

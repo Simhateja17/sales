@@ -67,18 +67,22 @@ export default function Nav({ v }) {
   }, []);
 
   const close = () => setMenuOpen(false);
-  const run = (fn) => () => { close(); if (fn) fn(); };
+  const run = (fn) => (e) => {
+    if (e && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button > 0)) return;
+    if (e && e.preventDefault) e.preventDefault();
+    close(); if (fn) fn();
+  };
 
   const links = [
-    { label: 'Lead Generation', onClick: v.goLeadTitle },
-    { label: 'Voice Agent', onClick: v.goVoiceTitle },
-    { label: 'Follow Up', onClick: v.goFollowTitle },
+    { label: 'Lead Generation', href: '/lead-generation', onClick: v.goLeadTitle },
+    { label: 'Voice Agent', href: '/voice-agent', onClick: v.goVoiceTitle },
+    { label: 'Follow Up', href: '/follow-up', onClick: v.goFollowTitle },
   ];
 
   return (
     <nav className="co-nav" style={{"position": "sticky", "top": "0", "zIndex": "60", "backdropFilter": "blur(22px) saturate(1.8)", "WebkitBackdropFilter": "blur(22px) saturate(1.8)", "background": "linear-gradient(180deg, rgba(247,243,252,.86), rgba(251,250,246,.7))", "borderBottom": "1px solid rgba(230,225,238,.8)"}}>
       <div className="co-nav-inner" style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "0 24px", "height": "76px", "display": "grid", "gridTemplateColumns": "1fr auto 1fr", "alignItems": "center", "gap": "20px"}}>
-        <div className="co-nav-logo" onClick={run(v.gotoHome)} style={{"display": "flex", "alignItems": "center", "gap": "10px", "cursor": "pointer", "flexShrink": "0"}}>
+        <a href="/" aria-label="CircleOn.ai home" className="co-nav-logo" onClick={run(v.gotoHome)} style={{"textDecoration": "none", "display": "flex", "alignItems": "center", "gap": "10px", "cursor": "pointer", "flexShrink": "0"}}>
           <span style={{"position": "relative", "width": "24px", "height": "24px", "borderRadius": "50%", "border": "1.5px solid #1A172C", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}}>
             <span style={{"width": "6px", "height": "6px", "borderRadius": "50%", "background": "#C49E62"}} />
           </span>
@@ -89,11 +93,11 @@ export default function Nav({ v }) {
               .ai
             </span>
           </span>
-        </div>
+        </a>
         <div className="co-nav-links" style={{"display": "flex", "alignItems": "center", "gap": "28px", "justifyContent": "center"}}>
           {links.map((l) => (
             <Fragment key={l.label}>
-              <a onClick={l.onClick} style={LINK_STYLE}>{l.label}</a>
+              <a href={l.href} onClick={run(l.onClick)} style={LINK_STYLE}>{l.label}</a>
               {' '}
             </Fragment>
           ))}
@@ -114,7 +118,7 @@ export default function Nav({ v }) {
               <div className="co-dark-card" style={{"position": "absolute", "top": "calc(100% + 20px)", "left": "50%", "transform": "translateX(-50%)", "width": "280px", "background": "#fff", "borderRadius": "16px", "boxShadow": "0 30px 60px -24px rgba(21,14,42,.28)", "border": "1px solid #E9E4FA", "padding": "12px", "zIndex": "70"}}>
                 {(v.resources || []).map((r, $index) => (
                   <Fragment key={$index}>
-                  <a onClick={r.onClick} style={{"display": "block", "padding": "11px 14px", "borderRadius": "10px", "cursor": "pointer", "transition": "background .15s"}} className="co-pc7c801">
+                  <a href={r.href} onClick={run(r.onClick)} style={{"display": "block", "padding": "11px 14px", "borderRadius": "10px", "cursor": "pointer", "transition": "background .15s"}} className="co-pc7c801">
                     <div style={{"fontSize": "14.5px", "fontWeight": "700", "color": "#1A172C"}}>
                       {r.label}
                     </div>
@@ -129,7 +133,7 @@ export default function Nav({ v }) {
             ) : null}
           </div>
           {' '}
-          <a onClick={v.gotoPricing} style={LINK_STYLE}>
+          <a href="/pricing" onClick={run(v.gotoPricing)} style={LINK_STYLE}>
             Pricing
           </a>
         </div>
@@ -152,8 +156,8 @@ export default function Nav({ v }) {
           ) : (
             // Signed-out visitors get the same destination as the "Sign up" pill
             // on the solutions card: the /signup account form.
-            <a className="co-nav-demo co-p40d131" onClick={run(v.gotoSignup)} style={PILL_STYLE}>
-              {'Sign Up '}
+            <a className="co-nav-demo co-p40d131" href="/signup" onClick={run(v.gotoSignup)} style={PILL_STYLE}>
+              {'Start 7-day free trial '}
               {PILL_ARROW}
             </a>
           )}
@@ -174,12 +178,12 @@ export default function Nav({ v }) {
       {menuOpen ? (
         <div className="co-nav-mobile">
           {links.map((l) => (
-            <a key={l.label} onClick={run(l.onClick)}>{l.label}</a>
+            <a key={l.label} href={l.href} onClick={run(l.onClick)}>{l.label}</a>
           ))}
-          <a onClick={run(v.gotoPricing)}>Pricing</a>
+          <a href="/pricing" onClick={run(v.gotoPricing)}>Pricing</a>
           <div className="co-nav-mobile-sep" />
           {(v.resources || []).map((r, i) => (
-            <a key={i} onClick={run(r.onClick)}>
+            <a key={i} href={r.href} onClick={run(r.onClick)}>
               {r.label}
               <span>{r.note}</span>
             </a>

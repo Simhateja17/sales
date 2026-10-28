@@ -230,6 +230,8 @@ export default function Home({ v }) {
             <a className="co-button" href="/pricing?plan=allinone">Start 7-day free trial</a>
             {' '}
             <a className="co-see" href="/pricing">See pricing</a>
+            {' '}
+            <a className="co-see" href="/demo">Book a voice demo</a>
           </div>
           <p style={{textAlign:"center",fontSize:13,position:"relative"}}>Card required. Cancel before day 7. Prices <Gst lower />.</p>
           <section className="co-world">
@@ -758,8 +760,8 @@ export default function Home({ v }) {
               ) : null}
             </div>
             {' '}
-            <a onClick={v.gotoSignup} style={{"position": "absolute", "right": "clamp(20px,3vw,32px)", "bottom": "clamp(20px,3vw,28px)", "display": "inline-flex", "alignItems": "center", "gap": "12px", "padding": "6px 6px 6px 24px", "borderRadius": "999px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#fff", "background": "linear-gradient(135deg,#8B5CF6,#5B2A9E)", "boxShadow": "0 12px 24px -10px rgba(71,30,134,.55)", "cursor": "pointer", "transition": ".2s", "whiteSpace": "nowrap"}} className="co-p1066ae">
-              {"Sign up "}
+            <a href="/signup" onClick={(e) => { e.preventDefault(); v.gotoSignup(); }} style={{"position": "absolute", "right": "clamp(20px,3vw,32px)", "bottom": "clamp(20px,3vw,28px)", "display": "inline-flex", "alignItems": "center", "gap": "12px", "padding": "6px 6px 6px 24px", "borderRadius": "999px", "fontWeight": "600", "fontSize": "14.5px", "letterSpacing": ".02em", "color": "#fff", "background": "linear-gradient(135deg,#8B5CF6,#5B2A9E)", "boxShadow": "0 12px 24px -10px rgba(71,30,134,.55)", "cursor": "pointer", "transition": ".2s", "whiteSpace": "nowrap"}} className="co-p1066ae">
+              {"Start 7-day free trial "}
               <span style={{"width": "32px", "height": "32px", "borderRadius": "50%", "background": "rgba(255,255,255,.22)", "display": "flex", "alignItems": "center", "justifyContent": "center", "fontSize": "15px"}}>
                 →
               </span>
@@ -1147,17 +1149,17 @@ export default function Home({ v }) {
             <div style={{"position": "relative", "maxWidth": "500px", "margin": "0 auto", "textAlign": "center"}}>
               <div style={{"display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "10px", "marginBottom": "20px"}}>
                 <span style={{"fontSize": "12px", "fontWeight": "500", "letterSpacing": ".16em", "textTransform": "uppercase", "color": "#C49E62"}}>
-                  Get Started
+                  Free trial
                 </span>
               </div>
               <h2 style={{"fontFamily": "'Cormorant Garamond',serif", "fontSize": "clamp(28px,3.6vw,42px)", "letterSpacing": "-.01em", "fontWeight": "400", "color": "#fff", "margin": "0 0 14px"}}>
-                Create your CircleOn account
+                Start your 7-day free trial
               </h2>
               <p style={{"fontSize": "16.5px", "color": "#9E9CAD", "lineHeight": "1.6", "margin": "0 0 40px"}}>
-                Sign up in minutes and start building your sales agent today.
+                Card required. Cancel anytime before day 7. Prices excl. GST.
               </p>
-              <a onClick={v.gotoSignup} style={{"display": "block", "textAlign": "center", "padding": "16px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-pc6e9be co-on-gold">
-                Sign Up →
+              <a href="/signup" onClick={(e) => { e.preventDefault(); v.gotoSignup(); }} style={{"display": "block", "textAlign": "center", "padding": "16px", "border": "1px solid #C49E62", "borderRadius": "10px", "fontWeight": "600", "fontSize": "15px", "letterSpacing": ".02em", "color": "#471E86", "background": "#C49E62", "cursor": "pointer", "transition": "background .2s,color .2s"}} className="co-pc6e9be co-on-gold">
+                Start 7-day free trial →
               </a>
             </div>
           </div>
