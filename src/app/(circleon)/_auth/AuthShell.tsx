@@ -26,7 +26,7 @@ export default function AuthShell({ variant, children }: { variant: 'login' | 's
     <div className="au">
       <aside className="au-l">
         {ORBIT}
-        <Link className="au-logo" href="/" aria-label="CircleOn home"><span className="au-ring"><i /></span><b>Circle<span>On</span></b></Link>
+        <Link className="au-logo" href="/" aria-label="CircleOn home"><img className="au-ring" src="/circleon-mark.png" alt="" /><b>Circle<span>On</span></b></Link>
         {variant === 'login' ? (
           <div className="au-pitch">
             <span className="au-eyebrow au-eyebrow-w">Welcome back</span>

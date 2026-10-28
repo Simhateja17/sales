@@ -2051,3 +2051,6 @@ button.cd-back:hover{color:var(--brand)}
 button.card-action{background:none;border:0;padding:4px 6px;font-family:inherit}
 .lead-pager{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--ink-soft)}
 .lead-pager .btn-outline:disabled{opacity:.45;cursor:not-allowed}
+
+/* Brand mark image (replaces the CSS-drawn rings) */
+.sb-mark,.au-ring{width:36px;height:36px;border:0;border-radius:0;background:none;box-shadow:none;object-fit:contain;display:block;flex:none;}

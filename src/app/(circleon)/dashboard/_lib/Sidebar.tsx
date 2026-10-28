@@ -51,7 +51,7 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sb-brand">
-        <span className="sb-mark" aria-hidden="true"><i /></span>
+        <img className="sb-mark" src="/circleon-mark.png" alt="" aria-hidden="true" />
         <div>
           <div className="sb-name">CircleOn</div>
           <div className="sb-sub">AI sales agent</div>
