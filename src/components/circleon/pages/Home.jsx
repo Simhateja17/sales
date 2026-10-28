@@ -208,7 +208,7 @@ export default function Home({ v }) {
             </span>
           </div>
           <HeroFit>
-          <FoundingBanner />
+          <div className="co-hero-banner"><FoundingBanner /></div>
           <section className="co-intro">
             <div className="co-eyebrow">
               <b />
