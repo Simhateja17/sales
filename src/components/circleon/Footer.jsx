@@ -9,16 +9,7 @@ export default function Footer({ v }) {
         <div style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "clamp(48px,6vw,72px) 24px 40px", "display": "grid", "gridTemplateColumns": "1.4fr 1fr 1fr 1fr", "gap": "40px"}}>
           <div style={{"minWidth": "220px"}}>
             <div style={{"display": "flex", "alignItems": "center", "gap": "11px", "marginBottom": "16px"}}>
-              <span style={{"width": "26px", "height": "26px", "borderRadius": "50%", "border": "2.5px solid #7447C8", "display": "inline-flex", "alignItems": "center", "justifyContent": "center"}}>
-                <span style={{"width": "8px", "height": "8px", "borderRadius": "50%", "background": "#C49E62"}} />
-              </span>
-              {' '}
-              <span style={{"fontWeight": "600", "fontSize": "20px", "letterSpacing": "-.02em"}}>
-                Circle
-                <span style={{"color": "#7447C8"}}>
-                  On
-                </span>
-              </span>
+              <img src="/circleon-logo.png" alt="CircleOn" style={{"height": "56px", "width": "auto", "display": "block"}} />
             </div>
             <p className="co-footer-copy" style={{"fontSize": "14.5px", "color": "#716F82", "lineHeight": "1.6", "maxWidth": "280px", "margin": "0 0 20px"}}>
               AI agents that generate leads, answer calls, and follow up automatically, so your team can focus on what matters.

@@ -41,7 +41,7 @@ export default function PlanSelectPage() {
     }
   }
   return <>
-    <header className="ps-header"><div className="ps-logo"><span className="sb-mark" aria-hidden="true"><i /></span>CircleOn</div><SignOutButton /></header>
+    <header className="ps-header"><div className="ps-logo"><img className="sb-mark" src="/circleon-mark.png" alt="" aria-hidden="true" />CircleOn</div><SignOutButton /></header>
     <main className="ps-main"><div className="cp">
       <h1 className="ps-title">Choose your plan</h1>
       <p className="ps-sub">Start with a seven-day free trial. A card is required, and you can cancel before it ends to pay nothing.</p>

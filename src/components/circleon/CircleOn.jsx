@@ -380,7 +380,7 @@ class CircleOnShell extends React.Component {
       'lead-generation': {
         eyebrow: 'Lead Generation',
         title: 'Find and qualify your best leads on autopilot',
-        subtitle: 'AI prospecting that discovers, enriches, and scores leads matching your ICP, then routes them to your CRM the instant they\'re ready, while buying intent is still at its peak.',
+        subtitle: 'AI prospecting that discovers, enriches, and scores leads matching your ICP, then hands them to your follow-up sequence the instant they\'re ready, while buying intent is still at its peak.',
         features: [
           { title: 'Smart Prospecting', desc: 'Surface companies and contacts that match your ideal customer profile automatically.' },
           { title: 'Data Enrichment', desc: 'Append verified emails, roles, and firmographics to every lead in seconds.' },
@@ -489,7 +489,7 @@ class CircleOnShell extends React.Component {
       'follow-up': {
         eyebrow: 'Follow Up',
         title: 'Automated follow-up that never drops a lead',
-        subtitle: 'Personalized email, SMS, and WhatsApp sequences, timed by AI, because 80% of sales close between the 5th and 12th touch, and CircleOn makes every one without you lifting a finger.',
+        subtitle: 'Personalised email sequences with up to four emails per lead, timed by AI, so no lead goes quiet after one message.',
         features: [
           { title: 'Smart Timing', desc: 'AI decides the best moment to reach each lead based on behavior.' },
           { title: 'Deep Personalization', desc: 'Every message tailored to the prospect, not a template blast.' },
