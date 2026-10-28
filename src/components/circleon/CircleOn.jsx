@@ -593,7 +593,7 @@ class CircleOnShell extends React.Component {
         { label: 'Contact', href: '/contact', onClick: () => this.props.router.push('/contact') },
         { label: 'Book a demo', href: '/demo', onClick: () => this.props.router.push('/demo') },
         { label: 'Privacy Policy', href: '/privacy', onClick: () => this.props.router.push('/privacy') },
-        { label: 'PDPA', href: '/pdpa', onClick: () => this.props.router.push('/pdpa') },
+        { label: 'PDPA Notice', href: '/pdpa', onClick: () => this.props.router.push('/pdpa') },
         { label: 'DNC Policy', href: '/dnc-policy', onClick: () => this.props.router.push('/dnc-policy') },
         { label: 'Terms of Service', href: '/terms', onClick: () => this.props.router.push('/terms') },
       ] },

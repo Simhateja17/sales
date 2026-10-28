@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description: 'Contact CircleOn by email, request a voice agent demo, and see support hours.',
 };
 
-const UEN = process.env.NEXT_PUBLIC_UEN;
+const UEN = '202627473C';
 
 export default function Contact() {
   return <main style={{ maxWidth: 800, margin: '60px auto', padding: 24, lineHeight: 1.8 }}>

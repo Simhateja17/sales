@@ -32,7 +32,7 @@ export default function SignupPage() {
       return;
     }
     if (!agreed) {
-      setError('You must agree to the Terms and Privacy Policy.');
+      setError('You must agree to the Terms of Service and Privacy Policy.');
       return;
     }
 
@@ -123,7 +123,7 @@ export default function SignupPage() {
         ) : null}
         <label className="au-check">
           <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
-          <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>, and I consent to CircleOn contacting me about my account setup.</span>
+          <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span>
         </label>
         <button className="au-btn" type="submit" disabled={loading}>
           {loading ? 'Please wait…' : otpRequested ? 'Verify and create account' : 'Email me a code'}

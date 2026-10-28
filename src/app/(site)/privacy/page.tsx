@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
+import LegalPage from '@/components/legal/LegalPage';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — CircleOn.ai',
-  description: 'How CircleOn processes account, outreach, voice and billing data.',
+  description: 'How CIRCLEON PTE. LTD. collects, uses and protects personal data, including Google sign-in data.',
 };
 
-export default function Privacy(){return <main style={{maxWidth:800,margin:'60px auto',padding:24,lineHeight:1.8}}><a href="/pricing">← Pricing</a><h1>CircleOn Privacy Policy</h1><p>CIRCLEON PTE. LTD., Singapore, provides CircleOn. This policy explains the information used to operate your account, email outreach, voice agents, and billing.</p><h2>Information we process</h2><p>Account details include your name, company, email, workspace membership, and subscription. When you use outreach features, we process lead details, campaign content, sending and reply activity, and connected account information. Voice features may process call recordings, transcripts, summaries, appointment details, and your knowledge base. Demo requests include the contact details and message you submit.</p><h2>How information is used</h2><p>We use this information to provide the service, authenticate access, connect your accounts, deliver campaigns, stop follow-ups after replies or opt-outs, produce reports, support customers, and enforce subscription allowances. Company email domains are retained to enforce one trial per company. Billing and usage records support invoicing and payment handling.</p><h2>Service providers</h2><p>CircleOn uses service providers for hosting, authentication, payments, email, lead data, AI processing, and voice calling. Relevant information is shared with those providers to perform the requested functions and may be processed outside Singapore. Stripe handles card collection and payment processing; do not send card details to CircleOn support.</p><h2>Your responsibilities and choices</h2><p>Upload and contact only people whose information you may lawfully use. Respect permissions, opt-outs, and calling restrictions. You can disconnect accounts, cancel subscriptions, revoke teammate access, and contact support to request access, correction, or deletion of your information. Deletion requests may be subject to billing-record retention and other applicable obligations.</p><h2>Contact</h2><p>Contact CIRCLEON PTE. LTD. through the support area in your CircleOn account for privacy questions or requests.</p><p><a href="/terms">Terms of Service</a></p></main>;}
+export default function Privacy() {
+  return <LegalPage file="privacy-policy" />;
+}

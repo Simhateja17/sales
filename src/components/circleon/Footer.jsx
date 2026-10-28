@@ -44,7 +44,9 @@ export default function Footer({ v }) {
           ))}
         </div>
         <div className="co-footer-legal" style={{"maxWidth": "1200px", "margin": "0 auto", "padding": "20px 24px 40px", "borderTop": "1px solid #F1EEFD", "fontSize": "13.5px", "color": "#716F82"}}>
-          © 2026 CIRCLEON PTE. LTD.{process.env.NEXT_PUBLIC_UEN ? ` · UEN ${process.env.NEXT_PUBLIC_UEN}` : ''} · Singapore · PDPA · <a href="mailto:info@circleon.ai">info@circleon.ai</a><br /><a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a> · <a href="/pdpa">PDPA</a> · <a href="/dnc-policy">DNC Policy</a> · <a href="/contact">Contact</a>
+          © 2026 CIRCLEON PTE. LTD. (UEN 202627473C) · <a href="mailto:info@circleon.ai">info@circleon.ai</a>
+          <br />
+          <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="/pdpa">PDPA Notice</a> · <a href="/dnc-policy">DNC Policy</a> · <a href="/contact">Contact</a>
         </div>
       </footer>
     </>

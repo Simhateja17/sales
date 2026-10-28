@@ -41,6 +41,9 @@ import VoiceCampaignPanel from './VoiceCampaignPanel';
 import { EmptyState, Metric, hhmm, initials, statusBadge, type Page } from '../../_lib/ui';
 import { csvTargets, terminalImportStatuses } from '../../_lib/leadImport';
 
+// Wording is fixed by the legal pack (Terms 7.7, DNC Policy 3); version v2026-10-06.
+const DNC_LAUNCH_CONFIRMATION = 'I confirm that the contacts in this campaign may lawfully be contacted for this campaign, and that my organisation is the sender and is responsible for complying with the PDPA Do Not Call Provisions and other applicable laws. I understand that CircleOn will block numbers that are on the DNC Registry, have opted out, or have not been checked in the last 21 days, and that this screening is not legal advice or a guarantee of compliance.';
+
 function evidenceSourceLabel(sourceType?: string | null) {
   const normalized = String(sourceType || '').toLowerCase();
   if (normalized === 'apollo' || normalized === 'apollo_fallback') return 'CircleOn contact data';
@@ -72,6 +75,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   const [notFound, setNotFound] = useState(false);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
+  const [launchConfirmed, setLaunchConfirmed] = useState(false);
   // The sidebar has no manual collapse control any more; it collapses only
   // when a drawer needs the room, which this page has none of.
   const [sidebarCollapsed] = useState(false);
@@ -281,6 +285,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
 
   async function handleLaunch() {
     if (!campaign) return;
+    if (campaign.channel === 'voice' && !launchConfirmed) return;
     if (campaign.attention_required && !window.confirm('Are you happy with this campaign’s targeting, limits, and sequence? Launching confirms these settings and makes it eligible for Autopilot.')) return;
     setBusy('launch');
     setMessage('');
@@ -584,9 +589,15 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
           {campaign ? (
             <div className="cd-actions">
               {campaign.channel === 'voice' ? (
-                <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch'} onClick={handleLaunch}>
+                <>
+                <label className="voice-attestation" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', maxWidth: 520, fontSize: 13, lineHeight: 1.5 }}>
+                  <input type="checkbox" checked={launchConfirmed} onChange={event => setLaunchConfirmed(event.target.checked)} style={{ marginTop: 3 }} />
+                  <span>{DNC_LAUNCH_CONFIRMATION}</span>
+                </label>
+                <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch' || !launchConfirmed} onClick={handleLaunch}>
                   {busy === 'launch' ? 'Launching...' : 'Launch'}
                 </button>
+                </>
               ) : (
                 <button className="btn-outline" type="button" disabled={busy === 'generate' || generationBusy || !canEdit} onClick={handleGenerate}>
                   {busy === 'generate' || generationBusy ? 'Researching and writing...' : preview.length ? 'Regenerate emails' : 'Generate emails'}
