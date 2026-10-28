@@ -1,7 +1,7 @@
 // Ported from the CircleOn design export. Structure and styling are a
 // faithful copy; see components/circleon/CircleOn.jsx for the state behind `v`.
 import { Fragment } from 'react';
-import { FoundingBanner } from '@/components/pricing/PricingPlans';
+import { FoundingBanner, Gst } from '@/components/pricing/PricingPlans';
 import { cssToObj } from '../cssToObj';
 import HeroFit from '../HeroFit';
 
@@ -84,7 +84,7 @@ export default function Home({ v }) {
             </span>
             {' '}
             <span style={{"left": "39%", "animationDuration": "8.3s", "animationDelay": "-5.4s"}}>
-              CRM
+              BOOKED
             </span>
             {' '}
             <span style={{"left": "41%", "animationDuration": "9.1s", "animationDelay": "-2.7s"}}>
@@ -92,7 +92,7 @@ export default function Home({ v }) {
             </span>
             {' '}
             <span style={{"left": "43%", "animationDuration": "8s", "animationDelay": "-5s"}}>
-              80% FOLLOW-UP
+              FOLLOW-UP
             </span>
             {' '}
             <span style={{"left": "45%", "animationDuration": "13.3s", "animationDelay": "-11.2s"}}>
@@ -108,7 +108,7 @@ export default function Home({ v }) {
             </span>
             {' '}
             <span style={{"left": "51%", "animationDuration": "12.5s", "animationDelay": "-9s"}}>
-              CRM SYNC
+              LEAD SYNC
             </span>
             {' '}
             <span style={{"left": "53%", "animationDuration": "9.7s", "animationDelay": "-3.1s"}}>
@@ -231,7 +231,7 @@ export default function Home({ v }) {
             {' '}
             <a className="co-see" href="/pricing">See pricing</a>
           </div>
-          <p style={{textAlign:"center",fontSize:13,position:"relative"}}>Card required. Cancel before day 7. Prices excl. GST.</p>
+          <p style={{textAlign:"center",fontSize:13,position:"relative"}}>Card required. Cancel before day 7. Prices <Gst lower />.</p>
           <section className="co-world">
             <div className="co-path" />
             <div className="co-hub">
@@ -381,11 +381,11 @@ export default function Home({ v }) {
                       </div>
                       <div className="co-message two">
                         <span className="co-message-icon">
-                          S
+                          E
                         </span>
                         <span>
                           <b>
-                            SMS delivered
+                            Email delivered
                           </b>
                           <small>
                             Replied in 42 sec
@@ -394,11 +394,11 @@ export default function Home({ v }) {
                       </div>
                       <div className="co-message three">
                         <span className="co-message-icon">
-                          W
+                          F
                         </span>
                         <span>
                           <b>
-                            WhatsApp follow-up
+                            Follow-up email
                           </b>
                           <small>
                             Best time detected
@@ -609,7 +609,7 @@ export default function Home({ v }) {
                   </span>
                 </div>
                 <p className="co-solution-desc" onClick={v.goLeadContent} style={cssToObj(v.leadDescStyle)}>
-                  Discover, enrich, and score prospects that match your ICP, then route them to your CRM the moment they're sales-ready.
+                  Discover, enrich, and score prospects that match your ICP, then hand them straight to your follow-up sequence the moment they're sales-ready.
                 </p>
               </div>
               <div className="co-sol-col co-sol-col-2" style={{"display": "flex", "flexDirection": "column", "alignItems": "center", "textAlign": "center", "position": "relative", "zIndex": "3", "marginTop": "0"}}>
@@ -647,7 +647,7 @@ export default function Home({ v }) {
                   </span>
                 </div>
                 <p className="co-solution-desc" onClick={v.goFollowContent} style={cssToObj(v.followDescStyle)}>
-                  Personalized email, SMS, and WhatsApp sequences, timed by AI, because 80% of sales close only after five or more follow-ups.
+                  Personalised email sequences with up to four emails per lead, timed by AI, so no lead goes quiet after one message.
                 </p>
               </div>
             </div>
@@ -731,16 +731,16 @@ export default function Home({ v }) {
                         </span>
                       </div>
                       <div className="co-message two">
-                        <span className="co-message-icon">S</span>
+                        <span className="co-message-icon">E</span>
                         <span>
-                          <b>SMS delivered</b>
+                          <b>Email delivered</b>
                           <small>Replied in 42 sec</small>
                         </span>
                       </div>
                       <div className="co-message three">
-                        <span className="co-message-icon">W</span>
+                        <span className="co-message-icon">F</span>
                         <span>
-                          <b>WhatsApp follow-up</b>
+                          <b>Follow-up email</b>
                           <small>Best time detected</small>
                         </span>
                       </div>
@@ -776,7 +776,7 @@ export default function Home({ v }) {
               {" works"}
             </h3>
             <p style={{"fontSize": "15.5px", "color": "#423F54", "lineHeight": "1.7", "margin": "0 0 28px", "maxWidth": "640px"}}>
-              {"AI prospecting that discovers, enriches, and scores leads matching your ICP, then routes them to your CRM the instant they're ready, while buying intent is still at its peak. No lists to buy, no spreadsheets to maintain, just a steady stream of qualified leads reps can act on immediately. "}
+              {"AI prospecting that discovers, enriches, and scores leads matching your ICP, then hands them to your follow-up sequence the instant they're ready, while buying intent is still at its peak. No lists to buy, no spreadsheets to maintain, just a steady stream of qualified leads reps can act on immediately. "}
               <a onClick={v.goLeadTitle} style={{"color": "#471E86", "fontWeight": "600", "cursor": "pointer", "borderBottom": "1px solid #471E86"}}>
                 Learn more →
               </a>
@@ -959,7 +959,7 @@ export default function Home({ v }) {
               {" works"}
             </h3>
             <p style={{"fontSize": "15.5px", "color": "#423F54", "lineHeight": "1.7", "margin": "0 0 28px", "maxWidth": "640px"}}>
-              {"Personalized email, SMS, and WhatsApp sequences, timed by AI, because 80% of sales close between the 5th and 12th touch, and most reps stop after two. CircleOn makes every one of those touches without you lifting a finger. "}
+              {"Personalised email sequences with up to four emails per lead, timed by AI. Most reps stop after two touches; CircleOn keeps following up without you lifting a finger. "}
               <a onClick={v.goFollowTitle} style={{"color": "#471E86", "fontWeight": "600", "cursor": "pointer", "borderBottom": "1px solid #471E86"}}>
                 Learn more →
               </a>
