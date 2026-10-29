@@ -1,5 +1,42 @@
 'use client';
-import {useState} from 'react';
+import { useState } from 'react';
+import { LegalShell } from '@/components/legal/LegalShell';
 import '@/components/pricing/pricing.css';
-const API=process.env.NEXT_PUBLIC_API_URL||'http://localhost:5001';
-export default function Demo(){const [message,setMessage]=useState(''),[busy,setBusy]=useState(false);return <main className="cp" style={{maxWidth:680,margin:'60px auto',padding:24}}><a href="/pricing">← Pricing</a><h1>Request a voice demo</h1><p>Tell us about your company. Our team will help confirm your phone setup and arrange a demo before paid checkout.</p><form onSubmit={async e=>{e.preventDefault();setBusy(true);setMessage('');const data=Object.fromEntries(new FormData(e.currentTarget));try{const r=await fetch(API+'/api/billing/demo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const body=await r.json();if(!r.ok)throw new Error(body.error);setMessage('Your request has been received. Our team will contact you.');}catch(e){setMessage(e instanceof Error?e.message:'Could not submit.');}finally{setBusy(false);}}}><label>Name<input required name="name" maxLength={250}/></label><label>Company<input required name="company" maxLength={250}/></label><label>Work email<input required type="email" name="email" maxLength={250}/></label><label>What would you like your voice agent to do?<textarea name="message" maxLength={2000}/></label><p>By submitting, you agree to our <a href="/privacy">Privacy Policy</a> and to being contacted about this request.</p><button className="cp-cta" disabled={busy}>{busy?'Sending…':'Request a demo'}</button><p role="status">{message}</p></form></main>;}
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+
+export default function Demo() {
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage('');
+    const data = Object.fromEntries(new FormData(e.currentTarget));
+    try {
+      const r = await fetch(API + '/api/billing/demo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error);
+      setMessage('Your request has been received. Our team will contact you.');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Could not submit.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return <LegalShell>
+    <div className="cp">
+      <h1>Request a voice demo</h1>
+      <p>Tell us about your company. Our team will help confirm your phone setup and arrange a demo before paid checkout.</p>
+      <form onSubmit={submit}>
+        <label>Name<input required name="name" maxLength={250} /></label>
+        <label>Company<input required name="company" maxLength={250} /></label>
+        <label>Work email<input required type="email" name="email" maxLength={250} /></label>
+        <label>What would you like your voice agent to do?<textarea name="message" maxLength={2000} rows={4} /></label>
+        <p>By submitting, you agree to our <a href="/privacy">Privacy Policy</a> and to being contacted about this request.</p>
+        <button className="cp-cta" disabled={busy}>{busy ? 'Sending…' : 'Request a demo'}</button>
+        <p role="status">{message}</p>
+      </form>
+    </div>
+  </LegalShell>;
+}

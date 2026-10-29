@@ -801,7 +801,7 @@ class CircleOnShell extends React.Component {
       featured: {
         cat: 'Growth', read: '8 min read',
         title: 'The 5-minute rule: why speed-to-lead decides who wins',
-        excerpt: "Responding within five minutes makes you 21× more likely to qualify a lead. Here's how AI agents make that the default, not the exception.",
+        excerpt: "The first team to reply usually has the best shot at the lead. Here's how AI agents make a fast reply the default, not the exception.",
         author: blogAuthor,
       },
       sidePosts: [

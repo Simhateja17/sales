@@ -1,17 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ReactNode } from 'react';
-import CircleOn from '@/components/circleon/CircleOn';
-import './legal.css';
-
-// Wraps a text page in the site's nav, footer and theme.
-export function LegalShell({ children }: { children: ReactNode }) {
-  return <CircleOn page="legal">
-    <main className="legal-page">
-      <div className="legal-card">{children}</div>
-    </main>
-  </CircleOn>;
-}
+import { LegalShell } from './LegalShell';
 
 // The HTML fragments come from the approved legal pack. Edit the pack's Markdown and
 // rebuild rather than changing the wording here.

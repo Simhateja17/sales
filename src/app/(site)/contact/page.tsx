@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { LegalShell } from '@/components/legal/LegalPage';
+import { LegalShell } from '@/components/legal/LegalShell';
 
 export const metadata: Metadata = {
   title: 'Contact — CircleOn.ai',
