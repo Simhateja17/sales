@@ -102,7 +102,7 @@ export default function Blog({ v }) {
                 {v.featured.excerpt}
               </p>
             </div>
-            <div style={{"height": "220px", "background": "linear-gradient(135deg,#471E86,#7447C8)", "margin": "0 26px 26px", "borderRadius": "14px"}} />
+            <div style={{"height": "220px", "background": "linear-gradient(135deg,#E9E4FA,#F6E4BE)", "margin": "0 26px 26px", "borderRadius": "14px"}} />
             <div style={{"display": "flex", "alignItems": "center", "gap": "8px", "padding": "0 26px 26px"}}>
               <span style={{"width": "26px", "height": "26px", "borderRadius": "50%", "background": "linear-gradient(155deg,#945FF9,#7447C8)", "color": "#fff", "fontSize": "10.5px", "fontWeight": "600", "display": "flex", "alignItems": "center", "justifyContent": "center"}}>
                 {v.featured.author.initials}
