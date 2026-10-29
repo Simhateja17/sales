@@ -1,10 +1,22 @@
-.legal-page { max-width: 820px; margin: 60px auto; padding: 24px; line-height: 1.75; color: inherit; }
-.legal-page h1 { margin: 24px 0 12px; }
-.legal-page h2 { margin: 32px 0 8px; font-size: 1.35rem; }
-.legal-page h3 { margin: 22px 0 6px; font-size: 1.1rem; }
-.legal-page a { text-decoration: underline; }
-.legal-page hr { border: 0; border-top: 1px solid rgba(128, 128, 128, .35); margin: 24px 0; }
-.legal-page table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: .95rem; }
-.legal-page th, .legal-page td { border: 1px solid rgba(128, 128, 128, .45); padding: 8px 10px; text-align: left; vertical-align: top; }
-.legal-foot { margin-top: 40px; font-size: .9rem; }
-@media (max-width: 640px) { .legal-page { margin: 24px auto; padding: 16px; } .legal-page table { display: block; overflow-x: auto; } }
+.legal-page{position:relative;z-index:1;padding:64px 24px 96px;background:radial-gradient(ellipse 60% 40% at 50% 0,#EFE8FF 0,rgba(239,232,255,0) 70%),#FBFAFF;color:#1A172C;font-family:'DM Sans',sans-serif;line-height:1.75}
+.legal-card{max-width:860px;margin:0 auto;background:#fff;border:1px solid #E9E4FA;border-radius:22px;padding:clamp(24px,5vw,56px);box-shadow:0 5px 24px #25113e0d}
+.legal-page h1{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:clamp(36px,5vw,56px);line-height:1.05;letter-spacing:-.03em;margin:0 0 20px;color:#1A172C}
+.legal-page h2{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:28px;letter-spacing:-.02em;margin:40px 0 10px;color:#1A172C}
+.legal-page h3{font-size:17px;font-weight:600;margin:24px 0 6px;color:#1A172C}
+.legal-page p,.legal-page li{font-size:16px;color:#423F54}
+.legal-page a{color:#5B32A8;text-decoration:underline;text-underline-offset:3px}
+.legal-page strong{color:#1A172C}
+.legal-page hr{border:0;border-top:1px solid #E9E4FA;margin:28px 0}
+.legal-page table{border-collapse:separate;border-spacing:0;width:100%;margin:18px 0;font-size:14.5px;border:1px solid #E9E4FA;border-radius:12px;overflow:hidden}
+.legal-page th,.legal-page td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid #E9E4FA}
+.legal-page th{background:#F1EEFD;color:#1A172C;font-weight:600}
+.legal-page :focus-visible{outline:3px solid #A77ACB;outline-offset:3px}
+.legal-foot{margin-top:40px;font-size:14px}
+:is([data-theme=dark],[data-co-theme=dark]) .legal-page{background:radial-gradient(ellipse 60% 40% at 50% 0,#3a2a5c 0,rgba(58,42,92,0) 70%),#14111F;color:#F6F3FC}
+:is([data-theme=dark],[data-co-theme=dark]) .legal-card{background:#251b30;border-color:#3a3348;box-shadow:none}
+:is([data-theme=dark],[data-co-theme=dark]) .legal-page h1,:is([data-theme=dark],[data-co-theme=dark]) .legal-page h2,:is([data-theme=dark],[data-co-theme=dark]) .legal-page h3,:is([data-theme=dark],[data-co-theme=dark]) .legal-page strong{color:#F6F3FC}
+:is([data-theme=dark],[data-co-theme=dark]) .legal-page p,:is([data-theme=dark],[data-co-theme=dark]) .legal-page li{color:#CFC6DD}
+:is([data-theme=dark],[data-co-theme=dark]) .legal-page a{color:#DBB557}
+:is([data-theme=dark],[data-co-theme=dark]) .legal-page hr,:is([data-theme=dark],[data-co-theme=dark]) .legal-page th,:is([data-theme=dark],[data-co-theme=dark]) .legal-page td,:is([data-theme=dark],[data-co-theme=dark]) .legal-page table{border-color:#3a3348}
+:is([data-theme=dark],[data-co-theme=dark]) .legal-page th{background:#332b49}
+@media(max-width:640px){.legal-page{padding:32px 12px 64px}.legal-page table{display:block;overflow-x:auto}}

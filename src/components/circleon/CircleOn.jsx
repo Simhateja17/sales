@@ -830,14 +830,15 @@ class CircleOnShell extends React.Component {
       <div className="co-root" data-co-theme={v.theme} suppressHydrationWarning>
         <Ambience />
         <Nav v={v} />
-        <PageBody v={v} />
+        {this.props.children ?? <PageBody v={v} />}
         <Footer v={v} />
       </div>
     );
   }
 }
 
-export default function CircleOn({ page }) {
+/** @param {{ page?: string, children?: import('react').ReactNode }} props */
+export default function CircleOn({ page, children }) {
   const router = useRouter();
-  return <CircleOnShell page={page} router={router} />;
+  return <CircleOnShell page={page} router={router}>{children}</CircleOnShell>;
 }
