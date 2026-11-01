@@ -77,6 +77,7 @@ import { csvTargets, terminalImportStatuses } from './_lib/leadImport';
 import { useTheme } from './_lib/theme';
 import { useTour } from './_lib/tour/TourProvider';
 import { isCampaignEligibleLead } from './_lib/tour/completion';
+import { confirmDialog } from '@/components/circleon/dialog';
 
 type SettingsSection = 'mailbox' | 'voice' | 'autopilot' | 'workspace' | 'compliance' | 'profile';
 type LeadView = 'all' | 'ready' | 'campaign' | 'attention';
@@ -194,8 +195,8 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError, in
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
-  function requestClose() {
-    if (dirty && !window.confirm('Discard your unsent reply draft?')) return;
+  async function requestClose() {
+    if (dirty && !await confirmDialog({ title: 'Discard your reply?', message: 'Your unsent reply draft will be lost.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', danger: true })) return;
     onClose();
   }
 
@@ -753,9 +754,9 @@ function DashboardContent() {
     }
   }
   const selectedConversation = visibleConversations.find(item => item.lead_id === selectedConversationId) || visibleConversations[0] || null;
-  function selectConversation(conversation: EmailConversation) {
+  async function selectConversation(conversation: EmailConversation) {
     if (conversation.lead_id === selectedConversation?.lead_id) return;
-    if (inboxDirty && !window.confirm('Discard your unsent reply draft?')) return;
+    if (inboxDirty && !await confirmDialog({ title: 'Discard your reply?', message: 'Your unsent reply draft will be lost.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', danger: true })) return;
     setInboxDirty(false);
     setSelectedConversationId(conversation.lead_id);
   }
@@ -1009,7 +1010,7 @@ function DashboardContent() {
   }
 
   async function handleDeleteLeads(ids: string[]) {
-    if (!ids.length || !window.confirm(`Delete ${ids.length} lead${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    if (!ids.length || !await confirmDialog({ title: `Delete ${ids.length} lead${ids.length === 1 ? '' : 's'}?`, message: 'This cannot be undone.', confirmLabel: 'Delete', danger: true })) return;
     setBusy('lead-delete');
     setMessage('');
     try {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { setLeadVoiceConsent, type AgentConfig, type CampaignBrief, type CampaignSequenceStep, type ConnectedAccount, type Lead } from '@/lib/api';
+import { confirmDialog } from '@/components/circleon/dialog';
 
 type CampaignDraft = {
   name: string;
@@ -159,7 +160,7 @@ export default function CampaignBuilderModal({
   const effectiveLeads = useMemo(() => leads.map(lead => consents[lead.id] ? { ...lead, voice_consent_status: consents[lead.id] } : lead), [consents, leads]);
 
   async function recordConsent(lead: Lead) {
-    if (!window.confirm(`Has ${lead.full_name} agreed to receive calls from your business at ${lead.phone_e164 || lead.phone}? Only confirm if you hold that consent; you are responsible for keeping a record of it.`)) return;
+    if (!await confirmDialog({ title: `Record call consent for ${lead.full_name}?`, message: `Has ${lead.full_name} agreed to receive calls from your business at ${lead.phone_e164 || lead.phone}? Only confirm if you hold that consent; you are responsible for keeping a record of it.`, confirmLabel: 'Yes, they agreed' })) return;
     setConsentBusy(lead.id); setConsentError('');
     try {
       const { lead: saved } = await setLeadVoiceConsent(lead.id, 'consented');

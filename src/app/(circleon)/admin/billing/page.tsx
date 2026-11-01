@@ -5,6 +5,7 @@ import { planLabel } from '@/lib/planLabel';
 
 import { type Customer, type Paged } from '@/lib/adminApi';
 import { Badge, Header, LoadState, Pager, Status, subscriptionTone, useAction, useAdmin } from '../_components/ui';
+import { promptDialog } from '@/components/circleon/dialog';
 
 const FLAGS = ['trial_approved', 'voice_approved', 'voice_ready'] as const;
 
@@ -27,11 +28,10 @@ function CustomerCard({ customer: c, onSaved }: { customer: Customer; onSaved: (
   const action = useAction(onSaved);
   const touchesStripe = c.subscription_status === 'trialing' && Boolean(c.plan?.startsWith('allinone'));
 
-  function toggle(key: typeof FLAGS[number], value: boolean) {
+  async function toggle(key: typeof FLAGS[number], value: boolean) {
     let confirm: string | null = null;
     if (key === 'voice_ready' && touchesStripe) {
-      // window.prompt is the lightest typed confirmation that works inline in a list.
-      confirm = window.prompt(`This changes ${c.name}'s Stripe subscription. Type the organization name to confirm.`);
+      confirm = await promptDialog({ title: 'Change Stripe subscription?', message: `This changes ${c.name}'s Stripe subscription. Type the organization name to confirm.`, placeholder: c.name, mustMatch: c.name, confirmLabel: 'Confirm change', danger: true });
       if (confirm === null) return;
     }
     action.run(`/billing/${c.workspace_id}`, 'PATCH', { [key]: value, ...(confirm !== null ? { confirm } : {}) });

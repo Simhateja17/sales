@@ -5,6 +5,7 @@ import plans from '@/lib/pricing.json';
 import { planLabel } from '@/lib/planLabel';
 import './pricing.css';
 import InboundVoiceSettings from './InboundVoiceSettings';
+import { confirmDialog } from '@/components/circleon/dialog';
 
 type Member = { id: string; email: string; status: string };
 
@@ -237,8 +238,9 @@ export default function BillingPanel() {
                   className="bill-line danger"
                   type="button"
                   disabled={busy}
-                  onClick={() => {
-                    if (window.confirm(billing.subscription_status === 'trialing' ? 'Cancel this trial immediately with no charge?' : 'Cancel renewal? Service continues through your paid month.')) act(() => billingAction('/cancel'), 'Cancellation saved.');
+                  onClick={async () => {
+                    const trialing = billing.subscription_status === 'trialing';
+                    if (await confirmDialog({ title: trialing ? 'Cancel your trial?' : 'Cancel renewal?', message: trialing ? 'Your trial ends immediately. You will not be charged.' : 'Your service continues until the end of the month you have paid for.', confirmLabel: trialing ? 'Cancel trial' : 'Cancel renewal', cancelLabel: 'Keep my plan', danger: true })) act(() => billingAction('/cancel'), 'Cancellation saved.');
                   }}
                 >
                   Cancel subscription

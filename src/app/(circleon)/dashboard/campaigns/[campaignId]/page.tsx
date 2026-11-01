@@ -40,6 +40,7 @@ import Sidebar from '../../_lib/Sidebar';
 import VoiceCampaignPanel from './VoiceCampaignPanel';
 import { EmptyState, Metric, hhmm, initials, statusBadge, type Page } from '../../_lib/ui';
 import { csvTargets, terminalImportStatuses } from '../../_lib/leadImport';
+import { confirmDialog, promptDialog } from '@/components/circleon/dialog';
 
 // Wording is fixed by the legal pack (Terms 7.7, DNC Policy 3); version v2026-10-06.
 const DNC_LAUNCH_CONFIRMATION = 'I confirm that the contacts in this campaign may lawfully be contacted for this campaign, and that my organisation is the sender and is responsible for complying with the PDPA Do Not Call Provisions and other applicable laws. I understand that CircleOn will block numbers that are on the DNC Registry, have opted out, or have not been checked in the last 21 days, and that this screening is not legal advice or a guarantee of compliance.';
@@ -325,7 +326,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   async function handleLaunch() {
     if (!campaign) return;
     if (campaign.channel === 'voice' && !launchConfirmed) return;
-    if (campaign.attention_required && !window.confirm('Are you happy with this campaign’s targeting, limits, and sequence? Launching confirms these settings and makes it eligible for Autopilot.')) return;
+    if (campaign.attention_required && !await confirmDialog({ title: 'Launch this campaign?', message: 'Check you are happy with the targeting, daily limits and email sequence. Launching confirms these settings and makes the campaign eligible for Autopilot.', confirmLabel: 'Launch campaign', cancelLabel: 'Not yet' })) return;
     setBusy('launch');
     setMessage('');
     try {
@@ -343,8 +344,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
 
   async function handleReschedule(messageItem: EmailMessage) {
     if (!campaign) return;
-    const suggested = messageItem.scheduled_at ? new Date(messageItem.scheduled_at).toISOString().slice(0, 16) : '';
-    const value = window.prompt('Schedule date and time (local):', suggested);
+    // datetime-local wants local time, not UTC, so shift by the timezone offset.
+    const suggested = messageItem.scheduled_at ? new Date(new Date(messageItem.scheduled_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+    const value = await promptDialog({ title: 'Reschedule email', message: 'Pick a new date and time in your local time. Campaign and workspace sending limits still apply.', inputType: 'datetime-local', defaultValue: suggested, confirmLabel: 'Reschedule' });
     if (!value) return;
     const scheduledAt = new Date(value);
     if (Number.isNaN(scheduledAt.getTime())) {

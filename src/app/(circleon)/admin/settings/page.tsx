@@ -1,6 +1,7 @@
 'use client';
 
 import { Header, LoadState, Status, useAction, useAdmin } from '../_components/ui';
+import { confirmDialog } from '@/components/circleon/dialog';
 
 type Settings = Record<string, boolean | string | null>;
 
@@ -27,7 +28,7 @@ export default function LaunchSettings() {
             <h2>Offer and compliance</h2>
             {FLAGS.map(f => (
               <label key={f.key} className="adm-toggle">
-                <input type="checkbox" checked={Boolean(settings[f.key])} disabled={action.busy} onChange={e => { const on = e.target.checked; if (window.confirm(`${on ? 'Turn on' : 'Turn off'} "${f.label}"? This changes what customers see.`)) action.run('/settings', 'PATCH', { [f.key]: on }); }} />
+                <input type="checkbox" checked={Boolean(settings[f.key])} disabled={action.busy} onChange={async e => { const on = e.target.checked; if (await confirmDialog({ title: `${on ? 'Turn on' : 'Turn off'} "${f.label}"?`, message: 'This changes what customers see.', confirmLabel: on ? 'Turn on' : 'Turn off' })) action.run('/settings', 'PATCH', { [f.key]: on }); }} />
                 <span><strong>{f.label}</strong><span className="adm-small adm-muted">{f.hint}</span></span>
               </label>
             ))}
