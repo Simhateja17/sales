@@ -169,32 +169,37 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   const approvedCount = preview.filter(item => item.status === 'approved' || item.status === 'sent' || item.status === 'auto_sent').length;
   const [activeStep, setActiveStep] = useState<number | null>(null);
   const activeStepNo = activeStep ?? previewSequenceGroups[0]?.stepNumber ?? 1;
-  const researchEvidenceGroups = useMemo(() => {
-    const groups = new Map<string, {
-      leadId: string;
-      name: string;
-      company: string;
+  // Research behind each lead's emails, shown with that email rather than in a
+  // separate list. Evidence without any text is kept only if it has a link.
+  const researchByLead = useMemo(() => {
+    const byLead = new Map<string, {
       score: number;
-      status: string;
-      error: string | null;
-      evidence: Array<{ claim?: string; fact?: string; excerpt?: string; source_url?: string | null; source_type?: string | null }>;
+      incomplete: boolean;
+      facts: Array<{ title: string; text: string; url: string | null; source: string }>;
     }>();
     for (const item of preview) {
-      if (!item.lead_id || groups.has(item.lead_id)) continue;
+      if (!item.lead_id || byLead.has(item.lead_id)) continue;
       const profile = item.leads?.personalization_profile;
       const research = item.generation_meta?.research;
-      const evidence = (research?.evidence?.length ? research.evidence : profile?.evidence || profile?.email_context || []).slice(0, 2);
-      groups.set(item.lead_id, {
-        leadId: item.lead_id,
-        name: item.leads?.full_name || 'Lead',
-        company: item.leads?.company_name || 'Company unavailable',
+      const raw: Array<{ claim?: string; fact?: string; excerpt?: string; source_url?: string | null; source_type?: string | null }> =
+        research?.evidence?.length ? research.evidence : profile?.evidence || profile?.email_context || [];
+      const facts = raw
+        .map(entry => ({
+          title: providerNeutralCopy(entry.claim || entry.fact || 'Public fact'),
+          text: providerNeutralCopy(entry.excerpt || (entry.claim && entry.fact && entry.fact !== entry.claim ? entry.fact : '')),
+          url: entry.source_url || null,
+          source: evidenceSourceLabel(entry.source_type),
+        }))
+        .filter(fact => fact.text || fact.url || fact.title !== 'Public fact')
+        .slice(0, 3);
+      const status = String(research?.status || item.leads?.research_status || '');
+      byLead.set(item.lead_id, {
         score: Number(research?.score ?? profile?.personalization_score ?? 0),
-        status: research?.status || item.leads?.research_status || 'not_started',
-        error: item.leads?.research_last_error || null,
-        evidence,
+        incomplete: status === 'partial' || status === 'failed' || Boolean(item.leads?.research_last_error),
+        facts,
       });
     }
-    return Array.from(groups.values());
+    return byLead;
   }, [preview]);
 
   useEffect(() => {
@@ -716,33 +721,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                   <span className="card-action">{preview.length} email{preview.length === 1 ? '' : 's'}</span>
                 </div>
               </div>
-              {researchEvidenceGroups.length ? (
-                <section className="campaign-research-panel" aria-label="Research evidence used for email writing">
-                  <div className="campaign-research-panel-head">
-                    <div>
-                      <div className="card-title">Evidence used for writing</div>
-                      <div className="sf-hint">Autopilot uses these public facts automatically. CircleOn’s contact data remains the source; public evidence is cached and shown here for traceability.</div>
-                    </div>
-                    <span className="card-action">{researchEvidenceGroups.length} lead{researchEvidenceGroups.length === 1 ? '' : 's'}</span>
-                  </div>
-                  <div className="campaign-research-list">
-                    {researchEvidenceGroups.slice(0, 12).map(group => (
-                      <article className="campaign-research-item" key={group.leadId}>
-                        <div className="campaign-research-item-topline"><strong>{group.name}</strong><span>{group.company}</span><em>Score {group.score}/3 · {group.status}</em></div>
-                        {group.evidence.length ? group.evidence.map((item, index) => (
-                          <div className="campaign-research-evidence" key={`${group.leadId}-${index}`}>
-                            <span>{providerNeutralCopy(item.claim || item.fact || 'Evidence')}</span>
-                            <p>{providerNeutralCopy(item.excerpt || item.fact || 'No excerpt stored.')}</p>
-                            {item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Open source ↗</a> : <small>{evidenceSourceLabel(item.source_type)}</small>}
-                          </div>
-                        )) : <p className="campaign-research-empty">No source-backed evidence was available; this lead uses the safe fallback profile.</p>}
-                        {group.error ? <small className="campaign-research-error">Fallback note: {providerNeutralCopy(group.error)}</small> : null}
-                      </article>
-                    ))}
-                  </div>
-                  {researchEvidenceGroups.length > 12 ? <p className="sf-hint" style={{ marginTop: 12 }}>Showing the first 12 leads. Each generated message retains its own provenance in the stored generation metadata.</p> : null}
-                </section>
-              ) : null}
               {preview.length ? previewSequenceGroups.filter(group => group.stepNumber === activeStepNo).map(group => {
                 const draftIds = group.messages.filter(item => item.status === 'draft').map(item => item.id);
                 const allGroupDraftsSelected = draftIds.length > 0 && draftIds.every(id => selectedPreviewIds.includes(id));
@@ -781,6 +759,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                               <div className="mtr-detail">{item.leads?.full_name || 'Lead'} at {item.leads?.company_name || 'Unknown company'}</div>
                               {item.scheduled_at ? <div className="mtr-detail" style={{ marginTop: 4 }}>Scheduled {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.scheduled_at))}{item.schedule_reason ? ` · ${item.schedule_reason}` : ''}</div> : null}
                               <div className="mtr-detail" style={{ marginTop: 6 }}>{(item.body || item.draft_body || '').slice(0, 180)}</div>
+                              {(() => { const facts = item.lead_id ? researchByLead.get(item.lead_id)?.facts.length || 0 : 0; return <div className="mtr-detail" style={{ marginTop: 6, color: facts ? 'var(--purple)' : undefined }}>{facts ? `Personalised with ${facts} public fact${facts === 1 ? '' : 's'}` : 'Based on contact details only'}</div>; })()}
                             </div>
                             <span className={`badge ${statusBadge(item.status)}`}><span className="bdot" />{item.status}</span>
                           </button>
@@ -1030,6 +1009,26 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
               ) : (
                 <div className="email-detail-copy">{openedEmail.body || openedEmail.draft_body || 'No email body was generated.'}</div>
               )}
+              {(() => {
+                const research = openedEmail.lead_id ? researchByLead.get(openedEmail.lead_id) : undefined;
+                const facts = research?.facts || [];
+                return (
+                  <details className="lead-source-details" style={{ marginTop: 18 }}>
+                    <summary>Why this email · {facts.length ? `${facts.length} public fact${facts.length === 1 ? '' : 's'} used` : 'contact details only'}</summary>
+                    <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
+                      {facts.map((fact, index) => (
+                        <div className="campaign-research-evidence" key={index}>
+                          <span>{fact.title}</span>
+                          {fact.text ? <p>{fact.text}</p> : null}
+                          {fact.url ? <a href={fact.url} target="_blank" rel="noreferrer">View source ↗</a> : <small>{fact.source}</small>}
+                        </div>
+                      ))}
+                      {!facts.length ? <p className="sf-hint">No public posts or company details were found for this lead, so the email uses their name, role and company.</p> : null}
+                      {research?.incomplete && facts.length ? <p className="sf-hint">Some public sources could not be reached, so this email uses fewer details than usual.</p> : null}
+                    </div>
+                  </details>
+                );
+              })()}
             </div>
             <div className="set-save">
               {['draft', 'approved'].includes(openedEmail.status) ? (
