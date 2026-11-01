@@ -57,6 +57,36 @@ function providerNeutralCopy(value?: string | null) {
     .replace(/\bApify\b/gi, 'public web research');
 }
 
+// Starting guesses before any lead finishes; after that the real pace is used.
+const RESEARCH_SECONDS_PER_LEAD = 30;
+const WRITING_SECONDS_PER_LEAD = 15;
+
+// " · about 4 min left", based on how long finished leads took so far.
+function timeLeftLabel(startedAt: string | null | undefined, done: number, total: number, fallbackSecondsPerLead: number) {
+  const remaining = Math.max(0, total - done);
+  if (!remaining) return '';
+  const elapsedSeconds = startedAt ? (Date.now() - new Date(startedAt).getTime()) / 1000 : 0;
+  const secondsPerLead = done > 0 && elapsedSeconds > 0 ? elapsedSeconds / done : fallbackSecondsPerLead;
+  const seconds = remaining * secondsPerLead - (done === 0 ? elapsedSeconds : 0);
+  if (seconds < 60) return ' · under a minute left';
+  return ` · about ${Math.round(seconds / 60)} min left`;
+}
+
+const LEAD_STATUS_LABELS: Record<string, string> = {
+  selected_for_campaign: 'In this campaign',
+  ready: 'Ready',
+  enriching: 'Finding email',
+  blocked: 'Blocked',
+};
+
+// Shows a readable label instead of the raw database value.
+function leadStatusLabel(status?: string | null) {
+  const value = String(status || '');
+  if (LEAD_STATUS_LABELS[value]) return LEAD_STATUS_LABELS[value];
+  const words = value.replaceAll('_', ' ').trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : '';
+}
+
 export default function CampaignDetailPage({ params }: { params: Promise<{ campaignId: string }> }) {
   const { campaignId } = use(params);
   const router = useRouter();
@@ -218,7 +248,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         setGeneration(data.generation);
         const progress = data.generation.progress;
         if (data.generation.stage === 'researching') {
-          setMessage(`Researching public company and prospect evidence: ${progress?.processed || 0}/${progress?.total || selectedLeadIds.length} leads completed.`);
+          const total = progress?.total || selectedLeadIds.length;
+          const done = progress?.processed || 0;
+          setMessage(`Researching public company and prospect evidence: ${done}/${total} leads completed${timeLeftLabel(data.generation.started_at, done, total, RESEARCH_SECONDS_PER_LEAD)}. Email writing starts after research.`);
         } else if (data.generation.stage === 'research_complete') {
           setMessage('Research complete. Starting email writing…');
         } else if (['completed', 'failed'].includes(data.generation.status)) {
@@ -231,7 +263,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                 : `Draft generation finished: ${data.generation.generated_messages || progress?.generated || 0} emails are ready for review.`);
           }
         } else {
-          setMessage(`Generating drafts: ${progress?.processed || 0}/${progress?.total || selectedLeadIds.length} leads, ${data.generation.generated_messages || progress?.generated || 0} emails ready.`);
+          const total = progress?.total || selectedLeadIds.length;
+          const done = progress?.processed || 0;
+          setMessage(`Generating drafts: ${done}/${total} leads, ${data.generation.generated_messages || progress?.generated || 0} emails ready${timeLeftLabel(data.generation.started_at, done, total, WRITING_SECONDS_PER_LEAD)}.`);
         }
       } catch (error) {
         if (!cancelled) setMessage(error instanceof Error ? error.message : 'Could not check draft generation');
@@ -632,10 +666,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
             <div className="cd-gate">
               <div>
                 <b>{preview.length ? `Review gate: ${approvedCount} of ${preview.length} emails approved` : 'Review gate: no emails generated yet'}</b>
-                <small>{preview.length ? 'Approve the drafts you want to send, then launch. Nothing sends before that.' : 'Add verified leads, then generate the drafts to review them here.'}</small>
+                <small>{preview.length ? 'Approve the drafts you want to send, then launch. Nothing sends before that.' : generationBusy ? 'Researching each lead and writing the drafts. They will appear in Review emails.' : campaignLeads.length ? `Next step: generate personalised drafts for your ${campaignLeads.length} lead${campaignLeads.length === 1 ? '' : 's'}, then review them here.` : 'Add verified leads, then generate the drafts to review them here.'}</small>
               </div>
               <span className="cd-gate-bar"><i style={{ width: `${preview.length ? Math.round((approvedCount / preview.length) * 100) : 0}%` }} /></span>
-              <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch'} onClick={handleLaunch}>{busy === 'launch' ? 'Launching...' : 'Launch campaign'}</button>
+              {!preview.length && campaign.channel !== 'voice' ? (
+                <button className="btn-primary" type="button" disabled={busy === 'generate' || generationBusy || !canEdit || !campaignLeads.length} onClick={handleGenerate}>{busy === 'generate' || generationBusy ? 'Researching and writing...' : 'Generate emails'}</button>
+              ) : (
+                <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch'} onClick={handleLaunch}>{busy === 'launch' ? 'Launching...' : 'Launch campaign'}</button>
+              )}
             </div>
             <div>
               <div className="ptabs campaign-review-tabs" data-tour="campaign-tabs">
@@ -785,7 +823,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                         <td>{lead.company_name || '-'}</td>
                         <td>{lead.email || '-'}</td>
                         <td>{lead.fit_score || 0}</td>
-                        <td><span className={`badge ${statusBadge(lead.lifecycle_status || lead.status)}`}><span className="bdot" />{lead.lifecycle_status || lead.status}</span></td>
+                        <td><span className={`badge ${statusBadge(lead.lifecycle_status || lead.status)}`}><span className="bdot" />{leadStatusLabel(lead.lifecycle_status || lead.status)}</span></td>
                         <td>
                           <button className="card-action" type="button" disabled={busy === 'campaign-leads' || !canEdit} onClick={() => removeLeadFromCampaign(lead.id)}>
                             Remove

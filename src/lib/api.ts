@@ -313,6 +313,7 @@ export interface CampaignGeneration {
   status: 'idle' | 'waiting' | 'active' | 'delayed' | 'prioritized' | 'completed' | 'failed' | 'unknown';
   generated_messages?: number;
   failed_reason?: string | null;
+  started_at?: string | null;
   progress: {
     total?: number;
     processed?: number;
