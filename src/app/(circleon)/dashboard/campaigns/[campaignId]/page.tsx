@@ -41,6 +41,7 @@ import VoiceCampaignPanel from './VoiceCampaignPanel';
 import { EmptyState, Metric, hhmm, initials, statusBadge, type Page } from '../../_lib/ui';
 import { csvTargets, terminalImportStatuses } from '../../_lib/leadImport';
 import { confirmDialog, promptDialog } from '@/components/circleon/dialog';
+import MailboxConnectModal, { isMailboxReady } from '@/components/circleon/MailboxConnectModal';
 
 // Wording is fixed by the legal pack (Terms 7.7, DNC Policy 3); version v2026-10-06.
 const DNC_LAUNCH_CONFIRMATION = 'I confirm that the contacts in this campaign may lawfully be contacted for this campaign, and that my organisation is the sender and is responsible for complying with the PDPA Do Not Call Provisions and other applicable laws. I understand that CircleOn will block numbers that are on the DNC Registry, have opted out, or have not been checked in the last 21 days, and that this screening is not legal advice or a guarantee of compliance.';
@@ -96,6 +97,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [billing, setBilling] = useState<WorkspaceBilling | null>(null);
   const [smtpAccount, setSmtpAccount] = useState<ConnectedAccount | null>(null);
+  const [mailboxModalOpen, setMailboxModalOpen] = useState(false);
   const [pendingReplies, setPendingReplies] = useState(0);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [preview, setPreview] = useState<EmailMessage[]>([]);
@@ -326,6 +328,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   async function handleLaunch() {
     if (!campaign) return;
     if (campaign.channel === 'voice' && !launchConfirmed) return;
+    if (campaign.channel !== 'voice' && !isMailboxReady(smtpAccount)) {
+      setMailboxModalOpen(true);
+      return;
+    }
     if (campaign.attention_required && !await confirmDialog({ title: 'Launch this campaign?', message: 'Check you are happy with the targeting, daily limits and email sequence. Launching confirms these settings and makes the campaign eligible for Autopilot.', confirmLabel: 'Launch campaign', cancelLabel: 'Not yet' })) return;
     setBusy('launch');
     setMessage('');
@@ -673,11 +679,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
             <div className="cd-gate">
               <div>
                 <b>{preview.length ? `Review gate: ${approvedCount} of ${preview.length} emails approved` : 'Review gate: no emails generated yet'}</b>
-                <small>{preview.length ? 'Approve the drafts you want to send, then launch. Nothing sends before that.' : generationBusy ? 'Researching each lead and writing the drafts. They will appear in Review emails.' : campaignLeads.length ? `Next step: generate personalised drafts for your ${campaignLeads.length} lead${campaignLeads.length === 1 ? '' : 's'}, then review them here.` : 'Add verified leads, then generate the drafts to review them here.'}</small>
+                <small>{preview.length && campaign.channel !== 'voice' && !isMailboxReady(smtpAccount) ? 'Connect the mailbox these emails will be sent from, then launch. Nothing sends before that.' : preview.length ? 'Approve the drafts you want to send, then launch. Nothing sends before that.' : generationBusy ? 'Researching each lead and writing the drafts. They will appear in Review emails.' : campaignLeads.length ? `Next step: generate personalised drafts for your ${campaignLeads.length} lead${campaignLeads.length === 1 ? '' : 's'}, then review them here.` : 'Add verified leads, then generate the drafts to review them here.'}</small>
               </div>
               <span className="cd-gate-bar"><i style={{ width: `${preview.length ? Math.round((approvedCount / preview.length) * 100) : 0}%` }} /></span>
               {!preview.length && campaign.channel !== 'voice' ? (
                 <button className="btn-primary" type="button" disabled={busy === 'generate' || generationBusy || !canEdit || !campaignLeads.length} onClick={handleGenerate}>{busy === 'generate' || generationBusy ? 'Researching and writing...' : 'Generate emails'}</button>
+              ) : campaign.channel !== 'voice' && !isMailboxReady(smtpAccount) ? (
+                <button className="btn-primary" type="button" onClick={() => setMailboxModalOpen(true)}>{smtpAccount ? 'Finish mailbox setup' : 'Connect mailbox'}</button>
               ) : (
                 <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch'} onClick={handleLaunch}>{busy === 'launch' ? 'Launching...' : 'Launch campaign'}</button>
               )}
@@ -975,6 +983,20 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
             </div>
           </section>
         </div>
+      ) : null}
+
+      {mailboxModalOpen ? (
+        <MailboxConnectModal
+          account={smtpAccount}
+          onClose={() => setMailboxModalOpen(false)}
+          onConnected={account => {
+            setSmtpAccount(account);
+            if (isMailboxReady(account)) {
+              setMailboxModalOpen(false);
+              setMessage(`Mailbox ${account.from_email} connected and verified. You can launch the campaign now.`);
+            }
+          }}
+        />
       ) : null}
 
       {openedEmail ? (
