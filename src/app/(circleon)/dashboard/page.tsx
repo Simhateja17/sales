@@ -116,6 +116,16 @@ const emptyApolloFilters: ApolloFilters = {
   limit: 25,
 };
 
+const COMPANY_SIZE_OPTIONS = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1000+'];
+
+// Keeps a saved value (e.g. a custom onboarding answer) selectable even when it
+// is not one of the standard options, so the select never silently blanks it.
+function withCurrentOption(options: string[], current: string) {
+  const value = current.trim();
+  if (!value || options.includes(value)) return options;
+  return [value, ...options];
+}
+
 function messagePreview(value?: string | null) {
   const replyOnly = String(value || '')
     .split(/\n(?:On .+ wrote:|From:|>)/i)[0]
@@ -1518,9 +1528,8 @@ function DashboardContent() {
                   <div className="lead-drawer-scroll lead-source-panel">
                     <p>Find candidates, enrich them, and retain returned work emails. These filters use your onboarding preferences.</p>
                     <label>Contact roles<input className="sf-inp" value={apolloFilters.titles.join(', ')} onChange={event => setApolloFilters({ ...apolloFilters, titles: event.target.value.split(',').map(item => item.trim()).filter(Boolean) })} placeholder="Founder, CEO, Head of Sales" /></label>
-                    <div className="lead-source-grid"><label>Region<input className="sf-inp" value={apolloFilters.region} onChange={event => setApolloFilters({ ...apolloFilters, region: event.target.value })} placeholder="Singapore" /></label><label>Industry<input className="sf-inp" value={apolloFilters.industry} onChange={event => setApolloFilters({ ...apolloFilters, industry: event.target.value })} placeholder="Industry" list="lead-industry-options" /></label></div>
-                    <datalist id="lead-industry-options">{apolloIndustryOptions.map(industry => <option key={industry} value={industry} />)}</datalist>
-                    <div className="lead-source-grid"><label>Company size<input className="sf-inp" value={apolloFilters.companySize} onChange={event => setApolloFilters({ ...apolloFilters, companySize: event.target.value })} placeholder="11-50" /></label><label>Lead limit<input className="sf-inp" type="number" min={1} max={100} value={apolloFilters.limit} onChange={event => setApolloFilters({ ...apolloFilters, limit: Number(event.target.value) })} /></label></div>
+                    <div className="lead-source-grid"><label>Region<input className="sf-inp" value={apolloFilters.region} onChange={event => setApolloFilters({ ...apolloFilters, region: event.target.value })} placeholder="Singapore" /></label><label>Industry<select className="sf-inp" value={apolloFilters.industry} onChange={event => setApolloFilters({ ...apolloFilters, industry: event.target.value })}><option value="">Any industry</option>{withCurrentOption(apolloIndustryOptions, apolloFilters.industry).map(industry => <option key={industry} value={industry}>{industry}</option>)}</select></label></div>
+                    <div className="lead-source-grid"><label>Company size<select className="sf-inp" value={apolloFilters.companySize} onChange={event => setApolloFilters({ ...apolloFilters, companySize: event.target.value })}><option value="">Any size</option>{withCurrentOption(COMPANY_SIZE_OPTIONS, apolloFilters.companySize).map(size => <option key={size} value={size}>{size}</option>)}</select></label><label>Lead limit<input className="sf-inp" type="number" min={1} max={100} value={apolloFilters.limit} onChange={event => setApolloFilters({ ...apolloFilters, limit: Number(event.target.value) })} /></label></div>
                     <button className="btn-primary lead-full-button" type="button" disabled={busy === 'apollo'} onClick={handleApolloImport}>{busy === 'apollo' ? 'Searching...' : 'Find leads'}</button>
                     <button className="btn-outline lead-full-button" type="button" disabled={busy === 'apollo-sync'} onClick={handleApolloSync}>{busy === 'apollo-sync' ? 'Syncing...' : 'Sync email results'}</button>
                     {activeApolloRun ? <ApolloImportProgress run={activeApolloRun} elapsedSeconds={apolloElapsedSeconds} /> : <p className="lead-source-note">Most 25-lead searches take roughly 2–5 minutes. Response time can vary.</p>}
