@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useMemo, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import { pagePath } from '../../_lib/routes';
 import { useRouter } from 'next/navigation';
 import {
@@ -378,6 +378,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     }
   }
 
+  const handleVoiceStatusChange = useCallback((status: Campaign['status']) => {
+    setCampaign(current => current ? { ...current, status } : current);
+  }, []);
+
   async function toggleCampaignStatus() {
     if (!campaign) return;
     setBusy('toggle');
@@ -643,22 +647,24 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
           {campaign ? (
             <div className="cd-actions">
               {campaign.channel === 'voice' ? (
+                campaign.status === 'draft' || campaign.status === 'paused' ? (
                 <>
                 <label className="voice-attestation" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', maxWidth: 520, fontSize: 13, lineHeight: 1.5 }}>
                   <input type="checkbox" checked={launchConfirmed} onChange={event => setLaunchConfirmed(event.target.checked)} style={{ marginTop: 3 }} />
                   <span>{DNC_LAUNCH_CONFIRMATION}</span>
                 </label>
-                <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch' || !launchConfirmed} onClick={handleLaunch}>
-                  {busy === 'launch' ? 'Launching...' : 'Launch'}
+                <button className="btn-primary" type="button" data-tour="campaign-launch" style={{ alignSelf: 'flex-start' }} disabled={busy === 'launch' || !launchConfirmed} onClick={handleLaunch}>
+                  {busy === 'launch' ? 'Launching...' : campaign.status === 'paused' ? 'Launch again' : 'Launch'}
                 </button>
                 </>
+                ) : null
               ) : (
                 <button className="btn-outline" type="button" disabled={busy === 'generate' || generationBusy || !canEdit} onClick={handleGenerate}>
                   {busy === 'generate' || generationBusy ? 'Researching and writing...' : preview.length ? 'Regenerate emails' : 'Generate emails'}
                 </button>
               )}
               {campaign.status === 'active' || campaign.status === 'paused' ? (
-                <button className="btn-outline" type="button" disabled={busy === 'toggle'} onClick={toggleCampaignStatus}>
+                <button className="btn-outline" type="button" style={campaign.channel === 'voice' ? { alignSelf: 'flex-start' } : undefined} disabled={busy === 'toggle'} onClick={toggleCampaignStatus}>
                   {campaign.status === 'active' ? 'Pause' : 'Resume'}
                 </button>
               ) : null}
@@ -673,7 +679,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
         ) : loading ? (
           <div className="card"><EmptyState text="Loading campaign..." /></div>
         ) : campaign && campaign.channel === 'voice' ? (
-          <VoiceCampaignPanel campaign={campaign} />
+          <VoiceCampaignPanel campaign={campaign} onStatusChange={handleVoiceStatusChange} />
         ) : campaign ? (
           <div className="cd">
             <div className="cd-stats" aria-label="Campaign totals">

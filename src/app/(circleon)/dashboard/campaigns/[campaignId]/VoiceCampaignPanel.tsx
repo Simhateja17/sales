@@ -45,9 +45,15 @@ function outcomeLabel(call: VoiceCall) {
 }
 
 /** The queue state, in the words a user would use to ask about it. */
-function stateCopy(status: VoiceCampaignStatus | null) {
+function stateCopy(status: VoiceCampaignStatus | null, campaign: Campaign) {
   if (!status) return { tone: 'neutral', headline: 'Loading…', detail: '' };
-  const { state } = status;
+  const { state, targets } = status;
+
+  if (status.campaign_status === 'completed' || campaign.status === 'completed') {
+    const parts = [`${targets.completed} reached`, `${targets.exhausted} no answer`];
+    if (targets.blocked) parts.push(`${targets.blocked} blocked`);
+    return { tone: 'done', headline: 'Campaign complete', detail: `Every lead has been worked: ${parts.join(', ')}. Call results are below.` };
+  }
 
   if (state.dialing) {
     return { tone: 'live', headline: 'Calling now', detail: `${status.targets.pending} leads left to work.` };
@@ -59,7 +65,11 @@ function stateCopy(status: VoiceCampaignStatus | null) {
     case 'needs_setup':
       return { tone: 'blocked', headline: 'Needs your attention', detail: state.reason || '' };
     case 'outside_hours':
-      return { tone: 'waiting', headline: 'Outside calling hours', detail: state.reason || '' };
+      return {
+        tone: 'waiting',
+        headline: 'Live, outside calling hours',
+        detail: `Nothing is dialled until calling opens at ${(campaign.sending_hours_start || '09:00').slice(0, 5)} ${campaign.timezone || 'Asia/Singapore'}.`,
+      };
     case 'daily_cap':
       return { tone: 'waiting', headline: 'Daily cap reached', detail: 'Calling resumes tomorrow morning.' };
     case 'out_of_credits':
@@ -75,7 +85,10 @@ function stateCopy(status: VoiceCampaignStatus | null) {
   }
 }
 
-export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign }) {
+export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
+  campaign: Campaign;
+  onStatusChange?: (status: Campaign['status']) => void;
+}) {
   const [script, setScript] = useState<VoiceScript | null>(null);
   const [openingPreview, setOpeningPreview] = useState('');
   const [requiresAttestation, setRequiresAttestation] = useState(false);
@@ -133,7 +146,14 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
     getVoices(script.language).then(result => setVoices(result.voices)).catch(() => setVoices([]));
   }, [script?.language]);
 
-  const copy = useMemo(() => stateCopy(status), [status]);
+  const copy = useMemo(() => stateCopy(status, campaign), [status, campaign]);
+  const isComplete = campaign.status === 'completed';
+
+  // The last call can finish the campaign while this page is open.
+  const liveStatus = status?.campaign_status;
+  useEffect(() => {
+    if (liveStatus && liveStatus !== campaign.status) onStatusChange?.(liveStatus);
+  }, [liveStatus, campaign.status, onStatusChange]);
   const agentFailed = agentStatus === 'error' || Boolean(approveError);
 
   async function patchScript(patch: Partial<VoiceScript> & { voice_id?: string }) {
@@ -262,7 +282,7 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
         ) : null}
       </section>
 
-      {coverage ? (
+      {coverage && !isComplete ? (
         <section className="voice-coverage">
           <h3>Who can be called</h3>
           <ul>
@@ -309,6 +329,8 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
         </section>
       ) : null}
 
+      {isComplete ? null : (
+      <>
       <section className="voice-calendar is-connected">
         <div className="voice-calendar-copy">
           <h3>Booking</h3>
@@ -444,6 +466,8 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
           </button>
         </div>
       </section>
+      </>
+      )}
 
       <section className="voice-calls">
         <h3>Calls</h3>

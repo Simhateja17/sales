@@ -1166,6 +1166,7 @@ export interface VoiceCampaignState {
 }
 
 export interface VoiceCampaignStatus {
+  campaign_status?: Campaign['status'];
   state: VoiceCampaignState;
   window: { open: boolean; reason: string | null };
   targets: { pending: number; in_flight: number; completed: number; exhausted: number; blocked: number };
