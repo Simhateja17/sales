@@ -22,6 +22,7 @@ export default function Sidebar({
   smtpAccount,
   pendingReplies,
   onError,
+  onConnectMailbox,
 }: {
   activePage: Page;
   onNavigate: (page: Page) => void;
@@ -32,6 +33,8 @@ export default function Sidebar({
   /** Kept so existing callers still type-check; the redesigned sidebar has no collapsed state. */
   collapsed?: boolean;
   onError?: (message: string) => void;
+  /** Opens the mailbox settings; shown in place of the email when no mailbox is connected. */
+  onConnectMailbox?: () => void;
 }) {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -88,7 +91,15 @@ export default function Sidebar({
         <span className="sb-avatar" aria-hidden="true">{initials(workspace?.name)}</span>
         <div>
           <b>{workspace?.name || 'Workspace'}</b>
-          <small>{smtpAccount?.status === 'connected' ? smtpAccount.from_email : 'No mailbox connected'}</small>
+          {smtpAccount?.status === 'connected' ? (
+            <small>{smtpAccount.from_email}</small>
+          ) : onConnectMailbox ? (
+            <button type="button" className="sb-connect" onClick={onConnectMailbox}>
+              {smtpAccount ? 'Reconnect mailbox' : 'Connect mailbox'} <span aria-hidden="true">→</span>
+            </button>
+          ) : (
+            <small>No mailbox connected</small>
+          )}
         </div>
         <button type="button" className="sb-logout" onClick={handleLogout} disabled={loggingOut} aria-label={loggingOut ? 'Logging out' : 'Log out'}>
           <NavIcon name="logout" />

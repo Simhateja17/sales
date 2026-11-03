@@ -1398,6 +1398,7 @@ function DashboardContent() {
         smtpAccount={smtpAccount}
         pendingReplies={pendingReplies.length}
         onError={setMessage}
+        onConnectMailbox={() => setSettingsSection('mailbox')}
       />
 
 

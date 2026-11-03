@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import SignOutButton from '@/components/circleon/SignOutButton';
+import IndustryCombobox from '@/components/circleon/IndustryCombobox';
 import { getApolloFilters, getTargetSuggestions, getWorkspace, saveOnboarding, saveOnboardingDraft } from '@/lib/api';
 
 type StepType = 'text' | 'textarea' | 'select' | 'choice' | 'tags' | 'range';
@@ -150,6 +151,19 @@ export default function OnboardingPage() {
     const s = current;
     const val = answers[s.key];
 
+    if (s.type === 'text' && s.key === 'industry') {
+      return (
+        <IndustryCombobox
+          inputRef={inputRef}
+          value={(val as string) || ''}
+          options={apolloIndustryOptions}
+          placeholder={s.placeholder}
+          onChange={v => setAnswer(s.key, v)}
+          onSubmit={next}
+        />
+      );
+    }
+
     if (s.type === 'text') {
       return (
         <>
@@ -161,13 +175,7 @@ export default function OnboardingPage() {
             value={(val as string) || ''}
             onChange={e => setAnswer(s.key, e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') next(); }}
-            list={s.key === 'industry' ? 'lead-onboarding-industry-options' : undefined}
           />
-          {s.key === 'industry' ? (
-            <datalist id="lead-onboarding-industry-options">
-              {apolloIndustryOptions.map(industry => <option key={industry} value={industry} />)}
-            </datalist>
-          ) : null}
         </>
       );
     }
@@ -177,9 +185,14 @@ export default function OnboardingPage() {
         <textarea
           ref={textareaRef}
           className="ob-ta"
+          rows={1}
           placeholder={s.placeholder}
           value={(val as string) || ''}
-          onChange={e => setAnswer(s.key, e.target.value)}
+          onChange={e => {
+            e.target.style.height = 'auto';
+            e.target.style.height = `${e.target.scrollHeight}px`;
+            setAnswer(s.key, e.target.value);
+          }}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); next(); } }}
         />
       );
@@ -237,8 +250,8 @@ export default function OnboardingPage() {
           ))}
         </div>
         {suggestedTitles.length ? <div className="tags-wrap">{suggestedTitles.map(t => <button key={t} className={`tag-btn${selected.includes(t) ? ' selected' : ''}`} onClick={() => toggleTag(t)}>{t}</button>)}</div> : null}
-        <input className="ob-inp" value={String(answers[`${s.key}Custom`] || '')} onChange={e => setAnswer(`${s.key}Custom`, e.target.value)} placeholder="Other role, e.g. Fleet Manager" />
-        <button className="btn-outline" type="button" onClick={suggestRoles} disabled={!answers.product}>Suggest roles for my business</button>
+        <input className="ob-inp" style={{ marginTop: 20 }} value={String(answers[`${s.key}Custom`] || '')} onChange={e => setAnswer(`${s.key}Custom`, e.target.value)} placeholder="Other role, e.g. Fleet Manager" />
+        <button className="btn-outline" type="button" style={{ marginTop: 20 }} onClick={suggestRoles} disabled={!answers.product}>Suggest roles for my business</button>
         {suggestionMessage ? <div className="ob-hint">{suggestionMessage}</div> : null}
         </div>
       );
@@ -270,13 +283,15 @@ export default function OnboardingPage() {
 
   return (
     <div className="screen active" id="onboarding">
-      <SignOutButton />
       <div className="prog-track">
         <div className="prog-fill" style={{ width: `${pct}%` }} />
       </div>
       <div className="ob-header">
         <div className="ob-logo">CircleOn AI<small>Singapore</small></div>
-        <div className="ob-cnt">Step {step + 1} of {STEPS.length} · {draftStatus || `${pct}%`}</div>
+        <div className="ob-header-right">
+          <div className="ob-cnt">Step {step + 1} of {STEPS.length} · {draftStatus || `${pct}%`}</div>
+          <SignOutButton />
+        </div>
       </div>
       <div className="ob-body">
         <div className="ob-card" key={step}>
