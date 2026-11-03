@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+<linearGradient id="g" gradientUnits="userSpaceOnUse" x1="10" y1="110" x2="230" y2="50"><stop offset="0" stop-color="#d9a93f"/><stop offset=".3" stop-color="#8f6216"/><stop offset=".5" stop-color="#c4912b"/><stop offset=".75" stop-color="#fbe48f"/><stop offset=".9" stop-color="#d59d2c"/><stop offset="1" stop-color="#a06f18"/></linearGradient>
+<linearGradient id="b" gradientUnits="userSpaceOnUse" x1="70" y1="140" x2="228" y2="210"><stop offset="0" stop-color="#a87518"/><stop offset=".3" stop-color="#f0cb68"/><stop offset=".55" stop-color="#b57f1d"/><stop offset=".8" stop-color="#fbe08a"/><stop offset="1" stop-color="#b98520"/></linearGradient>
+<linearGradient id="r" gradientUnits="userSpaceOnUse" x1="150" y1="80" x2="85" y2="185"><stop offset="0" stop-color="#fbe08a"/><stop offset=".45" stop-color="#c08a22"/><stop offset="1" stop-color="#f3d06c"/></linearGradient>
+<radialGradient id="p" gradientUnits="userSpaceOnUse" cx="30" cy="125" r="205"><stop offset="0" stop-color="#d84fd0"/><stop offset=".16" stop-color="#8f1fc0"/><stop offset=".5" stop-color="#4a0e92"/><stop offset="1" stop-color="#230653"/></radialGradient>
+<radialGradient id="s" gradientUnits="userSpaceOnUse" cx="135" cy="131" r="49"><stop offset="0" stop-color="#fff6cf"/><stop offset=".12" stop-color="#f5ad3e"/><stop offset=".34" stop-color="#9a33b4"/><stop offset=".72" stop-color="#4c129a"/><stop offset="1" stop-color="#28095f"/></radialGradient>
+<radialGradient id="o" cx=".38" cy=".3" r=".8"><stop offset="0" stop-color="#ffefb0"/><stop offset=".45" stop-color="#d89e2e"/><stop offset="1" stop-color="#6f470c"/></radialGradient>
+</defs>
+<path fill="url(#p)" d="M194 92C170 50 108 38 70 70 44 94 44 150 62 180c18 36 64 56 114 45l52-29c-32 42-76 58-118 54C45 244 4 190 8 128 10 90 30 60 50 45c40-20 110-5 144 47Z"/>
+<path fill="url(#g)" d="M228 60 193 92C165 50 100 34 56 68 30 88 16 112 11 142 4 92 30 40 85 15c46-20 106-6 143 45Z"/>
+<path fill="url(#b)" d="M228 196 195 165c-20 30-60 40-90 25-20-10-33-30-35-55-8 40 15 90 65 97 40 6 70-9 93-36Z"/>
+<path fill="url(#r)" d="M160 84C120 64 78 90 73 130c-3 25 9 45 27 55-12-15-16-35-12-55 4-25 32-48 72-46Z"/>
+<circle cx="135" cy="133" r="47" fill="url(#s)"/>
+<path fill="#e6b84e" d="M138 128.500 228 128v4l-90 1Z"/>
+<circle cx="240" cy="130" r="15" fill="url(#o)"/>
+</svg>
