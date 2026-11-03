@@ -170,6 +170,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
   }, [campaign?.email_sequences, preview]);
   const sentCount = preview.filter(item => item.status === 'sent' || item.status === 'auto_sent').length;
   const approvedCount = preview.filter(item => item.status === 'approved' || item.status === 'sent' || item.status === 'auto_sent').length;
+  const upcomingSends = preview
+    .filter(item => item.status === 'approved' && item.scheduled_at)
+    .map(item => new Date(item.scheduled_at as string).getTime())
+    .filter(time => time > Date.now())
+    .sort((a, b) => a - b);
+  const nextSendLabel = upcomingSends.length && campaign
+    ? new Date(upcomingSends[0]).toLocaleString('en-SG', { timeZone: campaign.timezone || 'Asia/Singapore', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+    : '';
   const [activeStep, setActiveStep] = useState<number | null>(null);
   const activeStepNo = activeStep ?? previewSequenceGroups[0]?.stepNumber ?? 1;
   // Research behind each lead's emails, shown with that email rather than in a
@@ -676,10 +684,19 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
               <div><b>{sentCount}</b>Sent</div>
               <div><b>{preview.filter(item => item.status === 'draft').length}</b>Drafts to review</div>
             </div>
+            {campaign.status === 'active' || campaign.status === 'completed' ? (
             <div className="cd-gate">
               <div>
-                <b>{preview.length ? `Review gate: ${approvedCount} of ${preview.length} emails approved` : 'Review gate: no emails generated yet'}</b>
-                <small>{preview.length && campaign.channel !== 'voice' && !isMailboxReady(smtpAccount) ? 'Connect the mailbox these emails will be sent from, then launch. Nothing sends before that.' : preview.length ? 'Approve the drafts you want to send, then launch. Nothing sends before that.' : generationBusy ? 'Researching each lead and writing the drafts. They will appear in Review emails.' : campaignLeads.length ? `Next step: generate personalised drafts for your ${campaignLeads.length} lead${campaignLeads.length === 1 ? '' : 's'}, then review them here.` : 'Add verified leads, then generate the drafts to review them here.'}</small>
+                <b>{campaign.status === 'completed' ? `Campaign complete: ${sentCount} ${sentCount === 1 ? 'email' : 'emails'} sent` : approvedCount ? `Campaign is live: ${sentCount} of ${approvedCount} ${approvedCount === 1 ? 'email' : 'emails'} sent` : 'Campaign is live'}</b>
+                <small>{campaign.status === 'completed' ? 'Every lead has finished the sequence or dropped out by replying or unsubscribing. Replies still appear in your Inbox.' : upcomingSends.length ? `Next email goes out ${nextSendLabel} (${campaign.timezone || 'Asia/Singapore'}). Follow-ups stop for anyone who replies or unsubscribes.` : approvedCount ? 'Nothing is scheduled right now. Follow-ups are scheduled as each earlier email sends.' : 'No emails are queued. Pause the campaign to approve drafts, then launch again.'}</small>
+              </div>
+              <span className="cd-gate-bar"><i style={{ width: `${campaign.status === 'completed' ? 100 : approvedCount ? Math.round((sentCount / approvedCount) * 100) : 0}%` }} /></span>
+            </div>
+            ) : (
+            <div className="cd-gate">
+              <div>
+                <b>{campaign.status === 'paused' && campaign.launched_at ? 'Campaign is paused' : preview.length ? `Review gate: ${approvedCount} of ${preview.length} emails approved` : 'Review gate: no emails generated yet'}</b>
+                <small>{campaign.status === 'paused' && campaign.launched_at ? 'Nothing sends while it is paused. Use Resume to continue, or Launch again to queue newly approved emails.' : preview.length && campaign.channel !== 'voice' && !isMailboxReady(smtpAccount) ? 'Connect the mailbox these emails will be sent from, then launch. Nothing sends before that.' : preview.length ? 'Approve the drafts you want to send, then launch. Nothing sends before that.' : generationBusy ? 'Researching each lead and writing the drafts. They will appear in Review emails.' : campaignLeads.length ? `Next step: generate personalised drafts for your ${campaignLeads.length} lead${campaignLeads.length === 1 ? '' : 's'}, then review them here.` : 'Add verified leads, then generate the drafts to review them here.'}</small>
               </div>
               <span className="cd-gate-bar"><i style={{ width: `${preview.length ? Math.round((approvedCount / preview.length) * 100) : 0}%` }} /></span>
               {!preview.length && campaign.channel !== 'voice' ? (
@@ -687,9 +704,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
               ) : campaign.channel !== 'voice' && !isMailboxReady(smtpAccount) ? (
                 <button className="btn-primary" type="button" onClick={() => setMailboxModalOpen(true)}>{smtpAccount ? 'Finish mailbox setup' : 'Connect mailbox'}</button>
               ) : (
-                <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch'} onClick={handleLaunch}>{busy === 'launch' ? 'Launching...' : 'Launch campaign'}</button>
+                <button className="btn-primary" type="button" data-tour="campaign-launch" disabled={busy === 'launch'} onClick={handleLaunch}>{busy === 'launch' ? 'Launching...' : campaign.status === 'paused' && campaign.launched_at ? 'Launch again' : 'Launch campaign'}</button>
               )}
             </div>
+            )}
             <div>
               <div className="ptabs campaign-review-tabs" data-tour="campaign-tabs">
                 <button type="button" className={`ptab${tab === 'leads' ? ' active' : ''}`} onClick={() => setTab('leads')}>
@@ -773,7 +791,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                             </div>
                             <span className={`badge ${statusBadge(item.status)}`}><span className="bdot" />{item.status}</span>
                           </button>
-                          {item.scheduled_at && ['draft', 'approved'].includes(item.status) ? <button className="card-action" type="button" onClick={() => handleReschedule(item)} disabled={busy === `reschedule-${item.id}`}>Reschedule</button> : null}
+                          {campaign.status === 'active' && item.scheduled_at && ['draft', 'approved'].includes(item.status) ? <button className="card-action" type="button" onClick={() => handleReschedule(item)} disabled={busy === `reschedule-${item.id}`}>Reschedule</button> : null}
                         </div>
                       ))}
                     </div>
@@ -795,7 +813,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
               </div>
               {!canEdit ? (
                 <div className="sf-hint" style={{ padding: '12px 20px 0' }}>
-                  This campaign is {campaign.status} — pause it to add or remove leads.
+                  {campaign.status === 'completed' ? 'This campaign is complete, so its leads can no longer change.' : `This campaign is ${campaign.status}. Pause it to add or remove leads.`}
                 </div>
               ) : null}
               {campaignLeads.length ? (

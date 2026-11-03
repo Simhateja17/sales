@@ -1890,6 +1890,7 @@ body{background:var(--paper);}
 :root[data-theme="dark"]{--field-bg:var(--surface-sunken);}
 .set-panel .sf-inp,.set-panel .sf-sel,.set-panel .sf-ta,.sf-inp,.sf-ta,.sf-sel,.sup-form input,.sup-form textarea{background:var(--field-bg);}
 .sf-inp:focus,.sf-ta:focus,.sf-sel:focus,.sup-form input:focus,.sup-form textarea:focus{background:var(--surface);}
+.mb-link{color:var(--purple);font-weight:600;text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere;}
 
 /* Support details from the design */
 .sup-topics{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 4px;}

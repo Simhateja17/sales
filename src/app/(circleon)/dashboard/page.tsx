@@ -78,6 +78,7 @@ import { useTheme } from './_lib/theme';
 import { useTour } from './_lib/tour/TourProvider';
 import { isCampaignEligibleLead } from './_lib/tour/completion';
 import { confirmDialog } from '@/components/circleon/dialog';
+import { GOOGLE_APP_PASSWORDS_URL } from '@/components/circleon/MailboxConnectModal';
 
 type SettingsSection = 'mailbox' | 'voice' | 'autopilot' | 'workspace' | 'compliance' | 'profile';
 type LeadView = 'all' | 'ready' | 'campaign' | 'attention';
@@ -774,7 +775,7 @@ function DashboardContent() {
       showRate: held + missed ? `${Math.round((held / (held + missed)) * 100)}%` : '—',
     };
   }, [meetings]);
-  const [campaignFilter, setCampaignFilter] = useState<'all' | 'active' | 'draft' | 'paused'>('all');
+  const [campaignFilter, setCampaignFilter] = useState<'all' | 'active' | 'draft' | 'paused' | 'completed'>('all');
   const filteredCampaigns = campaignFilter === 'all' ? campaigns : campaigns.filter(campaign => campaign.status === campaignFilter);
   const openedMessages = preview.filter(item => item.open_count > 0).length;
 
@@ -1283,10 +1284,13 @@ function DashboardContent() {
     setBusy('smtp');
     setMessage('');
     try {
+      // Google displays app passwords in groups separated by spaces.
+      const smtpPassword = mailboxProvider === 'gmail' ? smtpForm.smtp_password.replace(/\s/g, '') : smtpForm.smtp_password;
       const data = await connectSmtp({
         ...smtpForm,
+        smtp_password: smtpPassword,
         imap_username: smtpForm.imap_username || smtpForm.smtp_username,
-        imap_password: smtpForm.imap_password || smtpForm.smtp_password,
+        imap_password: smtpForm.imap_password || smtpPassword,
       });
       setSmtpAccount(data.account);
       setSmtpForm(emptySmtpForm);
@@ -1449,7 +1453,7 @@ function DashboardContent() {
             </ol>
             <div className="camp-bar">
               <div className="camp-tabs" role="group" aria-label="Filter campaigns">
-                {(['all', 'active', 'draft', 'paused'] as const).map(filter => (
+                {(['all', 'active', 'draft', 'paused', 'completed'] as const).map(filter => (
                   <button key={filter} type="button" className={campaignFilter === filter ? 'on' : ''} onClick={() => setCampaignFilter(filter)}>
                     {filter === 'all' ? 'All' : humanize(filter)} {filter === 'all' ? campaigns.length : campaigns.filter(c => c.status === filter).length}
                   </button>
@@ -1767,7 +1771,7 @@ function DashboardContent() {
                   </div>
                   <div className="mb-grid" style={{ marginTop: 14 }}>
                     <label className="mb-field">Username<input className="sf-inp" value={smtpForm.smtp_username} onChange={event => setSmtpForm({ ...smtpForm, smtp_username: event.target.value })} placeholder="you@company.com" required /></label>
-                    <label className="mb-field">App password<input className="sf-inp" type="password" autoComplete="new-password" value={smtpForm.smtp_password} onChange={event => setSmtpForm({ ...smtpForm, smtp_password: event.target.value })} placeholder="16-character app password" required /><small>Encrypted before storage</small></label>
+                    <label className="mb-field">App password<input className="sf-inp" type="password" autoComplete="new-password" value={smtpForm.smtp_password} onChange={event => setSmtpForm({ ...smtpForm, smtp_password: event.target.value })} placeholder="16-character app password" required />{mailboxProvider === 'gmail' ? <small>Get yours at <a className="mb-link" href={GOOGLE_APP_PASSWORDS_URL} target="_blank" rel="noopener noreferrer">myaccount.google.com/apppasswords</a></small> : null}<small>Encrypted before storage</small></label>
                   </div>
                 </div>
                 <div className="mb-group">
@@ -1792,7 +1796,7 @@ function DashboardContent() {
                 {mailboxProvider === 'gmail' ? (
                     <ol>
                       <li>Turn on two-step verification for your Google account.</li>
-                      <li>Create an app password for Mail and paste it into SMTP password.</li>
+                      <li>Create an app password at <a className="mb-link" href={GOOGLE_APP_PASSWORDS_URL} target="_blank" rel="noopener noreferrer">myaccount.google.com/apppasswords</a>, copy it, and paste it into App password.</li>
                       <li>Use your complete Gmail address as the SMTP username.</li>
                       <li>Save the mailbox; CircleOn will verify both sending and inbox access.</li>
                     </ol>

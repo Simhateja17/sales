@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { connectSmtp, testSmtp, type ConnectedAccount } from '@/lib/api';
 
 // Connect a sending mailbox without leaving the current page (e.g. from a
@@ -12,10 +12,16 @@ const PRESETS: Record<Exclude<Provider, 'manual'>, { smtp_host: string; smtp_por
   outlook: { smtp_host: 'smtp.office365.com', smtp_port: 587, imap_host: 'outlook.office365.com', imap_port: 993 },
 };
 
-const HELP: Record<Provider, string[]> = {
+export const GOOGLE_APP_PASSWORDS_URL = 'https://myaccount.google.com/apppasswords';
+
+const googleAppPasswordsLink = (
+  <a className="mb-link" href={GOOGLE_APP_PASSWORDS_URL} target="_blank" rel="noopener noreferrer">myaccount.google.com/apppasswords</a>
+);
+
+const HELP: Record<Provider, ReactNode[]> = {
   gmail: [
     'Turn on two-step verification for your Google account.',
-    'Create an app password for Mail (Google Account, Security, App passwords) and paste it below.',
+    <>Create an app password at {googleAppPasswordsLink}, copy it, and paste it below.</>,
   ],
   outlook: [
     'Use an app password if your organisation requires multi-factor sign-in.',
@@ -72,6 +78,8 @@ export default function MailboxConnectModal({ account, onClose, onConnected }: P
     event.preventDefault();
     setBusy('connect');
     setError('');
+    // Google displays app passwords in groups separated by spaces.
+    const password = provider === 'gmail' ? form.password.replace(/\s/g, '') : form.password;
     try {
       const data = await connectSmtp({
         from_email: form.from_email.trim(),
@@ -80,11 +88,11 @@ export default function MailboxConnectModal({ account, onClose, onConnected }: P
         smtp_host: form.smtp_host.trim(),
         smtp_port: Number(form.smtp_port),
         smtp_username: form.from_email.trim(),
-        smtp_password: form.password,
+        smtp_password: password,
         imap_host: form.imap_host.trim(),
         imap_port: Number(form.imap_port),
         imap_username: form.from_email.trim(),
-        imap_password: form.password,
+        imap_password: password,
       });
       finish(data.account);
     } catch (err) {
@@ -129,11 +137,11 @@ export default function MailboxConnectModal({ account, onClose, onConnected }: P
             ))}
           </div>
           <ol className="sf-hint" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-            {HELP[provider].map(step => <li key={step}>{step}</li>)}
+            {HELP[provider].map((step, index) => <li key={index}>{step}</li>)}
           </ol>
           <label className="mb-field">Email address<input className="sf-inp" type="email" value={form.from_email} onChange={set('from_email')} placeholder="you@company.com" autoComplete="email" required /></label>
           <label className="mb-field">Your name<input className="sf-inp" value={form.from_name} onChange={set('from_name')} placeholder="Jane Tan" required /><small>Shown to recipients</small></label>
-          <label className="mb-field">App password<input className="sf-inp" type="password" autoComplete="new-password" value={form.password} onChange={set('password')} placeholder={provider === 'gmail' ? '16-character app password' : 'App password'} required /><small>Encrypted before storage. Used for both sending and reading replies.</small></label>
+          <label className="mb-field">App password<input className="sf-inp" type="password" autoComplete="new-password" value={form.password} onChange={set('password')} placeholder={provider === 'gmail' ? '16-character app password' : 'App password'} required />{provider === 'gmail' ? <small>Get yours at {googleAppPasswordsLink}</small> : null}<small>Encrypted before storage. Used for both sending and reading replies.</small></label>
           <details className="lead-source-details" open={provider === 'manual'}>
             <summary>Server settings{provider !== 'manual' ? ' (filled in for you)' : ''}</summary>
             <div className="mb-grid mb-grid-port" style={{ marginTop: 10 }}>
