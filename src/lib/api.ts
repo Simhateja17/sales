@@ -477,7 +477,9 @@ export interface CallRecord {
   retell_call_id: string | null;
   from_number: string | null;
   to_number: string | null;
-  status: 'queued' | 'calling' | 'ringing' | 'in_progress' | 'completed' | 'failed' | 'no_answer' | 'busy' | 'canceled';
+  status: 'scheduled' | 'queued' | 'calling' | 'ringing' | 'in_progress' | 'completed' | 'failed' | 'no_answer' | 'busy' | 'canceled';
+  source?: 'campaign' | 'manual';
+  scheduled_for?: string | null;
   started_at: string | null;
   ended_at: string | null;
   duration_seconds: number | null;
@@ -834,6 +836,68 @@ export function getAgentLaunchJob(jobId: string) {
   return apiFetch<{ job: AIJob }>(`/api/ai/jobs/${jobId}`);
 }
 
+
+export interface SingleCallLead {
+  id: string;
+  full_name: string;
+  company_name: string | null;
+  title: string | null;
+  phone: string | null;
+  callable: boolean;
+  reason: string | null;
+  can_record_consent: boolean;
+  queued_in: string | null;
+}
+
+export interface SingleCallScript {
+  campaign_id: string;
+  name: string;
+  language: string;
+  opening_line: string;
+  timezone: string;
+  window_open: boolean;
+  next_open_at: string | null;
+  problem: string | null;
+}
+
+export interface SingleCallOptions {
+  leads: SingleCallLead[];
+  scripts: SingleCallScript[];
+  default_campaign_id: string | null;
+  from_number: string | null;
+  calling_allowed: { ok: boolean; reason: string | null };
+  scheduling_available: boolean;
+}
+
+export interface SingleCall {
+  id: string;
+  status: CallRecord['status'];
+  scheduled_for: string | null;
+  duration_seconds: number | null;
+  summary: string | null;
+  outcome_type: OutcomeType | null;
+  outcome_summary: string | null;
+  next_action: string | null;
+  error_message: string | null;
+  call_outcomes?: Array<{ outcome_type: OutcomeType | null }> | null;
+  meetings?: { id: string; starts_at: string | null; status: string } | null;
+}
+
+export function getSingleCallOptions(query = '') {
+  return apiFetch<SingleCallOptions>(`/api/voice/single-call/options?q=${encodeURIComponent(query)}`);
+}
+
+export function startSingleCall(body: { lead_id: string; campaign_id: string; confirmed: true; schedule: boolean }) {
+  return apiFetch<{ call: SingleCall }>('/api/voice/single-call', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export function getSingleCall(callId: string) {
+  return apiFetch<{ call: SingleCall }>(`/api/voice/single-call/${callId}`);
+}
+
+export function cancelSingleCall(callId: string) {
+  return apiFetch<{ call: SingleCall }>(`/api/voice/single-call/${callId}/cancel`, { method: 'POST' });
+}
 
 export function setLeadVoiceConsent(leadId: string, voiceConsentStatus: Lead['voice_consent_status']) {
   return apiFetch<{ lead: Lead }>(`/api/calling/leads/${leadId}/voice-consent`, {

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { getBillingStatus, getCallingStatus, type BillingUsage, type CallRecord } from '@/lib/api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { cancelSingleCall, getBillingStatus, getCallingStatus, type BillingUsage, type CallRecord } from '@/lib/api';
 import { fmtDate, initials } from '../_lib/ui';
+import CallLeadModal from './CallLeadModal';
 
 type Filter = 'all' | 'booked' | 'follow_up' | 'no_answer';
 
@@ -13,6 +14,7 @@ function outcomeOf(call: CallRecord) {
 }
 
 function callTag(call: CallRecord): { label: string; tone: 'p' | 'g' | 'r' | 'd' } {
+  if (call.status === 'scheduled') return { label: 'Scheduled', tone: 'd' };
   const outcome = outcomeOf(call);
   if (outcome === 'booked' || call.meeting_id) return { label: 'Booked', tone: 'p' };
   if (call.status === 'no_answer' || call.status === 'busy' || outcome === 'no_answer') return { label: 'No answer', tone: 'r' };
@@ -105,15 +107,40 @@ export default function CallsView({ onOpenSettings, onOpenCampaigns }: { onOpenS
   const [filter, setFilter] = useState<Filter>('all');
   const [selectedId, setSelectedId] = useState('');
 
-  useEffect(() => {
+  const [calling, setCalling] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const loadCalls = useCallback(() => {
     getCallingStatus().then(data => setCalls(data.calls || [])).catch(e => setError(e instanceof Error ? e.message : 'Could not load calls.'));
     getBillingStatus().then(data => setUsage(data.usage)).catch(() => {});
   }, []);
 
+  useEffect(() => { loadCalls(); }, [loadCalls]);
+
+  async function cancelScheduled(callId: string) {
+    setCancelling(true);
+    setError('');
+    try {
+      await cancelSingleCall(callId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not cancel the call.');
+    } finally {
+      setCancelling(false);
+      loadCalls();
+    }
+  }
+
+  function viewCall(callId: string) {
+    setFilter('all');
+    setSelectedId(callId);
+    setCalling(false);
+    loadCalls();
+  }
+
   const visible = useMemo(() => (calls || []).filter(call => matches(call, filter)), [calls, filter]);
   const selected = visible.find(call => call.id === selectedId) || visible[0] || null;
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-  const thisMonth = (calls || []).filter(call => new Date(call.started_at || call.created_at) >= monthStart);
+  const thisMonth = (calls || []).filter(call => call.status !== 'scheduled' && new Date(call.started_at || call.created_at) >= monthStart);
   const booked = thisMonth.filter(call => callTag(call).label === 'Booked').length;
   const missed = thisMonth.filter(call => callTag(call).label === 'No answer').length;
   const minutesUsed = usage?.used.minutes ?? 0;
@@ -129,7 +156,7 @@ export default function CallsView({ onOpenSettings, onOpenCampaigns }: { onOpenS
         </div>
         <div className="page-actions">
           <button className="btn-outline" type="button" onClick={onOpenSettings}>Agent settings</button>
-          {onOpenCampaigns ? <button className="btn-primary" type="button" onClick={onOpenCampaigns}>Call a lead</button> : null}
+          <button className="btn-primary" type="button" onClick={() => setCalling(true)}>Call a lead</button>
         </div>
       </div>
       {error ? <div className="pdpa-banner">{error}</div> : null}
@@ -170,13 +197,23 @@ export default function CallsView({ onOpenSettings, onOpenCampaigns }: { onOpenS
                 </div>
                 <span className={`calls-tag calls-tag-${callTag(selected).tone}`}>{callTag(selected).label}</span>
               </header>
+              {selected.status === 'scheduled' ? (
+                <div className="calls-summary">
+                  <span>Scheduled</span>
+                  {selected.scheduled_for ? `Your agent calls on ${new Date(selected.scheduled_for).toLocaleString()}, after checking this person can still be called.` : 'Your agent will call during calling hours.'}
+                  <div style={{ marginTop: 12 }}>
+                    <button className="btn-outline" type="button" disabled={cancelling} onClick={() => cancelScheduled(selected.id)}>{cancelling ? 'Canceling...' : 'Cancel this call'}</button>
+                  </div>
+                </div>
+              ) : null}
+              {selected.error_message && ['failed', 'canceled'].includes(selected.status) ? <p className="calls-next"><b>What happened:</b> {selected.error_message}</p> : null}
               {selected.recording_url ? <CallPlayer key={selected.id} src={selected.recording_url} fallbackSeconds={selected.duration_seconds} /> : null}
               {selected.summary || selected.outcome_summary ? (
                 <div className="calls-summary"><span>AI summary</span>{selected.summary || selected.outcome_summary}</div>
               ) : null}
               {selected.next_action ? <p className="calls-next"><b>Next step:</b> {selected.next_action}</p> : null}
-              <span className="calls-mono">Transcript</span>
-              {transcriptLines(selected.transcript).length ? (
+              {selected.status === 'scheduled' ? null : <span className="calls-mono">Transcript</span>}
+              {selected.status === 'scheduled' ? null : transcriptLines(selected.transcript).length ? (
                 <div className="calls-tx">
                   {transcriptLines(selected.transcript).map((line, index) => (
                     <div key={index} className={`calls-line${line.ai ? ' ai' : ''}`}><b>{line.who}</b><span>{line.text}</span></div>
@@ -186,6 +223,14 @@ export default function CallsView({ onOpenSettings, onOpenCampaigns }: { onOpenS
             </article>
           ) : null}
         </div>
+      ) : null}
+      {calling ? (
+        <CallLeadModal
+          onClose={() => { setCalling(false); loadCalls(); }}
+          onOpenCampaigns={onOpenCampaigns}
+          onCallsChanged={loadCalls}
+          onViewCall={viewCall}
+        />
       ) : null}
     </section>
   );
