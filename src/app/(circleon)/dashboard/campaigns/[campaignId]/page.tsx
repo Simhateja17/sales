@@ -40,6 +40,7 @@ import Sidebar from '../../_lib/Sidebar';
 import VoiceCampaignPanel from './VoiceCampaignPanel';
 import { EmptyState, Metric, hhmm, initials, statusBadge, type Page } from '../../_lib/ui';
 import { csvTargets, terminalImportStatuses } from '../../_lib/leadImport';
+import { formatScheduledTime, rescheduleResultMessage, sendingWindowText } from '../../_lib/scheduleTime';
 import { confirmDialog, promptDialog } from '@/components/circleon/dialog';
 import MailboxConnectModal, { isMailboxReady } from '@/components/circleon/MailboxConnectModal';
 
@@ -175,9 +176,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     .map(item => new Date(item.scheduled_at as string).getTime())
     .filter(time => time > Date.now())
     .sort((a, b) => a - b);
-  const nextSendLabel = upcomingSends.length && campaign
-    ? new Date(upcomingSends[0]).toLocaleString('en-SG', { timeZone: campaign.timezone || 'Asia/Singapore', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
-    : '';
+  const nextSendLabel = upcomingSends.length && campaign ? formatScheduledTime(new Date(upcomingSends[0]), campaign.timezone || 'Asia/Singapore') : '';
   const [activeStep, setActiveStep] = useState<number | null>(null);
   const activeStepNo = activeStep ?? previewSequenceGroups[0]?.stepNumber ?? 1;
   // Research behind each lead's emails, shown with that email rather than in a
@@ -360,7 +359,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     if (!campaign) return;
     // datetime-local wants local time, not UTC, so shift by the timezone offset.
     const suggested = messageItem.scheduled_at ? new Date(new Date(messageItem.scheduled_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
-    const value = await promptDialog({ title: 'Reschedule email', message: 'Pick a new date and time in your local time. Campaign and workspace sending limits still apply.', inputType: 'datetime-local', defaultValue: suggested, confirmLabel: 'Reschedule' });
+    const value = await promptDialog({ title: 'Reschedule email', message: `Pick a date and time in your local time. This campaign sends ${sendingWindowText(campaign)}. A time outside those hours or over a sending limit moves to the next opening.`, inputType: 'datetime-local', defaultValue: suggested, confirmLabel: 'Reschedule' });
     if (!value) return;
     const scheduledAt = new Date(value);
     if (Number.isNaN(scheduledAt.getTime())) {
@@ -371,7 +370,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
     try {
       const result = await rescheduleCampaignEmail(campaign.id, messageItem.id, scheduledAt.toISOString());
       setPreview(current => current.map(item => item.id === result.message.id ? { ...item, ...result.message } : item));
-      setMessage('Email rescheduled within the campaign and workspace sending limits.');
+      setMessage(rescheduleResultMessage(scheduledAt, result.message.scheduled_at || scheduledAt, campaign.timezone || 'Asia/Singapore'));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not reschedule email.');
     } finally {
@@ -688,7 +687,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
             <div className="cd-gate">
               <div>
                 <b>{campaign.status === 'completed' ? `Campaign complete: ${sentCount} ${sentCount === 1 ? 'email' : 'emails'} sent` : approvedCount ? `Campaign is live: ${sentCount} of ${approvedCount} ${approvedCount === 1 ? 'email' : 'emails'} sent` : 'Campaign is live'}</b>
-                <small>{campaign.status === 'completed' ? 'Every lead has finished the sequence or dropped out by replying or unsubscribing. Replies still appear in your Inbox.' : upcomingSends.length ? `Next email goes out ${nextSendLabel} (${campaign.timezone || 'Asia/Singapore'}). Follow-ups stop for anyone who replies or unsubscribes.` : approvedCount ? 'Nothing is scheduled right now. Follow-ups are scheduled as each earlier email sends.' : 'No emails are queued. Pause the campaign to approve drafts, then launch again.'}</small>
+                <small>{campaign.status === 'completed' ? 'Every lead has finished the sequence or dropped out by replying or unsubscribing. Replies still appear in your Inbox.' : upcomingSends.length ? `Next email goes out on ${nextSendLabel}. Follow-ups stop for anyone who replies or unsubscribes.` : approvedCount ? 'Nothing is scheduled right now. Follow-ups are scheduled as each earlier email sends.' : 'No emails are queued. Pause the campaign to approve drafts, then launch again.'}</small>
               </div>
               <span className="cd-gate-bar"><i style={{ width: `${campaign.status === 'completed' ? 100 : approvedCount ? Math.round((sentCount / approvedCount) * 100) : 0}%` }} /></span>
             </div>
@@ -785,7 +784,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                             <div className="mtr-info">
                               <div className="mtr-name">{item.subject || 'Untitled email'}</div>
                               <div className="mtr-detail">{item.leads?.full_name || 'Lead'} at {item.leads?.company_name || 'Unknown company'}</div>
-                              {item.scheduled_at ? <div className="mtr-detail" style={{ marginTop: 4 }}>Scheduled {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.scheduled_at))}{item.schedule_reason ? ` · ${item.schedule_reason}` : ''}</div> : null}
+                              {item.scheduled_at ? <div className="mtr-detail" style={{ marginTop: 4 }}>Scheduled {formatScheduledTime(item.scheduled_at, campaign.timezone || 'Asia/Singapore')}{item.schedule_reason ? ` · ${item.schedule_reason}` : ''}</div> : null}
                               <div className="mtr-detail" style={{ marginTop: 6 }}>{(item.body || item.draft_body || '').slice(0, 180)}</div>
                               {(() => { const facts = item.lead_id ? researchByLead.get(item.lead_id)?.facts.length || 0 : 0; return <div className="mtr-detail" style={{ marginTop: 6, color: facts ? 'var(--purple)' : undefined }}>{facts ? `Personalised with ${facts} public fact${facts === 1 ? '' : 's'}` : 'Based on contact details only'}</div>; })()}
                             </div>

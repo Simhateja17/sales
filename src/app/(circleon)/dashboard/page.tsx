@@ -302,7 +302,7 @@ function ConversationThreadModal({ conversation, onClose, onRefresh, onError, in
 function leadViewStatus(lead: Lead) {
   if (lead.lifecycle_status === 'selected_for_campaign' || lead.lifecycle_status === 'contacted') return 'In campaign';
   if (lead.enrichment_status === 'failed' || lead.enrichment_status === 'cooldown' || lead.dnc_status === 'pending') return 'Needs attention';
-  return 'Ready to contact';
+  return 'Not in a campaign';
 }
 
 function leadViewClass(lead: Lead) {
@@ -679,7 +679,7 @@ function DashboardContent() {
     [visibleLeads]
   );
   const filteredLeads = useMemo(() => {
-    if (leadView === 'ready') return visibleLeads.filter(lead => leadViewStatus(lead) === 'Ready to contact');
+    if (leadView === 'ready') return visibleLeads.filter(lead => leadViewStatus(lead) === 'Not in a campaign');
     if (leadView === 'campaign') return visibleLeads.filter(lead => leadViewStatus(lead) === 'In campaign');
     if (leadView === 'attention') return visibleLeads.filter(lead => leadViewStatus(lead) === 'Needs attention');
     return visibleLeads;
@@ -1498,7 +1498,7 @@ function DashboardContent() {
 
             <div className="lead-metrics" aria-label="Lead library summary">
               <div><strong>{verifiedEmailLeadCount}</strong><span>Verified work emails</span></div>
-              <div><strong>{visibleLeads.filter(lead => leadViewStatus(lead) === 'Ready to contact').length}</strong><span>Ready for review</span></div>
+              <div><strong>{visibleLeads.filter(lead => leadViewStatus(lead) === 'Not in a campaign').length}</strong><span>Not in a campaign</span></div>
               <div><strong>{attentionLeadCount}</strong><span>Need attention</span></div>
             </div>
 
@@ -1507,7 +1507,7 @@ function DashboardContent() {
                 <div className="lead-tabs" role="tablist" aria-label="Lead status">
                   {([
                     ['all', 'All leads'],
-                    ['ready', 'Ready'],
+                    ['ready', 'Not in a campaign'],
                     ['campaign', 'In campaign'],
                     ['attention', 'Needs attention'],
                   ] as Array<[LeadView, string]>).map(([view, label]) => (

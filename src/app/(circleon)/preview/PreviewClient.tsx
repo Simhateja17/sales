@@ -167,7 +167,7 @@ export default function PreviewClient() {
       <Section id="metrics" title="Metrics">
         <div className="rs-metrics">
           <div className="rs-metric"><strong>{fixtureLeads.length}</strong><span>Verified work emails</span></div>
-          <div className="rs-metric"><strong>2</strong><span>Ready for review</span></div>
+          <div className="rs-metric"><strong>2</strong><span>Not in a campaign</span></div>
           <div className="rs-metric"><strong>2</strong><span>Need attention</span></div>
         </div>
       </Section>
