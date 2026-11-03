@@ -113,7 +113,6 @@ Only use prospects that fit these requirements. Do not import an existing or sup
                 <OptionalChoice label="Common concern" value={get('objections', '')} options={['Too expensive', 'Not the right time', 'Already use another solution', 'Need approval', 'Not sure it will work']} onChange={value => updateAnswer('objections', value)} />
                 <OptionalChoice label="Email tone" value={get('tone', '')} options={['Professional', 'Friendly', 'Direct', 'Warm and conversational']} onChange={value => updateAnswer('tone', value)} />
                 <OptionalChoice label="When they may need you" value={get('timingSignal', '')} options={['Hiring', 'Expanding', 'Using manual processes', 'Using outdated tools', 'Recently funded', 'Entering a new market']} onChange={value => updateAnswer('timingSignal', value)} />
-                <OptionalChoice label="Booking link" value={get('calLink', '')} options={['No booking link yet']} onChange={value => updateAnswer('calLink', value)} customPlaceholder="Paste your booking link" />
               </div>
               <div className="sf-hint" style={{ marginTop: 10 }}>You can skip every option here and add it later.</div>
             </div>

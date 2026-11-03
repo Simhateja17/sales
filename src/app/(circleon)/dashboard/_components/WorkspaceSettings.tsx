@@ -47,7 +47,7 @@ export default function WorkspaceSettings({ workspace, billing, agentConfig, lea
           <ReadField label="City" value={agentConfig?.city} />
         </div>
         <div className="mb-grid st-gap"><ReadField label="What you sell" value={agentConfig?.product} hint="Used to personalise every email" /></div>
-        <div className="mb-grid st-gap"><ReadField label="Calendar booking link" value={agentConfig?.booking_link} /></div>
+        <div className="mb-grid st-gap"><ReadField label="Your booking page" value={agentConfig?.booking_link} /></div>
         <p className="st-note">{leadCount} verified lead{leadCount === 1 ? '' : 's'} in your workspace. Targeting and email-writing preferences are edited in onboarding.</p>
       </div>
 

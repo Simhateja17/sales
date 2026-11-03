@@ -1337,6 +1337,17 @@ export interface CalendarConnection {
   last_error: string | null;
 }
 
+export interface BookingSlot { start: string; end: string; spoken: string }
+export interface BookingPageData { company: string; timezone: string; slot_minutes: number; slots: BookingSlot[] }
+
+export function getBookingPage(token: string) {
+  return apiFetch<BookingPageData>(`/api/booking/${token}`, { auth: false });
+}
+
+export function bookMeeting(token: string, details: { start: string; name: string; email: string }) {
+  return apiFetch<{ booked: boolean; start: string; end: string }>(`/api/booking/${token}`, { method: 'POST', auth: false, body: JSON.stringify(details) });
+}
+
 export function getCalendarConnection() {
   return apiFetch<{ calendar: CalendarConnection | null }>('/api/voice/calendar');
 }

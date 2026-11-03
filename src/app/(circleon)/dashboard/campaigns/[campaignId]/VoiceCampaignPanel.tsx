@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   approveVoiceScript,
-  disconnectCalendar,
   generateVoiceScript,
-  getCalendarConnection,
   getVoiceCalls,
   getVoiceCampaignStatus,
   getVoiceCoverage,
@@ -14,7 +12,6 @@ import {
   runCampaignDncCheck,
   saveVoiceScript,
   setLeadPhoneType,
-  startCalendarConnect,
   type CallabilityCoverage,
   type Campaign,
   type VoiceCall,
@@ -23,7 +20,6 @@ import {
   type VoiceOption,
   type VoiceScript,
   type UnclassifiedNumber,
-  type CalendarConnection,
 } from '@/lib/api';
 
 const LANGUAGES: Array<{ code: VoiceLanguage; label: string }> = [
@@ -89,7 +85,6 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
   const [coverage, setCoverage] = useState<CallabilityCoverage | null>(null);
   const [warnings, setWarnings] = useState<Array<{ company_domain: string; company_name: string | null }>>([]);
   const [unclassified, setUnclassified] = useState<UnclassifiedNumber[]>([]);
-  const [calendar, setCalendar] = useState<CalendarConnection | null>(null);
   const [calls, setCalls] = useState<VoiceCall[]>([]);
   const [suggestion, setSuggestion] = useState('');
   const [attested, setAttested] = useState(false);
@@ -121,16 +116,10 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
     setCalls(callList.calls);
   }, [campaign.id]);
 
-  const loadCalendar = useCallback(async () => {
-    const result = await getCalendarConnection();
-    setCalendar(result.calendar);
-  }, []);
-
   useEffect(() => {
     loadScript().catch(loadError => setError(loadError.message));
     loadStatus().catch(loadError => setError(loadError.message));
-    loadCalendar().catch(() => setCalendar(null));
-  }, [loadCalendar, loadScript, loadStatus]);
+  }, [loadScript, loadStatus]);
 
   // Poll only while the campaign is actually running.
   useEffect(() => {
@@ -219,30 +208,6 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
     } catch (classifyError) {
       setError((classifyError as Error).message);
       await loadStatus();
-    }
-  }
-
-  async function connectCalendar() {
-    setBusy('calendar');
-    setError(null);
-    try {
-      const { url } = await startCalendarConnect();
-      window.location.href = url;
-    } catch (connectError) {
-      setError((connectError as Error).message);
-      setBusy(null);
-    }
-  }
-
-  async function removeCalendar() {
-    setBusy('calendar');
-    try {
-      await disconnectCalendar();
-      await loadCalendar();
-    } catch (removeError) {
-      setError((removeError as Error).message);
-    } finally {
-      setBusy(null);
     }
   }
 
@@ -344,34 +309,14 @@ export default function VoiceCampaignPanel({ campaign }: { campaign: Campaign })
         </section>
       ) : null}
 
-      {/* Without a calendar the agent can only promise to send a link, which
-          ends the conversation instead of booking it. */}
-      <section className={`voice-calendar${calendar?.status === 'connected' ? ' is-connected' : ''}`}>
+      <section className="voice-calendar is-connected">
         <div className="voice-calendar-copy">
           <h3>Booking</h3>
-          {calendar?.status === 'connected' ? (
-            <p>
-              Connected to <strong>{calendar.account_email || 'your Google Calendar'}</strong>. The agent offers real open
-              times from {calendar.booking_hours_start.slice(0, 5)} to {calendar.booking_hours_end.slice(0, 5)} and books
-              a {calendar.slot_minutes} minute meeting during the call.
-            </p>
-          ) : (
-            <p>
-              Connect a calendar and the agent offers genuine open times and books the meeting while the prospect is
-              still on the phone. Without one it can only offer to email a booking link, which is a much weaker call.
-            </p>
-          )}
-          {calendar?.last_error ? <p className="voice-calendar-error">{calendar.last_error}</p> : null}
+          <p>
+            The agent offers open 30 minute times within this campaign&apos;s calling hours and books the meeting while
+            the prospect is still on the phone. Bookings appear on your Meetings page.
+          </p>
         </div>
-        {calendar?.status === 'connected' ? (
-          <button className="btn-outline" type="button" disabled={busy === 'calendar'} onClick={removeCalendar}>
-            {busy === 'calendar' ? 'Working…' : 'Disconnect'}
-          </button>
-        ) : (
-          <button className="btn-primary" type="button" disabled={busy === 'calendar'} onClick={connectCalendar}>
-            {busy === 'calendar' ? 'Opening Google…' : 'Connect Google Calendar'}
-          </button>
-        )}
       </section>
 
       <section className="voice-script">

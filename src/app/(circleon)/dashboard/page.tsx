@@ -1698,7 +1698,7 @@ function DashboardContent() {
                   className="btn-primary"
                   type="button"
                   disabled={!agentConfig?.booking_link}
-                  title={agentConfig?.booking_link ? 'Copy your calendar booking link' : 'Add a booking link in your onboarding answers first'}
+                  title={agentConfig?.booking_link ? 'Copy your booking page link' : 'Add a booking link in your onboarding answers first'}
                   onClick={copyBookingLink}
                 >
                   {bookingCopied ? 'Link copied' : 'Copy booking link'}
