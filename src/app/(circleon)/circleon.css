@@ -2108,6 +2108,7 @@ button.card-action{background:none;border:0;padding:4px 6px;font-family:inherit}
 .cl-attest{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.5;}
 .cl-attest input{margin-top:3px;}
 .cl-confirm .mb-foot{margin-top:4px;padding-top:16px;}
+.cl-confirm .mb-actions{flex-wrap:wrap;}
 .cl-result{justify-items:start;}
 .cl-steps{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:0;padding:0;}
 .cl-steps li{padding:6px 12px;border-radius:99px;background:var(--rule-soft);color:var(--ink-mute);font-size:13px;font-weight:600;}

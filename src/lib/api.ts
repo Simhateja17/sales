@@ -887,7 +887,7 @@ export function getSingleCallOptions(query = '') {
   return apiFetch<SingleCallOptions>(`/api/voice/single-call/options?q=${encodeURIComponent(query)}`);
 }
 
-export function startSingleCall(body: { lead_id: string; campaign_id: string; confirmed: true; schedule: boolean }) {
+export function startSingleCall(body: { lead_id: string; campaign_id: string; confirmed: true; schedule?: boolean; call_now?: boolean }) {
   return apiFetch<{ call: SingleCall }>('/api/voice/single-call', { method: 'POST', body: JSON.stringify(body) });
 }
 

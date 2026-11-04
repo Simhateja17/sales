@@ -36,6 +36,7 @@ export default function CallLeadModal({ onClose, onOpenCampaigns, onCallsChanged
   const [askConsent, setAskConsent] = useState<string>('');
   const [call, setCall] = useState<SingleCall | null>(null);
   const [busy, setBusy] = useState(false);
+  const [placing, setPlacing] = useState<'now' | 'schedule'>('now');
   const [error, setError] = useState('');
   const [endedFor, setEndedFor] = useState(0);
 
@@ -102,12 +103,13 @@ export default function CallLeadModal({ onClose, onOpenCampaigns, onCallsChanged
     }
   }
 
-  async function place(schedule: boolean) {
+  async function place(when: 'now' | 'schedule') {
     if (!lead || !script || !confirmed) return;
+    setPlacing(when);
     setBusy(true);
     setError('');
     try {
-      const data = await startSingleCall({ lead_id: lead.id, campaign_id: script.campaign_id, confirmed: true, schedule });
+      const data = await startSingleCall({ lead_id: lead.id, campaign_id: script.campaign_id, confirmed: true, ...(when === 'schedule' ? { schedule: true } : { call_now: !script.window_open }) });
       setCall(data.call);
       onCallsChanged();
     } catch (failure) {
@@ -155,9 +157,9 @@ export default function CallLeadModal({ onClose, onOpenCampaigns, onCallsChanged
 
             {lead.queued_in ? <p className="cl-note">This person is also waiting for a call in “{lead.queued_in}”. That campaign will still call them unless you pause it.</p> : null}
             {blockedReason ? <p className="cl-note cl-note-block" role="alert">{blockedReason}</p> : null}
-            {!script.window_open && script.next_open_at ? (
+            {!script.window_open ? (
               <p className="cl-note">
-                This is outside this script&apos;s calling hours. They open at {formatCallTime(script.next_open_at, script.timezone)}{options?.scheduling_available ? '.' : ', so come back then to place this call.'}
+                This is outside this script&apos;s calling hours.{script.next_open_at ? ` They open at ${formatCallTime(script.next_open_at, script.timezone)}.` : ''} Calling immediately rings this person now.
               </p>
             ) : null}
 
@@ -169,11 +171,14 @@ export default function CallLeadModal({ onClose, onOpenCampaigns, onCallsChanged
             <div className="mb-foot">
               <button className="btn-outline" type="button" disabled={busy} onClick={() => { setLead(null); setConfirmed(false); setError(''); }}>Back</button>
               {script.window_open ? (
-                <button className="btn-primary" type="button" disabled={busy || !confirmed || Boolean(blockedReason)} onClick={() => place(false)}>{busy ? 'Calling...' : 'Call now'}</button>
+                <button className="btn-primary" type="button" disabled={busy || !confirmed || Boolean(blockedReason)} onClick={() => place('now')}>{busy ? 'Calling...' : 'Call now'}</button>
               ) : (
-                <button className="btn-primary" type="button" disabled={busy || !confirmed || Boolean(blockedReason) || !options?.scheduling_available || !script.next_open_at} onClick={() => place(true)}>
-                  {busy ? 'Scheduling...' : script.next_open_at ? `Schedule for ${formatCallTime(script.next_open_at, script.timezone)}` : 'Schedule'}
-                </button>
+                <div className="mb-actions">
+                  <button className="btn-outline" type="button" disabled={busy || !confirmed || Boolean(blockedReason)} onClick={() => place('now')}>{busy && placing === 'now' ? 'Calling...' : 'Call immediately'}</button>
+                  <button className="btn-primary" type="button" disabled={busy || !confirmed || Boolean(blockedReason) || !options?.scheduling_available || !script.next_open_at} onClick={() => place('schedule')}>
+                    {busy && placing === 'schedule' ? 'Scheduling...' : script.next_open_at ? `Schedule for ${formatCallTime(script.next_open_at, script.timezone)}` : 'Schedule'}
+                  </button>
+                </div>
               )}
             </div>
           </div>
