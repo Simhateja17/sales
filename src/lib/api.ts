@@ -1359,11 +1359,27 @@ export interface UnclassifiedNumber {
   phone_e164: string | null;
 }
 
+export interface VoiceCampaignLead {
+  id: string;
+  full_name: string;
+  title: string | null;
+  company_name: string | null;
+  phone_e164: string | null;
+  phone_type: Lead['phone_type'];
+  dnc_status: Lead['dnc_status'];
+  voice_consent_status: Lead['voice_consent_status'];
+  // Null until the campaign launches and the lead enters the queue.
+  target_state: 'pending' | 'in_flight' | 'completed' | 'exhausted' | 'blocked' | null;
+  attempts: number;
+  block_reason: string | null;
+}
+
 export function getVoiceCoverage(campaignId: string) {
   return apiFetch<{
     coverage: CallabilityCoverage;
     company_warnings: Array<{ company_domain: string; company_name: string | null; created_at: string }>;
     unclassified: UnclassifiedNumber[];
+    leads: VoiceCampaignLead[];
   }>(`/api/voice/campaigns/${campaignId}/coverage`);
 }
 
