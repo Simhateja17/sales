@@ -117,6 +117,14 @@ export default function CallsView({ onOpenSettings, onOpenCampaigns }: { onOpenS
 
   useEffect(() => { loadCalls(); }, [loadCalls]);
 
+  // Keep an unfinished call moving on screen without a manual refresh.
+  const hasOpenCall = (calls || []).some(call => ['queued', 'calling', 'ringing', 'in_progress'].includes(call.status));
+  useEffect(() => {
+    if (!hasOpenCall) return undefined;
+    const timer = window.setInterval(loadCalls, 15000);
+    return () => window.clearInterval(timer);
+  }, [hasOpenCall, loadCalls]);
+
   async function cancelScheduled(callId: string) {
     setCancelling(true);
     setError('');
