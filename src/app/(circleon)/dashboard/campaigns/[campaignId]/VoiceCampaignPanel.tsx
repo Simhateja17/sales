@@ -20,13 +20,39 @@ import {
   type VoiceOption,
   type VoiceScript,
   type UnclassifiedNumber,
+  type VoiceCampaignLead,
 } from '@/lib/api';
+import { hhmm } from '../../_lib/ui';
 
 const LANGUAGES: Array<{ code: VoiceLanguage; label: string }> = [
   { code: 'en-US', label: 'English' },
   { code: 'en-GB', label: 'English (British)' },
   { code: 'zh-CN', label: 'Mandarin' },
 ];
+
+type VoiceTab = 'calls' | 'leads' | 'settings';
+
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Same words as the queue counts at the top of the page.
+const TARGET_STATE_LABELS: Record<NonNullable<VoiceCampaignLead['target_state']>, string> = {
+  pending: 'To call',
+  in_flight: 'On a call',
+  completed: 'Worked',
+  exhausted: 'No answer',
+  blocked: 'Blocked',
+};
+
+function dncLabel(lead: VoiceCampaignLead) {
+  if (!lead.phone_e164) return '—';
+  if (lead.dnc_status === 'blocked') return 'On the register';
+  if (lead.voice_consent_status === 'consented') return 'Consented';
+  if (lead.phone_type === 'business') return 'Exempt';
+  if (lead.dnc_status === 'clear') return 'Clear';
+  if (lead.dnc_status === 'pending') return 'Checking';
+  if (lead.dnc_status === 'error') return 'Check failed';
+  return 'Not checked';
+}
 
 function money(cents: number) {
   return `S$${(cents / 100).toFixed(2)}`;
@@ -52,7 +78,7 @@ function stateCopy(status: VoiceCampaignStatus | null, campaign: Campaign) {
   if (status.campaign_status === 'completed' || campaign.status === 'completed') {
     const parts = [`${targets.completed} reached`, `${targets.exhausted} no answer`];
     if (targets.blocked) parts.push(`${targets.blocked} blocked`);
-    return { tone: 'done', headline: 'Campaign complete', detail: `Every lead has been worked: ${parts.join(', ')}. Call results are below.` };
+    return { tone: 'done', headline: 'Campaign complete', detail: `Every lead has been worked: ${parts.join(', ')}. Call results are in the Calls tab.` };
   }
 
   if (state.dialing) {
@@ -98,7 +124,10 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
   const [coverage, setCoverage] = useState<CallabilityCoverage | null>(null);
   const [warnings, setWarnings] = useState<Array<{ company_domain: string; company_name: string | null }>>([]);
   const [unclassified, setUnclassified] = useState<UnclassifiedNumber[]>([]);
+  const [campaignLeads, setCampaignLeads] = useState<VoiceCampaignLead[]>([]);
   const [calls, setCalls] = useState<VoiceCall[]>([]);
+  // Null until the script loads, because that decides which tab opens first.
+  const [tab, setTab] = useState<VoiceTab | null>(null);
   const [suggestion, setSuggestion] = useState('');
   const [attested, setAttested] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -114,6 +143,9 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
     setRequiresAttestation(result.requires_attestation);
     setVoiceId(result.voice_id);
     setAgentStatus(result.agent_status);
+    // A script still to approve is the next job; otherwise show the results.
+    // Only the first load chooses, so approving does not move the user.
+    setTab(current => current ?? (result.script?.status === 'approved' ? 'calls' : 'settings'));
   }, [campaign.id]);
 
   const loadStatus = useCallback(async () => {
@@ -126,11 +158,15 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
     setCoverage(cover.coverage);
     setWarnings(cover.company_warnings);
     setUnclassified(cover.unclassified);
+    setCampaignLeads(cover.leads || []);
     setCalls(callList.calls);
   }, [campaign.id]);
 
   useEffect(() => {
-    loadScript().catch(loadError => setError(loadError.message));
+    loadScript().catch(loadError => {
+      setError(loadError.message);
+      setTab(current => current ?? 'calls');
+    });
     loadStatus().catch(loadError => setError(loadError.message));
   }, [loadScript, loadStatus]);
 
@@ -169,6 +205,12 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
     } finally {
       setBusy(null);
     }
+  }
+
+  // The server withdraws approval on every save, so leaving a field untouched
+  // must not save.
+  function saveField(field: 'objective' | 'offer' | 'objection_handling' | 'success_criteria', value: string) {
+    if (value !== (script?.[field] || '')) patchScript({ [field]: value });
   }
 
   async function draftScript() {
@@ -232,6 +274,8 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
   }
 
   const questions = script?.qualifying_questions || [];
+  const leadsNeedAttention = !isComplete && Boolean(unclassified.length || coverage?.needsDncCheck || warnings.length);
+  const settingsNeedAttention = !isComplete && script?.status !== 'approved';
 
   return (
     <div className="voice-panel">
@@ -282,7 +326,19 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
         ) : null}
       </section>
 
-      {coverage && !isComplete ? (
+      <div className="ptabs campaign-review-tabs voice-tabs">
+        <button type="button" className={`ptab${tab === 'calls' ? ' active' : ''}`} aria-pressed={tab === 'calls'} onClick={() => setTab('calls')}>
+          Calls ({calls.length >= 100 ? '100+' : calls.length})
+        </button>
+        <button type="button" className={`ptab${tab === 'leads' ? ' active' : ''}`} aria-pressed={tab === 'leads'} onClick={() => setTab('leads')}>
+          Leads ({campaignLeads.length}){leadsNeedAttention ? <span className="voice-tab-dot" role="img" aria-label="needs attention" /> : null}
+        </button>
+        <button type="button" className={`ptab${tab === 'settings' ? ' active' : ''}`} aria-pressed={tab === 'settings'} onClick={() => setTab('settings')}>
+          Settings{settingsNeedAttention ? <span className="voice-tab-dot" role="img" aria-label="needs attention" /> : null}
+        </button>
+      </div>
+
+      {tab === 'leads' && coverage && !isComplete ? (
         <section className="voice-coverage">
           <h3>Who can be called</h3>
           <ul>
@@ -329,7 +385,64 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
         </section>
       ) : null}
 
-      {isComplete ? null : (
+      {tab === 'leads' ? (
+        <section className="voice-leads">
+          <h3>Leads in this campaign</h3>
+          {campaignLeads.length ? (
+            <div className="voice-calls-table">
+              <table>
+                <thead>
+                  <tr><th>Lead</th><th>Phone</th><th>Line</th><th>Do Not Call</th><th>Status</th><th>Attempts</th></tr>
+                </thead>
+                <tbody>
+                  {campaignLeads.map(lead => (
+                    <tr key={lead.id}>
+                      <td>
+                        <strong>{lead.full_name}</strong>
+                        <small>{[lead.title, lead.company_name].filter(Boolean).join(' · ')}</small>
+                      </td>
+                      <td>{lead.phone_e164 || '—'}</td>
+                      <td>
+                        {lead.phone_e164 ? (
+                          <em className={`phone-type-tag is-${lead.phone_type || 'unknown'}`}>
+                            {lead.phone_type === 'business' ? 'Business' : lead.phone_type === 'personal' ? 'Personal' : 'Unclassified'}
+                          </em>
+                        ) : '—'}
+                      </td>
+                      <td>{dncLabel(lead)}</td>
+                      <td>
+                        <span className={`voice-outcome is-${lead.target_state || 'not_queued'}`}>
+                          {lead.target_state ? TARGET_STATE_LABELS[lead.target_state] : 'Not queued'}
+                        </span>
+                        {lead.block_reason ? <small>{lead.block_reason}</small> : null}
+                      </td>
+                      <td>{lead.attempts} of {campaign.max_call_attempts ?? 3}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="voice-empty">No leads in this campaign yet.</p>
+          )}
+        </section>
+      ) : null}
+
+      {tab === 'settings' ? (
+        <section className="voice-schedule">
+          <h3>Calling schedule</h3>
+          <dl className="voice-settings-list">
+            <div><dt>Calling hours</dt><dd>{hhmm(campaign.sending_hours_start, '09:00')} to {hhmm(campaign.sending_hours_end, '18:00')}</dd></div>
+            <div><dt>Time zone</dt><dd>{campaign.timezone || 'Asia/Singapore'}</dd></div>
+            <div><dt>Days</dt><dd>{(campaign.active_days?.length ? campaign.active_days : [1, 2, 3, 4, 5]).map(day => DAY_LABELS[day % 7]).join(', ')}</dd></div>
+            <div><dt>Daily limit</dt><dd>{campaign.daily_send_cap} calls</dd></div>
+            <div><dt>Attempts per lead</dt><dd>{campaign.max_call_attempts ?? 3}</dd></div>
+            <div><dt>Time between attempts</dt><dd>{campaign.retry_gap_hours ?? 24} hours</dd></div>
+          </dl>
+        </section>
+      ) : null}
+
+      {tab !== 'settings' || isComplete ? null : (
       <>
       <section className="voice-calendar is-connected">
         <div className="voice-calendar-copy">
@@ -392,29 +505,30 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
         <div className="voice-fields">
           <label className="voice-field">
             <span>Objective</span>
-            <textarea rows={2} defaultValue={script?.objective || ''} onBlur={event => patchScript({ objective: event.target.value })} />
+            <textarea rows={2} defaultValue={script?.objective || ''} onBlur={event => saveField('objective', event.target.value)} />
           </label>
           <label className="voice-field">
             <span>What you offer</span>
-            <textarea rows={3} defaultValue={script?.offer || ''} onBlur={event => patchScript({ offer: event.target.value })} />
+            <textarea rows={3} defaultValue={script?.offer || ''} onBlur={event => saveField('offer', event.target.value)} />
           </label>
           <label className="voice-field">
             <span>Qualifying questions <em>one per line, up to four</em></span>
             <textarea
               rows={4}
               defaultValue={questions.join('\n')}
-              onBlur={event => patchScript({
-                qualifying_questions: event.target.value.split('\n').map(line => line.trim()).filter(Boolean).slice(0, 4),
-              })}
+              onBlur={event => {
+                const next = event.target.value.split('\n').map(line => line.trim()).filter(Boolean).slice(0, 4);
+                if (next.join('\n') !== questions.join('\n')) patchScript({ qualifying_questions: next });
+              }}
             />
           </label>
           <label className="voice-field">
             <span>Handling objections</span>
-            <textarea rows={3} defaultValue={script?.objection_handling || ''} onBlur={event => patchScript({ objection_handling: event.target.value })} />
+            <textarea rows={3} defaultValue={script?.objection_handling || ''} onBlur={event => saveField('objection_handling', event.target.value)} />
           </label>
           <label className="voice-field">
             <span>What counts as success</span>
-            <textarea rows={2} defaultValue={script?.success_criteria || ''} onBlur={event => patchScript({ success_criteria: event.target.value })} />
+            <textarea rows={2} defaultValue={script?.success_criteria || ''} onBlur={event => saveField('success_criteria', event.target.value)} />
           </label>
         </div>
 
@@ -469,6 +583,7 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
       </>
       )}
 
+      {tab === 'calls' ? (
       <section className="voice-calls">
         <h3>Calls</h3>
         {calls.length ? (
@@ -498,6 +613,7 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
           <p className="voice-empty">No calls yet. They will appear here as the campaign works through its list.</p>
         )}
       </section>
+      ) : null}
 
       {error ? <p className="voice-error" role="alert">{error}</p> : null}
       {notice ? <p className="voice-notice">{notice}</p> : null}
