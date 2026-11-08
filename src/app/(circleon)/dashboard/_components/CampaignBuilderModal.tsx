@@ -131,7 +131,7 @@ export type CampaignBuilderSubmission = {
 };
 
 export default function CampaignBuilderModal({
-  open, leads, agentConfig, mailboxAccount, initialLeadIds = [], maxSteps = 6, isSubmitting, onClose, onSubmit,
+  open, leads, agentConfig, mailboxAccount, initialLeadIds = [], maxSteps = 6, voiceAvailable = true, isSubmitting, onClose, onSubmit,
 }: {
   open: boolean;
   leads: Lead[];
@@ -139,6 +139,8 @@ export default function CampaignBuilderModal({
   mailboxAccount: Pick<ConnectedAccount, 'from_name' | 'from_email'> | null;
   initialLeadIds?: string[];
   maxSteps?: number;
+  /** False when the plan has no voice agent: the voice option shows locked. */
+  voiceAvailable?: boolean;
   isSubmitting: boolean;
   onClose: () => void;
   onSubmit: (submission: CampaignBuilderSubmission) => void;
@@ -295,12 +297,13 @@ export default function CampaignBuilderModal({
             <div className="campaign-channel-picker cb-type" role="radiogroup" aria-label="Campaign channel">
               {([
                 { value: 'email' as const, title: 'Email campaign', copy: 'A written sequence, drafted per lead.' },
-                { value: 'voice' as const, title: 'Voice campaign', copy: 'An AI agent calls and books meetings.' },
+                { value: 'voice' as const, title: 'Voice campaign', copy: voiceAvailable ? 'An AI agent calls and books meetings.' : 'Included in All-in-one. Upgrade in Billing to unlock.' },
               ]).map(option => (
                 <button
                   key={option.value}
                   type="button"
                   role="radio"
+                  disabled={option.value === 'voice' && !voiceAvailable}
                   aria-checked={campaign.channel === option.value}
                   className={campaign.channel === option.value ? 'is-selected' : ''}
                   onClick={() => { setCampaign(current => ({ ...current, channel: option.value })); setSelectedLeadIds([]); }}

@@ -72,7 +72,10 @@ import WorkspaceSettings from './_components/WorkspaceSettings';
 import AnalyticsView from './_components/AnalyticsView';
 import CallsView from './_components/CallsView';
 import HomeOverview from './_components/HomeOverview';
-import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, intentBadge, navItems, statusBadge, type Page } from './_lib/ui';
+import InvoicesView from './_components/InvoicesView';
+import LockedFeature from './_components/LockedFeature';
+import { hasFeature } from '@/lib/entitlements';
+import { CampaignRow, EmptyState, KpiRow, Metric, fmtDate, initials, intentBadge, navItems, pageFeature, statusBadge, type Page } from './_lib/ui';
 import { csvTargets, terminalImportStatuses } from './_lib/leadImport';
 import { useTheme } from './_lib/theme';
 import { useTour } from './_lib/tour/TourProvider';
@@ -590,6 +593,7 @@ function DashboardContent() {
   const setSettingsSection = (section: SettingsSection) => router.push(pagePath('settings', section));
   const [today, setToday] = useState('');
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [billing, setBilling] = useState<WorkspaceBilling | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
   const [agentConfig, setAgentConfig] = useState<AgentConfig | null>(null);
@@ -795,6 +799,7 @@ function DashboardContent() {
     getWorkspace()
       .then(data => {
         setWorkspace(data.workspace);
+        setUserId(data.user.id);
         setBilling(data.billing);
         setAgentConfig(data.agentConfig);
         if (!data.workspace.plan) {
@@ -1388,6 +1393,15 @@ function DashboardContent() {
     autopilotReadiness && autopilotReadiness.launched_campaigns > 0 && autopilotReadiness.included_campaigns === 0 ? 'Select at least one launched campaign, or choose “Include all launched campaigns”.' : null,
   ].filter((reason): reason is string => Boolean(reason));
 
+  // Screens outside the plan render an upgrade prompt instead of their content.
+  const planId = billing?.plan ?? workspace?.plan ?? null;
+  const lockedFeature = (() => {
+    const feature = pageFeature(activePage);
+    return feature && planId && !hasFeature(planId, feature) ? feature : null;
+  })();
+  const shownPage: Page | null = lockedFeature ? null : activePage;
+  const voiceAvailable = !planId || hasFeature(planId, 'voice');
+
   return (
     <>
       <Sidebar
@@ -1409,7 +1423,7 @@ function DashboardContent() {
         {message ? <div className="pdpa-banner">{message}</div> : null}
         {!loaded ? <div className="card"><EmptyState text="Loading your workspace…" /></div> : null}
 
-        {loaded && activePage === 'overview' ? (
+        {loaded && shownPage === 'overview' ? (
           <HomeOverview
             workspace={workspace}
             campaigns={campaigns}
@@ -1430,7 +1444,7 @@ function DashboardContent() {
           />
         ) : null}
 
-        {loaded && activePage === 'campaigns' ? (
+        {loaded && shownPage === 'campaigns' ? (
           <section>
             <div className="page-header">
               <div>
@@ -1485,7 +1499,7 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {loaded && activePage === 'leads' ? (
+        {loaded && shownPage === 'leads' ? (
           <section className="leads-page">
             <div className="page-header">
               <div>
@@ -1587,7 +1601,7 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {loaded && activePage === 'inbox' ? (
+        {loaded && shownPage === 'inbox' ? (
           <section className="ib" data-tour="inbox-workspace">
             <div className="ib-col ib-list">
               <div className="ib-list-head">
@@ -1666,9 +1680,9 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {loaded && activePage === 'calls' ? <CallsView onOpenSettings={() => { router.push(pagePath('settings', 'voice')); }} onOpenCampaigns={() => setActivePage('campaigns')} /> : null}
+        {loaded && shownPage === 'calls' ? <CallsView onOpenSettings={() => { router.push(pagePath('settings', 'voice')); }} onOpenCampaigns={() => setActivePage('campaigns')} /> : null}
 
-        {loaded && activePage === 'meetings' ? (
+        {loaded && shownPage === 'meetings' ? (
           <section>
             <div className="page-header">
               <div>
@@ -1715,9 +1729,9 @@ function DashboardContent() {
           </section>
         ) : null}
 
-        {loaded && activePage === 'analytics' ? <AnalyticsView sentMail={sentMail} inbox={inbox} campaigns={campaigns} meetings={meetings} emailLeads={emailLeads} /> : null}
+        {loaded && shownPage === 'analytics' ? <AnalyticsView sentMail={sentMail} inbox={inbox} campaigns={campaigns} meetings={meetings} emailLeads={emailLeads} /> : null}
 
-        {loaded && activePage === 'settings' ? (
+        {loaded && shownPage === 'settings' ? (
           <section>
             <div className="page-header">
               <div>
@@ -1875,7 +1889,7 @@ function DashboardContent() {
                   onOpenBilling={() => setActivePage('billing')}
                 />
               ) : null}
-              {settingsSection === 'voice' ? <VoiceSettingsPanel onMessage={setMessage} /> : null}
+              {settingsSection === 'voice' ? (voiceAvailable ? <VoiceSettingsPanel onMessage={setMessage} /> : <LockedFeature feature="voice" planId={planId} isOwner={!workspace?.owner_id || workspace.owner_id === userId} onOpenBilling={() => setActivePage('billing')} />) : null}
               {settingsSection === 'compliance' ? (
                 <div className="set-panel">
                   <h3 className="st-h3">Compliance</h3>
@@ -1959,12 +1973,21 @@ function DashboardContent() {
           </section>
         ) : null}
 
+        {loaded && lockedFeature ? (
+          <LockedFeature feature={lockedFeature} planId={planId} isOwner={!workspace?.owner_id || workspace.owner_id === userId} onOpenBilling={() => setActivePage('billing')} />
+        ) : null}
+
+        {loaded && shownPage === 'invoices' ? (
+          <InvoicesView mailboxConnected={smtpAccount?.status === 'connected'} onConnectMailbox={() => setSettingsSection('mailbox')} />
+        ) : null}
+
         {activePage === 'billing' ? <BillingPanel /> : null}
 
       </main>
       <CampaignBuilderModal
         open={showCampaignForm}
-        maxSteps={/^(followup|allinone)_/.test(workspace?.plan||'')?4:6}
+        maxSteps={/^(followup_|allinone_|email|all_in_one)/.test(workspace?.plan||'')?4:6}
+        voiceAvailable={voiceAvailable}
         leads={emailLeads}
         agentConfig={agentConfig}
         mailboxAccount={smtpAccount}

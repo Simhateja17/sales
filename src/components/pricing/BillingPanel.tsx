@@ -106,7 +106,7 @@ export default function BillingPanel() {
             {billing?.payment_failed ? <span className="bill-flag bad">Payment failed, activity paused</span>
               : foundingActive ? <span className="bill-flag">Founding price locked to {fmtDay(billing?.founder_until)}</span> : null}
           </div>
-          <h2>{plan ? `${FAMILY_NAMES[plan.family] || plan.name}, ${TIER_NAMES[plan.tier] || plan.tier}` : billing?.plan ? planLabel(billing.plan) : 'No subscription'}</h2>
+          <h2>{plan && !('retired' in plan && plan.retired) ? plan.name : plan ? `${FAMILY_NAMES[plan.family] || plan.name}, ${TIER_NAMES[plan.tier] || plan.tier}` : billing?.plan ? planLabel(billing.plan) : 'No subscription'}</h2>
           {plan ? (
             <div className="bill-price">
               <b>S${foundingActive ? plan.founding : plan.list}</b> / month
@@ -278,15 +278,15 @@ export default function BillingPanel() {
             </form>
           </section>
 
-          <section className="bill-panel" id="change-tier" aria-label="Change tier">
-            <h3>Change tier</h3>
+          <section className="bill-panel" id="change-tier" aria-label="Change plan">
+            <h3>Change plan</h3>
             <p className="bill-sub">Upgrades apply after successful prorated payment. Downgrades apply at renewal. Current usage carries forward; founding discount expiry stays the same.</p>
             {billing?.pending_plan && <p className="bill-note" style={{ marginTop: 10 }}>Scheduled at renewal: {planLabel(billing.pending_plan)}</p>}
             <div className="bill-form">
-              <label>New tier
+              <label>New plan
                 <select value={next} onChange={e => setNext(e.target.value)}>
-                  <option value="">Choose a tier</option>
-                  {plans.filter(p => p.family === plan.family && p.id !== plan.id).map(p => <option key={p.id} value={p.id}>{p.name} · S${foundingActive ? p.founding : p.list}/month excl. GST</option>)}
+                  <option value="">Choose a plan</option>
+                  {plans.filter(p => p.id !== plan.id && ('retired' in plan && plan.retired ? p.family === plan.family : !('retired' in p && p.retired))).map(p => <option key={p.id} value={p.id}>{p.name} · S${foundingActive ? p.founding : p.list}/month excl. GST</option>)}
                 </select>
               </label>
               {next && plans.find(p => p.id === next)!.list < plan.list && (
@@ -296,7 +296,7 @@ export default function BillingPanel() {
                   {campaigns.map(c => <label className="inline" key={c.id}><input type="checkbox" checked={keepCampaigns.includes(c.id)} onChange={() => setKeepCampaigns(toggle(keepCampaigns, c.id))} />{c.name}</label>)}
                 </>
               )}
-              <div><button className="bill-line" type="button" disabled={busy || !next} onClick={() => act(() => billingAction('/change-plan', 'POST', { plan: next, keep_member_ids: keepMembers, keep_campaign_ids: keepCampaigns }), 'Plan change saved.')}>Confirm tier change</button></div>
+              <div><button className="bill-line" type="button" disabled={busy || !next} onClick={() => act(() => billingAction('/change-plan', 'POST', { plan: next, keep_member_ids: keepMembers, keep_campaign_ids: keepCampaigns }), 'Plan change saved.')}>Confirm plan change</button></div>
             </div>
           </section>
         </div>

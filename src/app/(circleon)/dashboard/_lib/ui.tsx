@@ -1,16 +1,20 @@
 import type { Campaign } from '@/lib/api';
+import type { Feature } from '@/lib/entitlements';
 
-export type Page = 'overview' | 'campaigns' | 'leads' | 'inbox' | 'calls' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
+export type Page = 'overview' | 'campaigns' | 'leads' | 'inbox' | 'calls' | 'invoices' | 'meetings' | 'analytics' | 'settings' | 'billing' | 'support';
 
-export const navGroups: Array<{ label: string; items: Array<{ id: Page; label: string }> }> = [
+// `feature` marks screens that only some plans include; the sidebar shows
+// them locked, and the screen becomes an upgrade prompt, on other plans.
+export const navGroups: Array<{ label: string; items: Array<{ id: Page; label: string; feature?: Feature }> }> = [
   { label: 'Workspace', items: [
     { id: 'overview', label: 'Home' },
-    { id: 'leads', label: 'Leads' },
-    { id: 'campaigns', label: 'Campaigns' },
-    { id: 'inbox', label: 'Inbox' },
-    { id: 'calls', label: 'Calls' },
+    { id: 'leads', label: 'Leads', feature: 'leads' },
+    { id: 'campaigns', label: 'Campaigns', feature: 'email' },
+    { id: 'inbox', label: 'Inbox', feature: 'email' },
+    { id: 'calls', label: 'Calls', feature: 'voice' },
     { id: 'meetings', label: 'Meetings' },
   ] },
+  { label: 'After sales', items: [{ id: 'invoices', label: 'Invoices', feature: 'invoices' }] },
   { label: 'Insights', items: [{ id: 'analytics', label: 'Analytics' }] },
   { label: 'Account', items: [
     { id: 'billing', label: 'Billing' },
@@ -19,7 +23,12 @@ export const navGroups: Array<{ label: string; items: Array<{ id: Page; label: s
   ] },
 ];
 
-export const navItems: Array<{ id: Page; label: string; marker: string }> = navGroups.flatMap(group =>
+/** The plan feature a screen needs, if any. */
+export function pageFeature(page: Page): Feature | undefined {
+  return navGroups.flatMap(group => group.items).find(item => item.id === page)?.feature;
+}
+
+export const navItems: Array<{ id: Page; label: string; marker: string; feature?: Feature }> = navGroups.flatMap(group =>
   group.items.map(item => ({ ...item, marker: item.label.slice(0, 2) })),
 );
 
