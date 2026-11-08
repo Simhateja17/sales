@@ -1,6 +1,6 @@
 import type { Page } from './ui';
 
-const PAGE_IDS: Page[] = ['overview', 'campaigns', 'leads', 'inbox', 'calls', 'meetings', 'analytics', 'settings', 'billing', 'support'];
+const PAGE_IDS: Page[] = ['overview', 'campaigns', 'leads', 'inbox', 'calls', 'invoices', 'meetings', 'analytics', 'settings', 'billing', 'support'];
 
 /** Clean URL for a dashboard screen: /home, /leads, /settings/voice. */
 export function pagePath(page: Page, section?: string | null): string {

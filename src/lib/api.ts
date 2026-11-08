@@ -1,4 +1,4 @@
-export type MonthlyPlanId = `${'followup' | 'voice' | 'allinone'}_${'starter' | 'growth' | 'pro'}`;
+export type MonthlyPlanId = 'email' | 'email_invoice' | 'all_in_one' | `${'followup' | 'voice' | 'allinone'}_${'starter' | 'growth' | 'pro'}`;
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
@@ -1443,3 +1443,67 @@ export function disconnectCalendar() {
 
 export interface BillingUsage { used: {leads:number;emails:number;minutes:number}; limits: {leads:number;emails:number;minutes:number;seats:number;campaigns:number|null;concurrency:number}; overage: {leadsCents:number;voiceCents:number}; periodEnd:string|null; periodStart:string|null }
 export function billingAction<T = Record<string, unknown>>(path:string, method='POST', data?:unknown) { return apiFetch<T>('/api/billing'+path,{method,...(data===undefined?{}:{body:JSON.stringify(data)})}); }
+
+// Invoices a workspace sends to its own customers (Email + Invoice and All-in-one plans).
+export type InvoiceStatus = 'draft' | 'sent' | 'overdue' | 'paid' | 'void';
+export interface InvoiceLineItem { description: string; quantity: number; unit_cents: number }
+export interface InvoiceEvent { kind: 'invoice' | 'reminder' | 'checkin' | 'paid' | 'void'; step: string; subject: string | null; created_at: string }
+export interface Invoice {
+  id: string;
+  number: string;
+  client_name: string;
+  client_email: string;
+  lead_id: string | null;
+  currency: string;
+  line_items: InvoiceLineItem[];
+  amount_cents: number;
+  issue_date: string;
+  due_date: string;
+  notes: string | null;
+  payment_link: string | null;
+  status: Exclude<InvoiceStatus, 'overdue'>;
+  display_status: InvoiceStatus;
+  reminders_enabled: boolean;
+  checkins_enabled: boolean;
+  sent_at: string | null;
+  paid_at: string | null;
+  last_error: string | null;
+  events: InvoiceEvent[];
+}
+export interface InvoiceInput {
+  client_name: string;
+  client_email: string;
+  number?: string;
+  currency?: string;
+  line_items: InvoiceLineItem[];
+  issue_date?: string;
+  due_date: string;
+  notes?: string | null;
+  payment_link?: string | null;
+  reminders_enabled?: boolean;
+  checkins_enabled?: boolean;
+}
+export interface InvoiceSettings { reminder_offsets: number[]; checkin_offsets: number[]; reminders_enabled: boolean; checkins_enabled: boolean; review_link: string | null }
+export interface InvoiceTotals { outstanding_cents: number; overdue_cents: number; paid_cents: number }
+
+export function listInvoices() {
+  return apiFetch<{ invoices: Invoice[]; totals: InvoiceTotals }>('/api/invoices');
+}
+export function createInvoice(input: InvoiceInput) {
+  return apiFetch<{ invoice: Invoice }>('/api/invoices', { method: 'POST', body: JSON.stringify(input) });
+}
+export function deleteInvoice(id: string) {
+  return apiFetch<{ deleted: boolean }>(`/api/invoices/${id}`, { method: 'DELETE' });
+}
+export function invoiceAction(id: string, action: 'send' | 'mark-paid' | 'void') {
+  return apiFetch<{ invoice: Invoice }>(`/api/invoices/${id}/${action}`, { method: 'POST' });
+}
+export function updateInvoice(id: string, patch: Partial<InvoiceInput>) {
+  return apiFetch<{ invoice: Invoice }>(`/api/invoices/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+}
+export function getInvoiceSettings() {
+  return apiFetch<{ settings: InvoiceSettings }>('/api/invoices/settings');
+}
+export function saveInvoiceSettings(settings: Partial<InvoiceSettings>) {
+  return apiFetch<{ settings: InvoiceSettings }>('/api/invoices/settings', { method: 'PUT', body: JSON.stringify(settings) });
+}

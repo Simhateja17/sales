@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { logout, type ConnectedAccount, type Workspace, type WorkspaceBilling } from '@/lib/api';
+import { hasFeature } from '@/lib/entitlements';
 import NavIcon from './NavIcon';
 import { initials, navGroups, type Page } from './ui';
 
@@ -64,19 +65,25 @@ export default function Sidebar({
         {navGroups.map(group => (
           <div key={group.label}>
             <div className="sb-group">{group.label}</div>
-            {group.items.map(item => (
-              <button
-                key={item.id}
-                type="button"
-                className={`nav-item ${activePage === item.id ? 'active' : ''}`}
-                aria-current={activePage === item.id ? 'page' : undefined}
-                onClick={() => (item.id === 'support' ? router.push('/support') : onNavigate(item.id))}
-              >
-                <NavIcon name={item.id} />
-                <span className="nav-label">{item.label}</span>
-                {item.id === 'inbox' && pendingReplies > 0 ? <span className="nav-badge">{pendingReplies}</span> : null}
-              </button>
-            ))}
+            {group.items.map(item => {
+              // Until billing loads, show nothing as locked rather than flashing locks.
+              const locked = Boolean(item.feature && billing && !hasFeature(billing.plan, item.feature));
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`nav-item ${activePage === item.id ? 'active' : ''}${locked ? ' is-locked' : ''}`}
+                  aria-current={activePage === item.id ? 'page' : undefined}
+                  title={locked ? 'Not in your plan. Click to see how to unlock it.' : undefined}
+                  onClick={() => (item.id === 'support' ? router.push('/support') : onNavigate(item.id))}
+                >
+                  <NavIcon name={item.id} />
+                  <span className="nav-label">{item.label}</span>
+                  {locked ? <span className="nav-lock" aria-label="Locked"><NavIcon name="lock" /></span> : null}
+                  {!locked && item.id === 'inbox' && pendingReplies > 0 ? <span className="nav-badge">{pendingReplies}</span> : null}
+                </button>
+              );
+            })}
           </div>
         ))}
       </nav>
