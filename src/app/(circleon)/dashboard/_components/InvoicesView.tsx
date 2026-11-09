@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  createInvoice, deleteInvoice, getInvoiceSettings, invoiceAction, listInvoices, saveInvoiceSettings, updateInvoice,
-  type Invoice, type InvoiceLineItem, type InvoiceSettings, type InvoiceStatus, type InvoiceTotals,
+  deleteInvoice, getInvoiceFileUrl, getInvoiceSettings, invoiceAction, listInvoices, saveInvoiceSettings, updateInvoice,
+  type BookingRule, type Invoice, type InvoiceSettings, type InvoiceStatus, type InvoiceTotals,
 } from '@/lib/api';
 import { confirmDialog } from '@/components/circleon/dialog';
+import Select from '@/components/circleon/Select';
+import NewInvoiceModal from './NewInvoiceModal';
+import BookingReminders, { formatBookingTime } from './BookingReminders';
 import { EmptyState } from '../_lib/ui';
 import './invoices.css';
 
@@ -16,10 +19,6 @@ const FILTERS: Array<'all' | InvoiceStatus> = ['all', 'draft', 'sent', 'overdue'
 function money(cents: number, currency = 'SGD') {
   return new Intl.NumberFormat('en-SG', { style: 'currency', currency }).format((cents || 0) / 100);
 }
-function today(offsetDays = 0) {
-  const d = new Date(Date.now() + offsetDays * 86400000);
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(d);
-}
 function fmtDay(date: string) {
   return new Date(`${date}T00:00:00`).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
 }
@@ -28,12 +27,19 @@ function describeEvent(kind: string, step: string) {
   if (kind === 'invoice') return step ? 'Invoice resent' : 'Invoice sent';
   if (kind === 'reminder') return days < 0 ? `Reminder, ${-days}d before due` : days === 0 ? 'Reminder on due date' : `Overdue reminder, ${days}d late`;
   if (kind === 'checkin') return days === 0 ? 'Thank-you sent' : `Check-in, day ${days}`;
+  if (kind === 'booking') return 'Booking reminder sent';
   return kind === 'paid' ? 'Marked paid' : 'Voided';
 }
 const parseOffsets = (text: string) => text.split(',').map(v => v.trim()).filter(Boolean).map(Number);
 
-type Draft = { client_name: string; client_email: string; due_date: string; notes: string; payment_link: string; items: Array<{ description: string; quantity: string; unit: string }> };
-const emptyDraft = (): Draft => ({ client_name: '', client_email: '', due_date: today(14), notes: '', payment_link: '', items: [{ description: '', quantity: '1', unit: '' }] });
+type RuleRow = { kind: 'days' | 'hours'; amount: string; time: string };
+const toRows = (rules: BookingRule[]): RuleRow[] => rules.map(r => 'hours_before' in r
+  ? { kind: 'hours', amount: String(r.hours_before), time: '09:00' }
+  : { kind: 'days', amount: String(r.days_before), time: r.time });
+const fromRows = (rows: RuleRow[]): BookingRule[] => rows.filter(r => r.amount !== '').map(r => r.kind === 'hours'
+  ? { hours_before: Number(r.amount) }
+  : { days_before: Number(r.amount), time: r.time || '09:00' });
+const RULE_KINDS = [{ value: 'days', label: 'days before, at' }, { value: 'hours', label: 'hours before' }];
 
 export default function InvoicesView({ mailboxConnected, onConnectMailbox }: { mailboxConnected: boolean; onConnectMailbox: () => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -45,11 +51,9 @@ export default function InvoicesView({ mailboxConnected, onConnectMailbox }: { m
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [formOpen, setFormOpen] = useState(false);
-  const [draft, setDraft] = useState<Draft>(emptyDraft);
-  const [sendNow, setSendNow] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [scheduleText, setScheduleText] = useState({ reminders: '', checkins: '' });
+  const [ruleRows, setRuleRows] = useState<RuleRow[]>([]);
 
   const refresh = useCallback(async () => {
     try {
@@ -68,12 +72,13 @@ export default function InvoicesView({ mailboxConnected, onConnectMailbox }: { m
     getInvoiceSettings().then(({ settings: s }) => {
       setSettings(s);
       setScheduleText({ reminders: s.reminder_offsets.join(', '), checkins: s.checkin_offsets.join(', ') });
+      setRuleRows(toRows(s.booking_rules || []));
     }).catch(() => {});
   }, [refresh]);
 
   const visible = useMemo(() => filter === 'all' ? invoices : invoices.filter(i => i.display_status === filter), [filter, invoices]);
   const selected = invoices.find(i => i.id === selectedId) || null;
-  const draftTotal = draft.items.reduce((sum, item) => sum + Math.round(Number(item.quantity || 0) * Math.round(Number(item.unit || 0) * 100)), 0);
+  const patchInvoice = (id: string, patch: Partial<Invoice>) => setInvoices(list => list.map(i => i.id === id ? { ...i, ...patch, events: patch.events ?? i.events, booking_reminders: patch.booking_reminders ?? i.booking_reminders } : i));
 
   async function run(id: string, action: () => Promise<unknown>, success: string) {
     setBusyId(id); setError(''); setNotice('');
@@ -82,23 +87,9 @@ export default function InvoicesView({ mailboxConnected, onConnectMailbox }: { m
     finally { setBusyId(null); }
   }
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setSaving(true); setError(''); setNotice('');
-    const line_items: InvoiceLineItem[] = draft.items.filter(i => i.description.trim()).map(i => ({ description: i.description.trim(), quantity: Number(i.quantity), unit_cents: Math.round(Number(i.unit) * 100) }));
-    try {
-      const { invoice } = await createInvoice({ client_name: draft.client_name, client_email: draft.client_email, due_date: draft.due_date, notes: draft.notes || null, payment_link: draft.payment_link || null, line_items });
-      const send = sendNow && mailboxConnected;
-      if (send) await invoiceAction(invoice.id, 'send');
-      setNotice(send ? `Invoice ${invoice.number} sent to ${invoice.client_email}.` : `Invoice ${invoice.number} saved as a draft.`);
-      setDraft(emptyDraft()); setFormOpen(false);
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save the invoice.');
-      await refresh();
-    } finally {
-      setSaving(false);
-    }
+  async function openFile(id: string) {
+    try { window.open((await getInvoiceFileUrl(id)).url, '_blank', 'noopener,noreferrer'); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Could not open the invoice file.'); }
   }
 
   async function saveSchedule(patch: Partial<InvoiceSettings>) {
@@ -107,12 +98,10 @@ export default function InvoicesView({ mailboxConnected, onConnectMailbox }: { m
       const { settings: s } = await saveInvoiceSettings(patch);
       setSettings(s);
       setScheduleText({ reminders: s.reminder_offsets.join(', '), checkins: s.checkin_offsets.join(', ') });
-      setNotice('Follow-up schedule saved.');
+      setRuleRows(toRows(s.booking_rules || []));
+      setNotice('Schedule saved.');
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not save the schedule.'); }
   }
-
-  const setItem = (index: number, key: 'description' | 'quantity' | 'unit', value: string) =>
-    setDraft(d => ({ ...d, items: d.items.map((item, i) => i === index ? { ...item, [key]: value } : item) }));
 
   return (
     <section className="inv">
@@ -120,10 +109,10 @@ export default function InvoicesView({ mailboxConnected, onConnectMailbox }: { m
         <div>
           <div className="page-kicker">After sales</div>
           <h2 className="page-title">Invoices</h2>
-          <p className="page-sub">Send invoices from your mailbox. Reminders stop the moment an invoice is marked paid, then check-ins begin.</p>
+          <p className="page-sub">Upload an invoice and CircleOn sends it from your mailbox, chases payment, thanks your client when you mark it paid, and reminds them before their booking.</p>
         </div>
         <div className="page-actions">
-          <button type="button" className="btn-primary" onClick={() => setFormOpen(true)}>New invoice</button>
+          <button type="button" className="btn-primary" onClick={() => setFormOpen(true)}>Upload invoice</button>
         </div>
       </div>
 
@@ -152,7 +141,7 @@ export default function InvoicesView({ mailboxConnected, onConnectMailbox }: { m
             ))}
           </div>
           {loading ? <EmptyState text="Loading invoices…" /> : null}
-          {!loading && !visible.length ? <EmptyState text={invoices.length ? 'No invoices with this status.' : 'No invoices yet. Create one when a deal closes, and CircleOn will chase payment for you.'} /> : null}
+          {!loading && !visible.length ? <EmptyState text={invoices.length ? 'No invoices with this status.' : 'No invoices yet. Upload one when a deal closes, and CircleOn will chase payment for you.'} /> : null}
           {visible.length ? (
             <div className="inv-table-wrap">
               <table className="inv-table">
@@ -161,7 +150,7 @@ export default function InvoicesView({ mailboxConnected, onConnectMailbox }: { m
                   {visible.map(invoice => (
                     <tr key={invoice.id} className={selectedId === invoice.id ? 'is-selected' : ''}>
                       <td><button type="button" className="inv-number" onClick={() => setSelectedId(invoice.id)}>{invoice.number}</button></td>
-                      <td><b>{invoice.client_name}</b><small>{invoice.client_email}</small></td>
+                      <td><b>{invoice.client_name}</b><small>{invoice.booking_at ? `${invoice.booking_title || 'Booking'} · ${formatBookingTime(invoice.booking_at)}` : invoice.client_email}</small></td>
                       <td className="inv-num">{money(invoice.amount_cents, invoice.currency)}</td>
                       <td>{fmtDay(invoice.due_date)}</td>
                       <td><span className={`badge ${STATUS_BADGE[invoice.display_status]}`}>{STATUS_LABEL[invoice.display_status]}</span>{invoice.last_error ? <small className="inv-err" title={invoice.last_error}>Last send failed</small> : null}</td>
@@ -188,7 +177,15 @@ export default function InvoicesView({ mailboxConnected, onConnectMailbox }: { m
             <div className="set-panel inv-detail">
               <div className="inv-detail-head"><h3>{selected.number}</h3><button type="button" className="modal-close" aria-label="Close details" onClick={() => setSelectedId(null)}>×</button></div>
               <p className="sf-hint">{selected.client_name} · {money(selected.amount_cents, selected.currency)} · due {fmtDay(selected.due_date)}</p>
-              <ul className="inv-lines">{selected.line_items.map((item, i) => <li key={i}><span>{item.description} × {item.quantity}</span><span>{money(item.quantity * item.unit_cents, selected.currency)}</span></li>)}</ul>
+              {selected.file_path ? <button type="button" className="inv-file-link" onClick={() => openFile(selected.id)}>View {selected.file_name || 'invoice file'}</button> : null}
+              {selected.line_items.length ? <ul className="inv-lines">{selected.line_items.map((item, i) => <li key={i}><span>{item.description} × {item.quantity}</span><span>{money(item.quantity * item.unit_cents, selected.currency)}</span></li>)}</ul> : null}
+              <BookingReminders
+                invoice={selected}
+                mailboxConnected={mailboxConnected}
+                onInvoiceChange={patch => patchInvoice(selected.id, patch)}
+                onError={message => { setNotice(''); setError(message); }}
+                onNotice={message => { setError(''); setNotice(message); }}
+              />
               <label className="inv-toggle"><input type="checkbox" checked={selected.reminders_enabled} disabled={busyId === selected.id || ['paid', 'void'].includes(selected.status)} onChange={e => run(selected.id, () => updateInvoice(selected.id, { reminders_enabled: e.target.checked }), e.target.checked ? 'Payment reminders on.' : 'Payment reminders paused for this invoice.')} /> Payment reminders</label>
               <label className="inv-toggle"><input type="checkbox" checked={selected.checkins_enabled} disabled={busyId === selected.id || selected.status === 'void'} onChange={e => run(selected.id, () => updateInvoice(selected.id, { checkins_enabled: e.target.checked }), e.target.checked ? 'Post-sale check-ins on.' : 'Post-sale check-ins off for this invoice.')} /> Post-sale check-ins</label>
               <div className="sf-lbl">Activity</div>
@@ -229,37 +226,46 @@ export default function InvoicesView({ mailboxConnected, onConnectMailbox }: { m
               </form>
             </div>
           ) : null}
+
+          {settings ? (
+            <div className="set-panel">
+              <h3>Booking reminders</h3>
+              <p className="sf-hint">When reminders go out before a booking, in Singapore time. AI writes each one for the client; you approve them per invoice.</p>
+              <label className="inv-toggle"><input type="checkbox" checked={settings.booking_reminders_enabled} onChange={e => saveSchedule({ booking_reminders_enabled: e.target.checked })} /> Send booking reminders</label>
+              <form onSubmit={e => { e.preventDefault(); saveSchedule({ booking_rules: fromRows(ruleRows) }); }}>
+                <ul className="inv-rules">
+                  {ruleRows.map((row, i) => (
+                    <li key={i}>
+                      <input className="sf-inp" aria-label={`Reminder ${i + 1} amount`} type="number" min={row.kind === 'hours' ? 1 : 0} max={row.kind === 'hours' ? 72 : 60} value={row.amount} onChange={e => setRuleRows(rows => rows.map((r, j) => j === i ? { ...r, amount: e.target.value } : r))} />
+                      <Select className="sf-inp" aria-label={`Reminder ${i + 1} unit`} value={row.kind} onChange={v => setRuleRows(rows => rows.map((r, j) => j === i ? { ...r, kind: v as RuleRow['kind'] } : r))} options={RULE_KINDS} />
+                      {row.kind === 'days' ? <input className="sf-inp" aria-label={`Reminder ${i + 1} time`} type="time" value={row.time} onChange={e => setRuleRows(rows => rows.map((r, j) => j === i ? { ...r, time: e.target.value } : r))} /> : <span />}
+                      <button type="button" className="modal-close" aria-label={`Remove reminder ${i + 1}`} onClick={() => setRuleRows(rows => rows.filter((_, j) => j !== i))}>×</button>
+                    </li>
+                  ))}
+                </ul>
+                {ruleRows.length < 5 ? <button type="button" className="bill-link" onClick={() => setRuleRows(rows => [...rows, { kind: 'hours', amount: '3', time: '09:00' }])}>+ Add a reminder</button> : null}
+                <p className="sf-hint">0 days before means the morning of the booking. Changes apply to reminders you write from now on.</p>
+                <button type="submit" className="btn-outline">Save booking reminders</button>
+              </form>
+            </div>
+          ) : null}
         </aside>
       </div>
 
       {formOpen ? (
-        <div className="modal-backdrop" role="presentation" onClick={e => { if (e.target === e.currentTarget && !saving) setFormOpen(false); }}>
-          <form className="modal-card inv-form" role="dialog" aria-modal="true" aria-labelledby="inv-form-title" onSubmit={submit}>
-            <div className="card-head"><h3 id="inv-form-title" className="card-title">New invoice</h3><button type="button" className="modal-close" aria-label="Close" onClick={() => setFormOpen(false)}>×</button></div>
-            <div className="inv-grid">
-              <div className="sf"><label className="sf-lbl" htmlFor="inv-client">Client name</label><input id="inv-client" className="sf-inp" required value={draft.client_name} onChange={e => setDraft(d => ({ ...d, client_name: e.target.value }))} /></div>
-              <div className="sf"><label className="sf-lbl" htmlFor="inv-email">Client email</label><input id="inv-email" className="sf-inp" type="email" required value={draft.client_email} onChange={e => setDraft(d => ({ ...d, client_email: e.target.value }))} /></div>
-              <div className="sf"><label className="sf-lbl" htmlFor="inv-due">Due date</label><input id="inv-due" className="sf-inp" type="date" required min={today()} value={draft.due_date} onChange={e => setDraft(d => ({ ...d, due_date: e.target.value }))} /></div>
-              <div className="sf"><label className="sf-lbl" htmlFor="inv-pay">Payment link (optional)</label><input id="inv-pay" className="sf-inp" type="url" placeholder="https://" value={draft.payment_link} onChange={e => setDraft(d => ({ ...d, payment_link: e.target.value }))} /></div>
-            </div>
-            <div className="sf-lbl">Line items (SGD)</div>
-            {draft.items.map((item, index) => (
-              <div className="inv-item" key={index}>
-                <input className="sf-inp" aria-label={`Item ${index + 1} description`} placeholder="Description" required={index === 0} value={item.description} onChange={e => setItem(index, 'description', e.target.value)} />
-                <input className="sf-inp" aria-label={`Item ${index + 1} quantity`} type="number" min="0.01" step="0.01" value={item.quantity} onChange={e => setItem(index, 'quantity', e.target.value)} />
-                <input className="sf-inp" aria-label={`Item ${index + 1} unit price`} type="number" min="0" step="0.01" placeholder="Unit price" required={index === 0} value={item.unit} onChange={e => setItem(index, 'unit', e.target.value)} />
-                <button type="button" className="modal-close" aria-label={`Remove item ${index + 1}`} disabled={draft.items.length === 1} onClick={() => setDraft(d => ({ ...d, items: d.items.filter((_, i) => i !== index) }))}>×</button>
-              </div>
-            ))}
-            <button type="button" className="bill-link" onClick={() => setDraft(d => ({ ...d, items: [...d.items, { description: '', quantity: '1', unit: '' }] }))}>+ Add line item</button>
-            <div className="sf"><label className="sf-lbl" htmlFor="inv-notes">Notes (optional)</label><textarea id="inv-notes" className="sf-ta" rows={3} placeholder="Bank transfer details, PayNow UEN, terms…" value={draft.notes} onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))} /></div>
-            <div className="inv-form-foot">
-              <b>Total {money(draftTotal)}</b>
-              <label className="inv-toggle"><input type="checkbox" checked={sendNow} disabled={!mailboxConnected} onChange={e => setSendNow(e.target.checked)} /> Email it now</label>
-              <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : sendNow && mailboxConnected ? 'Create and send' : 'Save draft'}</button>
-            </div>
-          </form>
-        </div>
+        <NewInvoiceModal
+          mailboxConnected={mailboxConnected}
+          onClose={() => setFormOpen(false)}
+          onCreated={async (invoice, sent) => {
+            setFormOpen(false);
+            setError('');
+            setNotice(sent
+              ? `Invoice ${invoice.number} sent to ${invoice.client_email}.${invoice.booking_at ? ' Next, write the booking reminders on the right.' : ''}`
+              : `Invoice ${invoice.number} saved as a draft.`);
+            await refresh();
+            setSelectedId(invoice.id);
+          }}
+        />
       ) : null}
     </section>
   );
