@@ -643,6 +643,7 @@ function DashboardContent() {
   const [autopilotReadiness, setAutopilotReadiness] = useState<AutopilotReadiness | null>(null);
   const [autopilotRuns, setAutopilotRuns] = useState<AutopilotRun[]>([]);
   const [mailboxProvider, setMailboxProvider] = useState<'gmail' | 'outlook' | 'manual'>('manual');
+  const [editingMailbox, setEditingMailbox] = useState(false);
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [campaignBuilderLeadIds, setCampaignBuilderLeadIds] = useState<string[]>([]);
   const [activeApolloRun, setActiveApolloRun] = useState<LeadImportRun | null>(null);
@@ -695,6 +696,10 @@ function DashboardContent() {
     () => filteredLeads.find(lead => lead.id === selectedLeadId) || null,
     [filteredLeads, selectedLeadId]
   );
+  // A verified mailbox shows a summary; the form only appears to connect or change it.
+  const mailboxVerified = Boolean(smtpAccount?.status === 'connected' && smtpAccount.smtp_verified_at && smtpAccount.imap_verified_at);
+  const showMailboxForm = !mailboxVerified || editingMailbox;
+  const mailboxCheckedAt = smtpAccount?.last_tested_at || smtpAccount?.smtp_verified_at || null;
   // A connected mailbox used to show an empty form, which read as disconnected.
   // Prefill everything except the passwords, which are never sent back.
   useEffect(() => {
@@ -1299,6 +1304,7 @@ function DashboardContent() {
       });
       setSmtpAccount(data.account);
       setSmtpForm(emptySmtpForm);
+      setEditingMailbox(false);
       setMessage('Mailbox connected.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not connect mailbox');
@@ -1759,6 +1765,7 @@ function DashboardContent() {
                     <small>{smtpAccount ? `SMTP ${smtpAccount.smtp_verified_at ? 'verified' : 'not verified'} · IMAP ${smtpAccount.imap_verified_at ? 'verified' : 'not verified'}` : 'Connect a mailbox below to start sending.'}</small>
                   </div>
                 </div>
+                {showMailboxForm ? <>
                 <div className="mb-method">
                   <div><h3>Connection method</h3><p>Pick your provider or enter details manually.</p></div>
                   <div className="view-switch" role="group" aria-label="Provider">
@@ -1794,7 +1801,7 @@ function DashboardContent() {
                   </div>
                   <div className="mb-grid" style={{ marginTop: 14 }}>
                     <label className="mb-field">Username<input className="sf-inp" value={smtpForm.smtp_username} onChange={event => setSmtpForm({ ...smtpForm, smtp_username: event.target.value })} placeholder="you@company.com" required /></label>
-                    <label className="mb-field">App password<input className="sf-inp" type="password" autoComplete="new-password" value={smtpForm.smtp_password} onChange={event => setSmtpForm({ ...smtpForm, smtp_password: event.target.value })} placeholder="16-character app password" required />{mailboxProvider === 'gmail' ? <small>Get yours at <a className="mb-link" href={GOOGLE_APP_PASSWORDS_URL} target="_blank" rel="noopener noreferrer">myaccount.google.com/apppasswords</a></small> : null}<small>Encrypted before storage</small></label>
+                    <label className="mb-field">App password<input className="sf-inp" type="password" autoComplete="new-password" value={smtpForm.smtp_password} onChange={event => setSmtpForm({ ...smtpForm, smtp_password: event.target.value })} placeholder={smtpAccount ? 'Enter it again to save changes' : '16-character app password'} required />{mailboxProvider === 'gmail' ? <small>Get yours at <a className="mb-link" href={GOOGLE_APP_PASSWORDS_URL} target="_blank" rel="noopener noreferrer">myaccount.google.com/apppasswords</a></small> : null}<small>Encrypted before storage</small></label>
                   </div>
                 </div>
                 <div className="mb-group">
@@ -1810,10 +1817,34 @@ function DashboardContent() {
                     <button className="btn-outline" type="button" disabled={!smtpAccount || busy === 'smtp-test'} onClick={handleTestSmtp}>
                       {busy === 'smtp-test' ? 'Testing...' : 'Test connection'}
                     </button>
+                    {mailboxVerified ? <button className="btn-outline" type="button" onClick={() => { setEditingMailbox(false); setSmtpForm(current => ({ ...current, smtp_password: '', imap_password: '' })); setMessage(''); }}>Cancel</button> : null}
                     <button className="btn-primary" type="submit" disabled={busy === 'smtp'}>{busy === 'smtp' ? 'Connecting...' : 'Save mailbox'}</button>
                   </div>
                 </div>
+                </> : <>
+                <div className="mb-group">
+                  <h4>Connection details</h4>
+                  <dl className="mb-summary">
+                    <div><dt>Sending as</dt><dd>{smtpAccount?.from_name ? `${smtpAccount.from_name} <${smtpAccount.from_email}>` : smtpAccount?.from_email}</dd></div>
+                    <div><dt>Username</dt><dd>{smtpAccount?.smtp_username}</dd></div>
+                    <div><dt>Outgoing mail (SMTP)</dt><dd>{smtpAccount?.smtp_host}, port {smtpAccount?.smtp_port}</dd></div>
+                    <div><dt>Incoming mail (IMAP)</dt><dd>{smtpAccount?.imap_host}, port {smtpAccount?.imap_port}</dd></div>
+                    <div><dt>Last checked</dt><dd>{mailboxCheckedAt ? new Date(mailboxCheckedAt).toLocaleString() : 'Not yet'}</dd></div>
+                  </dl>
+                  <p className="mb-note">CircleOn sends from this mailbox and reads replies from its inbox. Your app password is stored encrypted.</p>
+                </div>
+                <div className="mb-foot">
+                  <span className="mb-ok">Ready to send</span>
+                  <div className="mb-actions">
+                    <button className="btn-outline" type="button" disabled={busy === 'smtp-test'} onClick={handleTestSmtp}>
+                      {busy === 'smtp-test' ? 'Testing...' : 'Test connection'}
+                    </button>
+                    <button className="btn-primary" type="button" onClick={() => { setEditingMailbox(true); setMessage(''); }}>Change mailbox</button>
+                  </div>
+                </div>
+                </>}
               </form>
+              {showMailboxForm ? (
               <div className="mb-help">
                 <b>{mailboxProvider === 'gmail' ? 'Connecting Gmail' : mailboxProvider === 'outlook' ? 'Connecting Outlook' : 'Connecting manually'}</b>
                 {mailboxProvider === 'gmail' ? (
@@ -1838,6 +1869,7 @@ function DashboardContent() {
                     </ol>
                   )}
               </div>
+              ) : null}
             </div> : null}
               {settingsSection === 'autopilot' ? <div className="set-panel" data-tour="autopilot-panel">
                 <div className="sf-lbl">Daily campaign autopilot</div>
