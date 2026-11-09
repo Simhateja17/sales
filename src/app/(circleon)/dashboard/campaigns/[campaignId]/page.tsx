@@ -26,6 +26,7 @@ import {
   sendCampaignEmailsNow,
   startCsvImport,
   updateCampaignEmail,
+  uploadCampaignSequenceAttachment,
   type Campaign,
   type CampaignGeneration,
   type ConnectedAccount,
@@ -328,6 +329,28 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
       setMessage(`Draft generation queued for ${data.generation.progress?.total || selectedLeadIds.length} leads. You can leave this page while it runs.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not generate emails');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleAttachmentUpload(stepNumber: number, input: HTMLInputElement) {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!campaign || !file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setMessage('Attachments can be up to 10 MB.');
+      return;
+    }
+    setBusy(`attach-${stepNumber}`);
+    setMessage('');
+    try {
+      await uploadCampaignSequenceAttachment(campaign.id, stepNumber, file);
+      const data = await getCampaign(campaign.id);
+      setCampaign(data.campaign);
+      setMessage(`${file.name} will be attached to every email in step ${stepNumber}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not upload the attachment');
     } finally {
       setBusy('');
     }
@@ -755,6 +778,30 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                   <span className="card-action">{preview.length} email{preview.length === 1 ? '' : 's'}</span>
                 </div>
               </div>
+              {(() => {
+                const sequence = (campaign.email_sequences || []).find(step => Number(step.step_number) === activeStepNo);
+                if (!sequence || campaign.channel === 'voice') return null;
+                const current = sequence.attachments?.[0];
+                const editable = ['draft', 'paused'].includes(campaign.status);
+                const uploading = busy === `attach-${activeStepNo}`;
+                return (
+                  <label className="campaign-step-attachment" style={{ marginTop: 0, marginBottom: 14 }}>
+                    <span>Step {activeStepNo} attachment (optional)</span>
+                    <input
+                      type="file"
+                      accept="application/pdf,image/png,image/jpeg,image/webp,video/mp4,video/quicktime"
+                      disabled={!editable || uploading}
+                      onChange={event => handleAttachmentUpload(activeStepNo, event.currentTarget)}
+                    />
+                    <small>
+                      {uploading ? 'Uploading…'
+                        : current ? `Attached: ${current.filename} · ${(current.size_bytes / 1024 / 1024).toFixed(1)} MB. Choosing a new file replaces it.`
+                        : 'PDF, image, or video · up to 10 MB. Sent with every email in this step.'}
+                      {!editable ? ' Pause the campaign to change it.' : ''}
+                    </small>
+                  </label>
+                );
+              })()}
               {preview.length ? previewSequenceGroups.filter(group => group.stepNumber === activeStepNo).map(group => {
                 const draftIds = group.messages.filter(item => item.status === 'draft').map(item => item.id);
                 const allGroupDraftsSelected = draftIds.length > 0 && draftIds.every(id => selectedPreviewIds.includes(id));
