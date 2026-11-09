@@ -1774,7 +1774,15 @@ function DashboardContent() {
                 <div className="mb-group">
                   <h4>Sender</h4>
                   <div className="mb-grid">
-                    <label className="mb-field">Email address<input className="sf-inp" type="email" value={smtpForm.from_email} onChange={event => setSmtpForm({ ...smtpForm, from_email: event.target.value })} placeholder="sender@company.com" required /></label>
+                    <label className="mb-field">Email address<input className="sf-inp" type="email" value={smtpForm.from_email} onChange={event => {
+                      const email = event.target.value;
+                      // Keep the username in step with the email until someone types a different one.
+                      setSmtpForm(current => ({
+                        ...current,
+                        from_email: email,
+                        smtp_username: !current.smtp_username || current.smtp_username === current.from_email ? email : current.smtp_username,
+                      }));
+                    }} placeholder="sender@company.com" required /></label>
                     <label className="mb-field">Display name<input className="sf-inp" value={smtpForm.from_name} onChange={event => setSmtpForm({ ...smtpForm, from_name: event.target.value })} placeholder="Jane Tan" required /><small>Shown to recipients</small></label>
                   </div>
                 </div>

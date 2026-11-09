@@ -617,16 +617,25 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     headers.set('Content-Type', 'application/json');
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    credentials: 'include',
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      credentials: 'include',
+      headers,
+    });
+  } catch (networkError) {
+    if (networkError instanceof DOMException && networkError.name === 'AbortError') throw networkError;
+    throw new ApiError('We could not reach CircleOn. Check your internet connection and try again.', 0);
+  }
 
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    const error = new ApiError(data.error || 'Request failed', res.status);
+    const fallback = res.status >= 500
+      ? 'CircleOn is having trouble right now. Please try again in a minute.'
+      : 'That did not work. Please try again.';
+    const error = new ApiError(data.error || fallback, res.status);
     if (res.status === 401 && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('circleon:authentication-required'));
     }
