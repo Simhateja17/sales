@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Select from '@/components/circleon/Select';
 import {
   attachVoiceNumber,
   connectTwilioAccount,
@@ -204,13 +205,14 @@ export default function VoiceSettingsPanel({ onMessage }: { onMessage: (message:
                 <form onSubmit={connectSelectedNumber}>
                   <label className="voice-field">
                     <span>Singapore number</span>
-                    <select value={selectedNumber} onChange={event => setSelectedNumber(event.target.value)} required>
-                      {(numbers || []).map(item => (
-                        <option key={item.sid} value={item.sid}>
-                          {item.phone_number}{item.friendly_name && item.friendly_name !== item.phone_number ? ` · ${item.friendly_name}` : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <Select
+                      value={selectedNumber}
+                      onChange={setSelectedNumber}
+                      options={(numbers || []).map(item => ({
+                        value: item.sid,
+                        label: `${item.phone_number}${item.friendly_name && item.friendly_name !== item.phone_number ? ` · ${item.friendly_name}` : ''}`,
+                      }))}
+                    />
                   </label>
                   <button className="btn-primary" type="submit" disabled={busy === 'number' || !selectedNumber}>
                     {busy === 'number' ? 'Configuring Twilio and Retell…' : 'Use this number'}

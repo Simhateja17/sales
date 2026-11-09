@@ -6,6 +6,7 @@ import { planLabel } from '@/lib/planLabel';
 import './pricing.css';
 import InboundVoiceSettings from './InboundVoiceSettings';
 import { confirmDialog } from '@/components/circleon/dialog';
+import Select from '@/components/circleon/Select';
 
 type Member = { id: string; email: string; status: string };
 
@@ -284,10 +285,11 @@ export default function BillingPanel() {
             {billing?.pending_plan && <p className="bill-note" style={{ marginTop: 10 }}>Scheduled at renewal: {planLabel(billing.pending_plan)}</p>}
             <div className="bill-form">
               <label>New plan
-                <select value={next} onChange={e => setNext(e.target.value)}>
-                  <option value="">Choose a plan</option>
-                  {plans.filter(p => p.id !== plan.id && ('retired' in plan && plan.retired ? p.family === plan.family : !('retired' in p && p.retired))).map(p => <option key={p.id} value={p.id}>{p.name} · S${foundingActive ? p.founding : p.list}/month excl. GST</option>)}
-                </select>
+                <Select
+                  value={next}
+                  onChange={setNext}
+                  options={[{ value: '', label: 'Choose a plan' }, ...plans.filter(p => p.id !== plan.id && ('retired' in plan && plan.retired ? p.family === plan.family : !('retired' in p && p.retired))).map(p => ({ value: p.id, label: `${p.name} · S$${foundingActive ? p.founding : p.list}/month excl. GST` }))]}
+                />
               </label>
               {next && plans.find(p => p.id === next)!.list < plan.list && (
                 <>

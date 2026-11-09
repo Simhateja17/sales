@@ -1174,7 +1174,7 @@ export function rejectInboxMessage(messageId: string) {
 // Voice campaigns
 // ---------------------------------------------------------------------------
 
-export type VoiceLanguage = 'en-US' | 'en-GB' | 'zh-CN';
+export type VoiceLanguage = 'en-US' | 'en-GB' | 'zh-CN' | 'ms-MY' | 'ta-IN' | 'hi-IN';
 
 export interface VoiceScript {
   id: string;

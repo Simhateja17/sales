@@ -42,6 +42,7 @@ import { EmptyState, Metric, hhmm, initials, statusBadge, type Page } from '../.
 import { csvTargets, terminalImportStatuses } from '../../_lib/leadImport';
 import { formatScheduledTime, rescheduleResultMessage, sendingWindowText } from '../../_lib/scheduleTime';
 import { confirmDialog, promptDialog } from '@/components/circleon/dialog';
+import Select from '@/components/circleon/Select';
 import MailboxConnectModal, { isMailboxReady } from '@/components/circleon/MailboxConnectModal';
 
 // Wording is fixed by the legal pack (Terms 7.7, DNC Policy 3); version v2026-10-06.
@@ -986,13 +987,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ campa
                   {csvMappings.map((mapping, index) => (
                     <div key={`${mapping.source}-${index}`} className="sf" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                       <div className="sf-hint">{mapping.source} · {Math.round(Number(mapping.confidence || 0) * 100)}%</div>
-                      <select
+                      <Select
                         className="sf-inp"
                         value={mapping.target}
-                        onChange={event => setCsvMappings(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, target: event.target.value } : item))}
-                      >
-                        {csvTargets.map(target => <option key={target} value={target}>{target}</option>)}
-                      </select>
+                        onChange={target => setCsvMappings(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, target } : item))}
+                        options={csvTargets.map(target => ({ value: target, label: target }))}
+                      />
                     </div>
                   ))}
                   {csvPreview.length ? <pre className="sf-hint" style={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto' }}>{JSON.stringify(csvPreview, null, 2)}</pre> : null}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Select from '@/components/circleon/Select';
 import {
   approveVoiceScript,
   generateVoiceScript,
@@ -28,6 +29,9 @@ const LANGUAGES: Array<{ code: VoiceLanguage; label: string }> = [
   { code: 'en-US', label: 'English' },
   { code: 'en-GB', label: 'English (British)' },
   { code: 'zh-CN', label: 'Mandarin' },
+  { code: 'ms-MY', label: 'Malay' },
+  { code: 'ta-IN', label: 'Tamil' },
+  { code: 'hi-IN', label: 'Hindi' },
 ];
 
 type VoiceTab = 'calls' | 'leads' | 'settings';
@@ -463,12 +467,11 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
           <div className="voice-script-actions">
             <label className="voice-field voice-field-inline">
               <span>Language</span>
-              <select
+              <Select
                 value={script?.language || 'en-US'}
-                onChange={event => patchScript({ language: event.target.value as VoiceLanguage })}
-              >
-                {LANGUAGES.map(language => <option key={language.code} value={language.code}>{language.label}</option>)}
-              </select>
+                onChange={value => patchScript({ language: value as VoiceLanguage })}
+                options={LANGUAGES.map(language => ({ value: language.code, label: language.label }))}
+              />
             </label>
             <button className="btn-outline" type="button" disabled={busy === 'generate'} onClick={draftScript}>
               {busy === 'generate' ? 'Drafting…' : script?.objective ? 'Redraft' : 'Draft with AI'}
@@ -535,14 +538,17 @@ export default function VoiceCampaignPanel({ campaign, onStatusChange }: {
         {voices.length ? (
           <label className="voice-field">
             <span>Voice</span>
-            <select value={voiceId || ''} onChange={event => patchScript({ voice_id: event.target.value })}>
-              <option value="">Choose a voice</option>
-              {voices.map(voice => (
-                <option key={voice.voice_id} value={voice.voice_id}>
-                  {voice.name}{voice.accent ? ` · ${voice.accent}` : ''}{voice.gender ? ` · ${voice.gender}` : ''}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={voiceId || ''}
+              onChange={value => patchScript({ voice_id: value })}
+              options={[
+                { value: '', label: 'Choose a voice' },
+                ...voices.map(voice => ({
+                  value: voice.voice_id,
+                  label: `${voice.name}${voice.accent ? ` · ${voice.accent}` : ''}${voice.gender ? ` · ${voice.gender}` : ''}`,
+                })),
+              ]}
+            />
           </label>
         ) : null}
 

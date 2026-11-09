@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import SignOutButton from '@/components/circleon/SignOutButton';
 import IndustryCombobox from '@/components/circleon/IndustryCombobox';
+import Select from '@/components/circleon/Select';
 import { getApolloFilters, getTargetSuggestions, getWorkspace, saveOnboarding, saveOnboardingDraft } from '@/lib/api';
 
 type StepType = 'text' | 'textarea' | 'select' | 'choice' | 'tags' | 'range';
@@ -200,16 +201,12 @@ export default function OnboardingPage() {
 
     if (s.type === 'select') {
       return (
-        <select
+        <Select
           className="ob-sel"
           value={(val as string) || ''}
-          onChange={e => setAnswer(s.key, e.target.value)}
-        >
-          <option value="">Choose one...</option>
-          {s.options!.map(o => (
-            <option key={o} value={o}>{o}</option>
-          ))}
-        </select>
+          onChange={value => setAnswer(s.key, value)}
+          options={[{ value: '', label: 'Choose one...' }, ...s.options!.map(o => ({ value: o, label: o }))]}
+        />
       );
     }
 

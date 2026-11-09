@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Select from '@/components/circleon/Select';
 import { getBillingStatus, getCallingStatus, type BillingUsage, type Campaign, type CallRecord, type EmailMessage, type Lead, type Meeting } from '@/lib/api';
 
 type Range = 7 | 14 | 30;
@@ -99,10 +100,13 @@ export default function AnalyticsView({ sentMail, inbox, campaigns, meetings, em
               <button key={value} type="button" className={`rs-pill${range === value ? ' is-active' : ''}`} aria-pressed={range === value} onClick={() => setRange(value)}>{value} days</button>
             ))}
           </div>
-          <select className="an2-select" aria-label="Campaign" value={campaignId} onChange={event => setCampaignId(event.target.value)}>
-            <option value="">All campaigns</option>
-            {campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
-          </select>
+          <Select
+            className="an2-select"
+            aria-label="Campaign"
+            value={campaignId}
+            onChange={setCampaignId}
+            options={[{ value: '', label: 'All campaigns' }, ...campaigns.map(campaign => ({ value: campaign.id, label: campaign.name }))]}
+          />
         </div>
       </div>
 

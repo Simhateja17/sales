@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { setLeadVoiceConsent, type AgentConfig, type CampaignBrief, type CampaignSequenceStep, type ConnectedAccount, type Lead } from '@/lib/api';
 import { confirmDialog } from '@/components/circleon/dialog';
+import Select from '@/components/circleon/Select';
 
 type CampaignDraft = {
   name: string;
@@ -398,7 +399,7 @@ export default function CampaignBuilderModal({
                 <h4>{isVoice ? 'The call' : 'Email sequence'}</h4>
             {isVoice ? (
 <div className="campaign-voice-explainer">
-              <p>Your agent opens by saying it is an AI calling on behalf of {agentConfig?.company_name || 'your company'}, and that the call is recorded. That part is fixed and cannot be edited away.</p>
+              <p>Your agent opens by saying it is calling from {agentConfig?.company_name || 'your company'}, that it is an AI assistant, and that the call is recorded. That part is fixed and cannot be edited away.</p>
               <p>It then gives a short pitch, offers real times from your calendar, and books the meeting. It does not sell, negotiate, or work objections, and calls stay under two minutes.</p>
               <ul>
                 <li><strong>You write the opening line.</strong> It is the sentence the call lives or dies on, so we draft a suggestion and you decide.</li>
@@ -410,13 +411,13 @@ export default function CampaignBuilderModal({
                 {!isVoice ? (
                   <>
                     <p className="cb-s">CircleOn creates a distinct draft for every lead and every step. You can edit all drafts before launch.</p>
-            <div className="campaign-sequence-controls"><label className="campaign-builder-field"><span>Emails in this sequence</span><select value={steps.length} onChange={event => setStepCount(Number(event.target.value))}>{Array.from({length:maxSteps},(_,i)=>i+1).map(count => <option key={count} value={count}>{count} email{count === 1 ? '' : 's'}</option>)}</select></label><p>Changing the structure regenerates the recommended plan. Drag cards to set the sending order.</p></div>
+            <div className="campaign-sequence-controls"><label className="campaign-builder-field"><span>Emails in this sequence</span><Select value={String(steps.length)} onChange={value => setStepCount(Number(value))} options={Array.from({length:maxSteps},(_,i)=>i+1).map(count => ({ value: String(count), label: `${count} email${count === 1 ? '' : 's'}` }))} /></label><p>Changing the structure regenerates the recommended plan. Drag cards to set the sending order.</p></div>
             <div className="campaign-steps">
               {steps.map((step, index) => <article key={step.id} draggable className={`campaign-step${draggedStepIndex === index ? ' is-dragging' : ''}${dropTargetIndex === index && draggedStepIndex !== index ? ' is-drop-target' : ''}`} onDragStart={event => handleStepDragStart(event, index)} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; if (draggedStepIndex !== index) setDropTargetIndex(index); }} onDrop={event => handleStepDrop(event, index)} onDragEnd={() => { setDraggedStepIndex(null); setDropTargetIndex(null); }}>
                 <div className="campaign-step-number">{String(index + 1).padStart(2, '0')}</div>
                 <div className="campaign-step-fields">
                   <div className="campaign-step-topline"><button className="campaign-step-drag-handle" type="button" aria-label={`Drag ${step.name || `step ${index + 1}`} to reorder`} title="Drag to reorder">⠿</button><label><span>Step name</span><input value={step.name} onChange={event => updateStep(index, { name: event.target.value })} /></label><label><span>{index === 0 ? 'Send' : 'Delay'}</span><div className="campaign-delay-input"><input type="number" min="0" value={step.delay_days} onChange={event => updateStep(index, { delay_days: Number(event.target.value) })} /><i>{index === 0 ? 'days' : 'days after'}</i></div></label></div>
-                  <div className="campaign-step-plan"><label><span>CircleOn will do</span><select value={step.purpose} onChange={event => { const purpose = event.target.value as StepPurpose; updateStep(index, { purpose, name: step.name === purposeCopy[step.purpose].name ? purposeCopy[purpose].name : step.name }); }} >{Object.entries(purposeCopy).map(([value, item]) => <option value={value} key={value}>{item.label}</option>)}</select></label><label><span>Optional focus</span><input value={step.focus} onChange={event => updateStep(index, { focus: event.target.value })} placeholder="e.g. highlight fast onboarding" /></label></div>
+                  <div className="campaign-step-plan"><label><span>CircleOn will do</span><Select value={step.purpose} onChange={value => { const purpose = value as StepPurpose; updateStep(index, { purpose, name: step.name === purposeCopy[step.purpose].name ? purposeCopy[purpose].name : step.name }); }} options={Object.entries(purposeCopy).map(([value, item]) => ({ value, label: item.label }))} /></label><label><span>Optional focus</span><input value={step.focus} onChange={event => updateStep(index, { focus: event.target.value })} placeholder="e.g. highlight fast onboarding" /></label></div>
                   <p className="campaign-step-preview">{purposeCopy[step.purpose].instruction}</p>
                   <label className="campaign-step-attachment"><span>Attachment (optional)</span><input type="file" accept="application/pdf,image/png,image/jpeg,image/webp,video/mp4,video/quicktime" onChange={event => updateStep(index, { attachment: event.target.files?.[0] || null })} /><small>{step.attachment ? `${step.attachment.name} · ${(step.attachment.size / 1024 / 1024).toFixed(1)} MB` : 'PDF, image, or video · up to 10 MB'}</small></label>
                   <div className="campaign-step-actions"><button type="button" disabled={index === 0} onClick={() => moveStepTo(index, index - 1)}>Move up</button><button type="button" disabled={index === steps.length - 1} onClick={() => moveStepTo(index, index + 1)}>Move down</button><button type="button" className="campaign-step-remove" disabled={steps.length === 1} onClick={() => setSteps(current => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button></div>

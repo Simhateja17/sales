@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Select from '@/components/circleon/Select';
 import {
   getSingleCall,
   getSingleCallOptions,
@@ -147,11 +148,16 @@ export default function CallLeadModal({ onClose, onOpenCampaigns, onCallsChanged
 
             <label className="mb-field">
               Script
-              <select className="sf-inp" value={campaignId} onChange={event => setCampaignId(event.target.value)}>
-                {options?.scripts.map(item => (
-                  <option key={item.campaign_id} value={item.campaign_id} disabled={Boolean(item.problem)}>{item.name}{item.problem ? ' (not ready)' : ''}</option>
-                ))}
-              </select>
+              <Select
+                className="sf-inp"
+                value={campaignId}
+                onChange={setCampaignId}
+                options={(options?.scripts || []).map(item => ({
+                  value: item.campaign_id,
+                  label: `${item.name}${item.problem ? ' (not ready)' : ''}`,
+                  disabled: Boolean(item.problem),
+                }))}
+              />
             </label>
             {script.opening_line ? <p className="cl-opening"><span>Opening line</span>{script.opening_line}</p> : null}
 

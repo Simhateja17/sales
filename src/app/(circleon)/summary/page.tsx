@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SignOutButton from '@/components/circleon/SignOutButton';
+import Select from '@/components/circleon/Select';
 import { getWorkspace, saveOnboarding } from '@/lib/api';
 
 type Answers = Record<string, string | string[] | number>;
@@ -147,11 +148,12 @@ function OptionalChoice({ label, value, options, onChange, customPlaceholder = '
   return (
     <div className="ss-item">
       <div className="ss-key">{label}</div>
-      <select className="sf-inp" value={known ? value : 'Other'} onChange={event => onChange(event.target.value === 'Other' ? 'Other' : event.target.value)}>
-        <option value="">Skip for now</option>
-        {options.map(option => <option key={option} value={option}>{option}</option>)}
-        <option value="Other">Other</option>
-      </select>
+      <Select
+        className="sf-inp"
+        value={known ? value : 'Other'}
+        onChange={onChange}
+        options={[{ value: '', label: 'Skip for now' }, ...options.map(option => ({ value: option, label: option })), { value: 'Other', label: 'Other' }]}
+      />
       {(!known || value === 'Other') ? (
         <input className="sf-inp" style={{ marginTop: 8 }} value={value === 'Other' ? '' : value} onChange={event => onChange(event.target.value)} placeholder={customPlaceholder} />
       ) : null}
