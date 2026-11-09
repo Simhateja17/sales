@@ -1174,7 +1174,7 @@ export function rejectInboxMessage(messageId: string) {
 // Voice campaigns
 // ---------------------------------------------------------------------------
 
-export type VoiceLanguage = 'en-US' | 'en-GB' | 'zh-CN' | 'ms-MY' | 'ta-IN' | 'hi-IN';
+export type VoiceLanguage = 'en-US' | 'en-GB' | 'zh-CN' | 'ms-MY' | 'ta-IN' | 'hi-IN' | 'multi';
 
 export interface VoiceScript {
   id: string;
@@ -1456,7 +1456,19 @@ export function billingAction<T = Record<string, unknown>>(path:string, method='
 // Invoices a workspace sends to its own customers (Email + Invoice and All-in-one plans).
 export type InvoiceStatus = 'draft' | 'sent' | 'overdue' | 'paid' | 'void';
 export interface InvoiceLineItem { description: string; quantity: number; unit_cents: number }
-export interface InvoiceEvent { kind: 'invoice' | 'reminder' | 'checkin' | 'paid' | 'void'; step: string; subject: string | null; created_at: string }
+export interface InvoiceEvent { kind: 'invoice' | 'reminder' | 'checkin' | 'paid' | 'void' | 'booking'; step: string; subject: string | null; created_at: string }
+export type BookingReminderStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed' | 'cancelled';
+export interface BookingReminder {
+  id: string;
+  invoice_id: string;
+  rule_key: string;
+  send_at: string;
+  subject: string;
+  body: string;
+  status: BookingReminderStatus;
+  sent_at: string | null;
+  error: string | null;
+}
 export interface Invoice {
   id: string;
   number: string;
@@ -1477,23 +1489,61 @@ export interface Invoice {
   sent_at: string | null;
   paid_at: string | null;
   last_error: string | null;
+  file_path: string | null;
+  file_name: string | null;
+  file_mime: string | null;
+  booking_at: string | null;
+  booking_title: string | null;
+  booking_notes: string | null;
   events: InvoiceEvent[];
+  booking_reminders: BookingReminder[];
 }
 export interface InvoiceInput {
   client_name: string;
   client_email: string;
   number?: string;
   currency?: string;
-  line_items: InvoiceLineItem[];
+  line_items?: InvoiceLineItem[];
+  /** Total in major units, for uploaded invoices without itemised lines. */
+  amount?: number;
   issue_date?: string;
   due_date: string;
   notes?: string | null;
   payment_link?: string | null;
   reminders_enabled?: boolean;
   checkins_enabled?: boolean;
+  file_path?: string | null;
+  file_name?: string | null;
+  file_mime?: string | null;
+  booking_at?: string | null;
+  booking_title?: string | null;
+  booking_notes?: string | null;
 }
-export interface InvoiceSettings { reminder_offsets: number[]; checkin_offsets: number[]; reminders_enabled: boolean; checkins_enabled: boolean; review_link: string | null }
+export type BookingRule = { days_before: number; time: string } | { hours_before: number };
+export interface InvoiceSettings {
+  reminder_offsets: number[];
+  checkin_offsets: number[];
+  reminders_enabled: boolean;
+  checkins_enabled: boolean;
+  review_link: string | null;
+  booking_reminders_enabled: boolean;
+  booking_rules: BookingRule[];
+}
 export interface InvoiceTotals { outstanding_cents: number; overdue_cents: number; paid_cents: number }
+export interface ExtractedInvoice {
+  client_name: string;
+  client_email: string;
+  number: string;
+  currency: string;
+  amount: number | null;
+  issue_date: string;
+  due_date: string;
+  booking_date: string;
+  booking_time: string;
+  booking_title: string;
+  line_items: InvoiceLineItem[];
+}
+export interface UploadedInvoiceFile { path: string; name: string; mime: string }
 
 export function listInvoices() {
   return apiFetch<{ invoices: Invoice[]; totals: InvoiceTotals }>('/api/invoices');
@@ -1508,11 +1558,30 @@ export function invoiceAction(id: string, action: 'send' | 'mark-paid' | 'void')
   return apiFetch<{ invoice: Invoice }>(`/api/invoices/${id}/${action}`, { method: 'POST' });
 }
 export function updateInvoice(id: string, patch: Partial<InvoiceInput>) {
-  return apiFetch<{ invoice: Invoice }>(`/api/invoices/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  return apiFetch<{ invoice: Invoice; booking_reminders_reset?: boolean }>(`/api/invoices/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 }
 export function getInvoiceSettings() {
   return apiFetch<{ settings: InvoiceSettings }>('/api/invoices/settings');
 }
 export function saveInvoiceSettings(settings: Partial<InvoiceSettings>) {
   return apiFetch<{ settings: InvoiceSettings }>('/api/invoices/settings', { method: 'PUT', body: JSON.stringify(settings) });
+}
+/** Stores an uploaded invoice and reads its details with AI. `fields` is null when it could not be read. */
+export function extractInvoice(file: { filename: string; mime_type: string; size_bytes: number; content_base64: string }) {
+  return apiFetch<{ file: UploadedInvoiceFile; fields: ExtractedInvoice | null; warning: string | null }>('/api/invoices/extract', { method: 'POST', body: JSON.stringify(file) });
+}
+export function getInvoiceFileUrl(id: string) {
+  return apiFetch<{ url: string }>(`/api/invoices/${id}/file`);
+}
+export function draftBookingReminders(id: string, bookingNotes?: string | null) {
+  return apiFetch<{ booking_reminders: BookingReminder[] }>(`/api/invoices/${id}/booking-reminders/draft`, { method: 'POST', body: JSON.stringify(bookingNotes === undefined ? {} : { booking_notes: bookingNotes }) });
+}
+export function updateBookingReminder(id: string, reminderId: string, patch: { subject: string; body: string }) {
+  return apiFetch<{ booking_reminders: BookingReminder[] }>(`/api/invoices/${id}/booking-reminders/${reminderId}`, { method: 'PATCH', body: JSON.stringify(patch) });
+}
+export function approveBookingReminders(id: string) {
+  return apiFetch<{ booking_reminders: BookingReminder[] }>(`/api/invoices/${id}/booking-reminders/approve`, { method: 'POST' });
+}
+export function cancelBookingReminder(id: string, reminderId: string) {
+  return apiFetch<{ booking_reminders: BookingReminder[] }>(`/api/invoices/${id}/booking-reminders/${reminderId}/cancel`, { method: 'POST' });
 }

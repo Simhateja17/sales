@@ -32,6 +32,7 @@ const LANGUAGES: Array<{ code: VoiceLanguage; label: string }> = [
   { code: 'ms-MY', label: 'Malay' },
   { code: 'ta-IN', label: 'Tamil' },
   { code: 'hi-IN', label: 'Hindi' },
+  { code: 'multi', label: 'Multilingual (switches to the caller’s language)' },
 ];
 
 type VoiceTab = 'calls' | 'leads' | 'settings';
